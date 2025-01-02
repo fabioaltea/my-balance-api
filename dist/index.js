@@ -17,8 +17,15 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const process_1 = __importDefault(require("process"));
 const GoogleHelper_1 = require("./helpers/GoogleHelper");
 const src_1 = require("googleapis/build/src");
+const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
+app.use((0, cors_1.default)({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    credentials: true
+}));
 app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
@@ -77,6 +84,7 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 }));
 app.get('/auth', (req, res) => {
+    console.log("Request headers: ", req.headers);
     GoogleHelper_1.GoogleHelper.authorize(req).then((authUrl) => {
         res.redirect(authUrl);
     });

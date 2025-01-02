@@ -9,6 +9,12 @@ import cors from 'cors';
 const app = express()
 const port = process.env.PORT || 8080
 
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    credentials: true
+}));
 app.use(express.json())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -56,7 +62,6 @@ app.post('/update', async (req: any, res: any) => {
 })
 
 app.post('/append', async (req: any, res: any) => {
-
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -74,6 +79,7 @@ app.post('/append', async (req: any, res: any) => {
 })
 
 app.get('/auth', (req: any, res: any) => {
+    console.log("Request headers: ",req.headers)
     GoogleHelper.authorize(req).then((authUrl) => {
         res.redirect(authUrl)
     })
