@@ -74,9 +74,8 @@ app.post('/append', async (req: any, res: any) => {
 })
 
 app.get('/auth', (req: any, res: any) => {
-
-    GoogleHelper.authorize().then((auth) => {
-        res.send(auth)
+    GoogleHelper.authorize(req).then((authUrl) => {
+        res.redirect(authUrl)
     })
 })
 

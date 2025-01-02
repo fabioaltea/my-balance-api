@@ -13,31 +13,48 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleHelper = void 0;
-const fs_1 = require("fs");
-const path_1 = __importDefault(require("path"));
 const process_1 = __importDefault(require("process"));
-const src_1 = require("@google-cloud/local-auth/build/src");
 const googleapis_1 = require("googleapis");
 class GoogleHelper {
-    static authorize() {
+    static getCredentials() {
+        return {
+            installed: {
+                auth_provider_x509_cert_url: process_1.default.env.AUTH_PROVIDER_X509_CERT_URL,
+                auth_uri: process_1.default.env.AUTH_URI,
+                client_id: process_1.default.env.CLIENT_ID,
+                client_secret: process_1.default.env.CLIENT_SECRET,
+                project_id: process_1.default.env.PROJECT_ID,
+                redirect_uris: process_1.default.env.REDIRECT_URIS ? process_1.default.env.REDIRECT_URIS.split(',') : [],
+                token_uri: process_1.default.env.TOKEN_URI
+            }
+        };
+    }
+    static authorize(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            let client;
-            client = yield (0, src_1.authenticate)({
-                scopes: this.SCOPES,
-                keyfilePath: this.CREDENTIALS_PATH,
+            const oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "http://localhost:8080");
+            const authorizationUrl = oauth2Client.generateAuthUrl({
+                access_type: 'offline',
+                scope: this.SCOPES,
+                include_granted_scopes: true,
             });
-            const content = yield fs_1.promises.readFile(this.CREDENTIALS_PATH, 'utf8');
-            const keys = JSON.parse(content);
-            const key = keys.installed || keys.web;
-            const payload = JSON.stringify({
-                type: 'authorized_user',
-                client_id: key.client_id,
-                client_secret: key.client_secret,
-                refresh_token: client.credentials.refresh_token || '',
-                access_token: client.credentials.access_token || ''
-            });
-            console.log(client);
-            return payload;
+            return authorizationUrl;
+            // let client: Auth.OAuth2Client;
+            // client = await authenticate({
+            //     scopes: this.SCOPES,
+            //     keyfilePath: this.CREDENTIALS_PATH,
+            // });
+            // const content = await promises.readFile(this.CREDENTIALS_PATH, 'utf8');
+            // const keys = JSON.parse(content);
+            // const key = keys.installed || keys.web;
+            // const payload = JSON.stringify({
+            //     type: 'authorized_user',
+            //     client_id: key.client_id,
+            //     client_secret: key.client_secret,
+            //     refresh_token: client.credentials.refresh_token || '',
+            //     access_token: client.credentials.access_token || ''
+            // });
+            // console.log(client)
+            // return payload;
         });
     }
     static parseAuthHeaders(headers) {
@@ -149,5 +166,4 @@ class GoogleHelper {
 }
 exports.GoogleHelper = GoogleHelper;
 GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-GoogleHelper.CREDENTIALS_PATH = path_1.default.join(process_1.default.cwd(), 'credentials.json');
 //# sourceMappingURL=GoogleHelper.js.map

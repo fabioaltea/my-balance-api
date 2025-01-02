@@ -77,8 +77,8 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 }));
 app.get('/auth', (req, res) => {
-    GoogleHelper_1.GoogleHelper.authorize().then((auth) => {
-        res.send(auth);
+    GoogleHelper_1.GoogleHelper.authorize(req).then((authUrl) => {
+        res.redirect(authUrl);
     });
 });
 app.listen(port, () => {

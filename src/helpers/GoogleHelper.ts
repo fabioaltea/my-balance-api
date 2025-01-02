@@ -4,31 +4,59 @@ import process from 'process';
 
 import { authenticate } from '@google-cloud/local-auth/build/src';
 import { google, Auth } from 'googleapis';
-import { AnyCnameRecord } from 'dns';
+import crypto from 'crypto'
+
 
 export class GoogleHelper {
     private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-    private static CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
 
-    public static async authorize(): Promise<string> {
-        let client: Auth.OAuth2Client;
-        client = await authenticate({
-            scopes: this.SCOPES,
-            keyfilePath: this.CREDENTIALS_PATH,
-        });
-        const content = await promises.readFile(this.CREDENTIALS_PATH, 'utf8');
+    private static getCredentials(){
+        return {
+            installed: {
+            auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_X509_CERT_URL,
+            auth_uri: process.env.AUTH_URI,
+            client_id: process.env.CLIENT_ID,
+            client_secret: process.env.CLIENT_SECRET,
+            project_id: process.env.PROJECT_ID,
+            redirect_uris: process.env.REDIRECT_URIS ? process.env.REDIRECT_URIS.split(',') : [],
+            token_uri: process.env.TOKEN_URI
+            }
+        };
+    }
 
-        const keys = JSON.parse(content);
-        const key = keys.installed || keys.web;
-        const payload = JSON.stringify({
-            type: 'authorized_user',
-            client_id: key.client_id,
-            client_secret: key.client_secret,
-            refresh_token: client.credentials.refresh_token || '',
-            access_token: client.credentials.access_token || ''
-        });
-        console.log(client)
-        return payload;
+    public static async authorize(req:any): Promise<string> {
+        const oauth2Client = new google.auth.OAuth2(
+            "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
+            "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",
+            "http://localhost:8080"
+          );
+
+        const authorizationUrl = oauth2Client.generateAuthUrl({
+            access_type: 'offline',
+            scope: this.SCOPES,
+            include_granted_scopes: true, 
+          });
+
+          return authorizationUrl
+
+        // let client: Auth.OAuth2Client;
+        // client = await authenticate({
+        //     scopes: this.SCOPES,
+        //     keyfilePath: this.CREDENTIALS_PATH,
+        // });
+        // const content = await promises.readFile(this.CREDENTIALS_PATH, 'utf8');
+
+        // const keys = JSON.parse(content);
+        // const key = keys.installed || keys.web;
+        // const payload = JSON.stringify({
+        //     type: 'authorized_user',
+        //     client_id: key.client_id,
+        //     client_secret: key.client_secret,
+        //     refresh_token: client.credentials.refresh_token || '',
+        //     access_token: client.credentials.access_token || ''
+        // });
+        // console.log(client)
+        // return payload;
     }
 
     public static parseAuthHeaders(headers:any){
