@@ -8,27 +8,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleHelper = void 0;
-const process_1 = __importDefault(require("process"));
 const googleapis_1 = require("googleapis");
 class GoogleHelper {
-    static getCredentials() {
-        return {
-            installed: {
-                auth_provider_x509_cert_url: process_1.default.env.AUTH_PROVIDER_X509_CERT_URL,
-                auth_uri: process_1.default.env.AUTH_URI,
-                client_id: process_1.default.env.CLIENT_ID,
-                client_secret: process_1.default.env.CLIENT_SECRET,
-                project_id: process_1.default.env.PROJECT_ID,
-                redirect_uris: process_1.default.env.REDIRECT_URIS ? process_1.default.env.REDIRECT_URIS.split(',') : [],
-                token_uri: process_1.default.env.TOKEN_URI
-            }
-        };
-    }
     static authorize(req) {
         return __awaiter(this, void 0, void 0, function* () {
             const oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "http://localhost:8080");

@@ -1,28 +1,10 @@
-import fs, { promises } from 'fs';
-import path from 'path';
-import process from 'process';
 
-import { authenticate } from '@google-cloud/local-auth/build/src';
-import { google, Auth } from 'googleapis';
-import crypto from 'crypto'
+
+import { google } from 'googleapis';
 
 
 export class GoogleHelper {
     private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-
-    private static getCredentials(){
-        return {
-            installed: {
-            auth_provider_x509_cert_url: process.env.AUTH_PROVIDER_X509_CERT_URL,
-            auth_uri: process.env.AUTH_URI,
-            client_id: process.env.CLIENT_ID,
-            client_secret: process.env.CLIENT_SECRET,
-            project_id: process.env.PROJECT_ID,
-            redirect_uris: process.env.REDIRECT_URIS ? process.env.REDIRECT_URIS.split(',') : [],
-            token_uri: process.env.TOKEN_URI
-            }
-        };
-    }
 
     public static async authorize(req:any): Promise<string> {
         const oauth2Client = new google.auth.OAuth2(
