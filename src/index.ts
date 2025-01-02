@@ -17,14 +17,18 @@ app.use(cors());
 
 const corsOptions = {
     origin: '*',
+    
 }
 
 app.get('/',cors(corsOptions), (req: any, res: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.send("API Working")
 
 })
 
 app.get('/get',cors(corsOptions), async (req: any, res: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -42,6 +46,8 @@ app.get('/get',cors(corsOptions), async (req: any, res: any) => {
 })
 
 app.post('/update',cors(corsOptions), async (req: any, res: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -59,6 +65,8 @@ app.post('/update',cors(corsOptions), async (req: any, res: any) => {
 })
 
 app.post('/append',cors(corsOptions), async (req: any, res: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -76,6 +84,8 @@ app.post('/append',cors(corsOptions), async (req: any, res: any) => {
 })
 
 app.get('/auth',cors(corsOptions), (req: any, res: any) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     GoogleHelper.authorize().then((auth) => {
         res.send(auth)
     })
