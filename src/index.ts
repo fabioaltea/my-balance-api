@@ -84,7 +84,7 @@ app.post('/append',cors(corsOptions), async (req: any, res: any) => {
 })
 
 app.get('/auth',cors(corsOptions), (req: any, res: any) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Origin', '*');
 
     GoogleHelper.authorize().then((auth) => {
         res.send(auth)
