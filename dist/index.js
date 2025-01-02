@@ -81,9 +81,6 @@ app.get('/auth', (req, res) => {
         res.send(auth);
     });
 });
-app.get('/ping', (_req, res) => {
-    return res.send('pong 🏓');
-});
 app.listen(port, () => {
     return console.log(`Server is listening on ${port}`);
 });
