@@ -3,6 +3,7 @@ import bodyParser from 'body-parser'
 import process from 'process';
 import { GoogleHelper } from './helpers/GoogleHelper';
 import { google } from 'googleapis/build/src';
+import cors from 'cors';
 
 
 const app = express()
@@ -12,13 +13,18 @@ app.use(express.json())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.raw());
+app.use(cors());
 
-app.get('/', (req: any, res: any) => {
+const corsOptions = {
+    origin: '*',
+}
+
+app.get('/',cors(corsOptions), (req: any, res: any) => {
     res.send("API Working")
 
 })
 
-app.get('/get', async (req: any, res: any) => {
+app.get('/get',cors(corsOptions), async (req: any, res: any) => {
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -35,7 +41,7 @@ app.get('/get', async (req: any, res: any) => {
     }
 })
 
-app.post('/update', async (req: any, res: any) => {
+app.post('/update',cors(corsOptions), async (req: any, res: any) => {
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -52,7 +58,7 @@ app.post('/update', async (req: any, res: any) => {
     }
 })
 
-app.post('/append', async (req: any, res: any) => {
+app.post('/append',cors(corsOptions), async (req: any, res: any) => {
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -69,7 +75,7 @@ app.post('/append', async (req: any, res: any) => {
     }
 })
 
-app.get('/auth', (req: any, res: any) => {
+app.get('/auth',cors(corsOptions), (req: any, res: any) => {
     GoogleHelper.authorize().then((auth) => {
         res.send(auth)
     })

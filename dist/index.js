@@ -17,16 +17,21 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const process_1 = __importDefault(require("process"));
 const GoogleHelper_1 = require("./helpers/GoogleHelper");
 const src_1 = require("googleapis/build/src");
+const cors_1 = __importDefault(require("cors"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.raw());
-app.get('/', (req, res) => {
+app.use((0, cors_1.default)());
+const corsOptions = {
+    origin: '*',
+};
+app.get('/', (0, cors_1.default)(corsOptions), (req, res) => {
     res.send("API Working");
 });
-app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/get', (0, cors_1.default)(corsOptions), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
@@ -42,7 +47,7 @@ app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.send(`Error. ex: ${ex.message}`, 500);
     }
 }));
-app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/update', (0, cors_1.default)(corsOptions), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
@@ -59,7 +64,7 @@ app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.send(`Error. ex: ${ex.message}`, 500);
     }
 }));
-app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/append', (0, cors_1.default)(corsOptions), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
@@ -76,7 +81,7 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.send(`Error. ex: ${ex.message}`, 500);
     }
 }));
-app.get('/auth', (req, res) => {
+app.get('/auth', (0, cors_1.default)(corsOptions), (req, res) => {
     GoogleHelper_1.GoogleHelper.authorize().then((auth) => {
         res.send(auth);
     });
