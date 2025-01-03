@@ -12,9 +12,12 @@ const port = process.env.PORT || 8080
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Access-Control-Allow-Origin'],
     credentials: true
 }));
+
+app.options('*', cors());
 app.use(express.json())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -80,8 +83,9 @@ app.post('/append', async (req: any, res: any) => {
 
 app.get('/auth', (req: any, res: any) => {
     console.log("Request headers: ",req.headers)
+    
     GoogleHelper.authorize(req).then((authUrl) => {
-        res.redirect(authUrl)
+        res.send("authUrl")
     })
 })
 
