@@ -85,7 +85,7 @@ app.get('/auth', (req: any, res: any) => {
     console.log("Request headers: ",req.headers)
     
     GoogleHelper.authorize(req).then((authUrl) => {
-        res.send("authUrl")
+        res.send({url:authUrl})
     })
 })
 

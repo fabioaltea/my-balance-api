@@ -88,7 +88,7 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
 app.get('/auth', (req, res) => {
     console.log("Request headers: ", req.headers);
     GoogleHelper_1.GoogleHelper.authorize(req).then((authUrl) => {
-        res.send("authUrl");
+        res.send({ url: authUrl });
     });
 });
 app.listen(port, () => {
