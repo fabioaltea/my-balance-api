@@ -91,6 +91,7 @@ export class GoogleHelper {
     }
 
     public static async update(auth: any, spreadsheetId: string, body: any) {
+
         if (!spreadsheetId && !body) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
         }
@@ -98,7 +99,7 @@ export class GoogleHelper {
             throw new Error('Missing or invalid parameter: spreadsheetId');
         }
         if (!body) {
-            throw new Error('Missing or invalid parameter: range');
+            throw new Error('Missing or invalid parameter: body');
         }
 
         try {
@@ -123,7 +124,6 @@ export class GoogleHelper {
     }
 
     public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
-        console.log("now in append")
         if (!spreadsheetId && !body) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
         }
@@ -135,7 +135,6 @@ export class GoogleHelper {
         }
 
         try {
-            console.log("body: ",body)
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.append({
                 spreadsheetId: spreadsheetId,

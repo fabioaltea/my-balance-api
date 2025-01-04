@@ -94,7 +94,7 @@ class GoogleHelper {
                 throw new Error('Missing or invalid parameter: spreadsheetId');
             }
             if (!body) {
-                throw new Error('Missing or invalid parameter: range');
+                throw new Error('Missing or invalid parameter: body');
             }
             try {
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
@@ -120,7 +120,6 @@ class GoogleHelper {
     }
     static append(auth, spreadsheetId, range, body) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("now in append");
             if (!spreadsheetId && !body) {
                 throw new Error('Missing or invalid parameters: spreadsheetId, range');
             }
@@ -131,7 +130,6 @@ class GoogleHelper {
                 throw new Error('Missing or invalid parameter: range');
             }
             try {
-                console.log("body: ", body);
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
                 const res = yield sheets.spreadsheets.values.append({
                     spreadsheetId: spreadsheetId,
