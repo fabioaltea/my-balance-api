@@ -9,7 +9,7 @@ export class GoogleHelper {
     public static oauth2Client = new google.auth.OAuth2(
         "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
         "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",
-        "http://localhost:8100/acceptLogin"
+        "https://my-balance-ionic.vercel.app/acceptLogin"
     );
 
     // public static oauth2Client = new google.auth.OAuth2(
