@@ -86,9 +86,19 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 }));
 app.get('/auth', (req, res) => {
-    console.log("Request headers: ", req.headers);
-    GoogleHelper_1.GoogleHelper.authorize(req).then((authUrl) => {
+    console.log("Now in /auth");
+    GoogleHelper_1.GoogleHelper.authenticate(req).then((authUrl) => {
         res.send({ url: authUrl });
+    }).catch();
+});
+app.get('/getToken', (req, res) => {
+    console.log("Now in getToken");
+    GoogleHelper_1.GoogleHelper.authorize(req.query.code).then((tokens) => {
+        console.log("authorize ok, tokens: ", tokens);
+        res.send(tokens);
+    }).catch((ex) => {
+        console.log("authorize ko, exception: ", ex.message);
+        res.send(ex.message, 500);
     });
 });
 app.listen(port, () => {

@@ -12,32 +12,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleHelper = void 0;
 const googleapis_1 = require("googleapis");
 class GoogleHelper {
-    static authorize(req) {
+    static authenticate(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            const oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "http://localhost:8080");
-            const authorizationUrl = oauth2Client.generateAuthUrl({
+            const authorizationUrl = this.oauth2Client.generateAuthUrl({
                 access_type: 'offline',
                 scope: this.SCOPES,
                 include_granted_scopes: true,
             });
             return authorizationUrl;
-            // let client: Auth.OAuth2Client;
-            // client = await authenticate({
-            //     scopes: this.SCOPES,
-            //     keyfilePath: this.CREDENTIALS_PATH,
-            // });
-            // const content = await promises.readFile(this.CREDENTIALS_PATH, 'utf8');
-            // const keys = JSON.parse(content);
-            // const key = keys.installed || keys.web;
-            // const payload = JSON.stringify({
-            //     type: 'authorized_user',
-            //     client_id: key.client_id,
-            //     client_secret: key.client_secret,
-            //     refresh_token: client.credentials.refresh_token || '',
-            //     access_token: client.credentials.access_token || ''
-            // });
-            // console.log(client)
-            // return payload;
+        });
+    }
+    static authorize(queryCode) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const code = decodeURIComponent(queryCode);
+                const { tokens } = yield this.oauth2Client.getToken(code);
+                return tokens;
+            }
+            catch (ex) {
+                throw new Error(ex.message);
+            }
         });
     }
     static parseAuthHeaders(headers) {
@@ -149,4 +143,5 @@ class GoogleHelper {
 }
 exports.GoogleHelper = GoogleHelper;
 GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "http://localhost:8100/acceptLogin");
 //# sourceMappingURL=GoogleHelper.js.map

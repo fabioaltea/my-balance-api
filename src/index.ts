@@ -4,6 +4,7 @@ import process from 'process';
 import { GoogleHelper } from './helpers/GoogleHelper';
 import { google } from 'googleapis/build/src';
 import cors from 'cors';
+import { URLSearchParams } from 'url';
 
 
 const app = express()
@@ -82,10 +83,23 @@ app.post('/append', async (req: any, res: any) => {
 })
 
 app.get('/auth', (req: any, res: any) => {
-    console.log("Request headers: ",req.headers)
-    
-    GoogleHelper.authorize(req).then((authUrl) => {
+    console.log("Now in /auth") 
+
+    GoogleHelper.authenticate(req).then((authUrl) => {
         res.send({url:authUrl})
+    }).catch()
+})
+
+app.get('/getToken', (req: any, res: any) => {
+    
+    console.log("Now in getToken")
+    GoogleHelper.authorize(req.query.code).then((tokens) => {
+        console.log("authorize ok, tokens: ",tokens)
+        res.send(tokens)
+    }).catch((ex)=>{
+        console.log("authorize ko, exception: ",ex.message)
+
+        res.send(ex.message, 500)
     })
 })
 

@@ -6,42 +6,39 @@ import { google } from 'googleapis';
 export class GoogleHelper {
     private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
-    public static async authorize(req:any): Promise<string> {
-        const oauth2Client = new google.auth.OAuth2(
-            "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
-            "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",
-            "http://localhost:8080"
-          );
+    public static oauth2Client = new google.auth.OAuth2(
+        "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
+        "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",
+        "http://localhost:8100/acceptLogin"
+    );
 
-        const authorizationUrl = oauth2Client.generateAuthUrl({
+    public static async authenticate(req: any): Promise<string> {
+       
+
+        const authorizationUrl = this.oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: this.SCOPES,
-            include_granted_scopes: true, 
-          });
+            include_granted_scopes: true,
+        });
 
-          return authorizationUrl
-
-        // let client: Auth.OAuth2Client;
-        // client = await authenticate({
-        //     scopes: this.SCOPES,
-        //     keyfilePath: this.CREDENTIALS_PATH,
-        // });
-        // const content = await promises.readFile(this.CREDENTIALS_PATH, 'utf8');
-
-        // const keys = JSON.parse(content);
-        // const key = keys.installed || keys.web;
-        // const payload = JSON.stringify({
-        //     type: 'authorized_user',
-        //     client_id: key.client_id,
-        //     client_secret: key.client_secret,
-        //     refresh_token: client.credentials.refresh_token || '',
-        //     access_token: client.credentials.access_token || ''
-        // });
-        // console.log(client)
-        // return payload;
+        return authorizationUrl
     }
 
-    public static parseAuthHeaders(headers:any){
+    public static async authorize(queryCode: any): Promise<any> {
+        
+        
+        try {
+            const code = decodeURIComponent(queryCode);
+            const { tokens } = await this.oauth2Client.getToken(code);
+            return tokens;
+        } catch (ex) {
+            throw new Error(ex.message);
+        }
+    }
+
+
+
+    public static parseAuthHeaders(headers: any) {
         const requiredHeaders = ['type', 'access_token', 'refresh_token', 'client_secret', 'client_id'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
 
@@ -58,41 +55,41 @@ export class GoogleHelper {
         };
     }
 
-    public static async get(auth:any, spreadsheetId:string, range:string){
-        if(!spreadsheetId && !range){
+    public static async get(auth: any, spreadsheetId: string, range: string) {
+        if (!spreadsheetId && !range) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }    
-        if (!spreadsheetId || spreadsheetId=="") {
+        }
+        if (!spreadsheetId || spreadsheetId == "") {
             throw new Error('Missing or invalid parameter: spreadsheetId');
         }
-        if (!range || range=="") {
+        if (!range || range == "") {
             throw new Error('Missing or invalid parameter: range');
         }
 
         try {
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.get({
-            spreadsheetId: spreadsheetId,
-            range: range
-        });
-        const rows = res.data.values;
-        if (!rows || rows.length === 0) {
-            console.log('No data found.');
-            return;
-        }
+                spreadsheetId: spreadsheetId,
+                range: range
+            });
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                console.log('No data found.');
+                return;
+            }
 
-        return rows
+            return rows
         } catch (error) {
             console.error('Error fetching items:', error);
             throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
         }
     }
 
-    public static async update(auth:any, spreadsheetId:string, body:any){
-        if(!spreadsheetId && !body){
+    public static async update(auth: any, spreadsheetId: string, body: any) {
+        if (!spreadsheetId && !body) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }    
-        if (!spreadsheetId || spreadsheetId=="") {
+        }
+        if (!spreadsheetId || spreadsheetId == "") {
             throw new Error('Missing or invalid parameter: spreadsheetId');
         }
         if (!body) {
@@ -102,26 +99,26 @@ export class GoogleHelper {
         try {
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId:spreadsheetId,
-                requestBody:body
-              })
-            
-              if(res.status){
+                spreadsheetId: spreadsheetId,
+                requestBody: body
+            })
+
+            if (res.status) {
                 return res
-              }else{
+            } else {
                 throw new Error()
-              }
+            }
         } catch (error) {
             console.error('Error fetching items:', error);
             throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
         }
     }
 
-    public static async append(auth:any, spreadsheetId:string, range:string, body:any){
-        if(!spreadsheetId && !body){
+    public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
+        if (!spreadsheetId && !body) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }    
-        if (!spreadsheetId || spreadsheetId=="") {
+        }
+        if (!spreadsheetId || spreadsheetId == "") {
             throw new Error('Missing or invalid parameter: spreadsheetId');
         }
         if (!body) {
@@ -131,17 +128,17 @@ export class GoogleHelper {
         try {
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.append({
-                spreadsheetId:spreadsheetId,
-                requestBody:body,
-                range:range,
-                valueInputOption:"RAW"
-              })
-            
-              if(res.status){
+                spreadsheetId: spreadsheetId,
+                requestBody: body,
+                range: range,
+                valueInputOption: "RAW"
+            })
+
+            if (res.status) {
                 return res
-              }else{
+            } else {
                 throw new Error()
-              }
+            }
         } catch (error) {
             console.error('Error fetching items:', error);
             throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
