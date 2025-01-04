@@ -35,17 +35,18 @@ class GoogleHelper {
         });
     }
     static parseAuthHeaders(headers) {
-        const requiredHeaders = ['type', 'access_token', 'refresh_token', 'client_secret', 'client_id'];
+        // const requiredHeaders = ['type', 'access_token', 'refresh_token', 'client_secret', 'client_id'];
+        const requiredHeaders = ['access_token', 'refresh_token'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
         if (missingHeaders.length > 0) {
             throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
         }
         return {
-            type: headers.type,
+            type: "authorized_user",
             access_token: headers.access_token,
             refresh_token: headers.refresh_token,
-            client_secret: headers.client_secret,
-            client_id: headers.client_id
+            client_secret: process.env.CLIENT_SECRET,
+            client_id: process.env.CLIENT_ID,
         };
     }
     static get(auth, spreadsheetId, range) {
@@ -143,5 +144,10 @@ class GoogleHelper {
 }
 exports.GoogleHelper = GoogleHelper;
 GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "http://localhost:8100/acceptLogin");
+// public static oauth2Client = new google.auth.OAuth2(
+//     "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
+//     "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",
+//     "http://localhost:8100/acceptLogin"
+// );
+GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.AUTH_REDIRECT_URI);
 //# sourceMappingURL=GoogleHelper.js.map
