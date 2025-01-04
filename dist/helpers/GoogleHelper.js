@@ -14,6 +14,7 @@ const googleapis_1 = require("googleapis");
 class GoogleHelper {
     static authenticate(req) {
         return __awaiter(this, void 0, void 0, function* () {
+            // console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret," ", this.oauth2Client.redirectUri)
             const authorizationUrl = this.oauth2Client.generateAuthUrl({
                 access_type: 'offline',
                 scope: this.SCOPES,

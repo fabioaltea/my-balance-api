@@ -20,7 +20,7 @@ export class GoogleHelper {
 
     public static async authenticate(req: any): Promise<string> {
        
-
+        // console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret," ", this.oauth2Client.redirectUri)
         const authorizationUrl = this.oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: this.SCOPES,
