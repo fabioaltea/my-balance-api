@@ -58,6 +58,7 @@ app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
         const body = req.body;
+        console.log(body);
         GoogleHelper_1.GoogleHelper.update(authClient, req.query.spreadsheetId, body)
             .then((items) => {
             res.send(items);

@@ -105,7 +105,10 @@ export class GoogleHelper {
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: spreadsheetId,
-                requestBody: body
+                requestBody: {
+                    valueInputOption:"RAW",
+                    data:body
+                }
             })
 
             if (res.status) {

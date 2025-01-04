@@ -100,7 +100,10 @@ class GoogleHelper {
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
                 const res = yield sheets.spreadsheets.values.batchUpdate({
                     spreadsheetId: spreadsheetId,
-                    requestBody: body
+                    requestBody: {
+                        valueInputOption: "RAW",
+                        data: body
+                    }
                 });
                 if (res.status) {
                     return res;
