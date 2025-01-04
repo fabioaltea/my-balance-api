@@ -23,7 +23,7 @@ const port = process_1.default.env.PORT || 8080;
 app.use((0, cors_1.default)({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin'],
     credentials: true
 }));
@@ -36,6 +36,7 @@ app.get('/', (req, res) => {
     res.send("API Working");
 });
 app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("now in get");
     try {
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
@@ -44,11 +45,12 @@ app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             res.send(items);
         })
             .catch((ex) => {
-            res.send(`Error. ex: ${ex.message}`, 400);
+            res.status(400).send(`Error. ex: ${ex.message}`);
         });
     }
     catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500);
+        console.log(ex);
+        res.status(500).send(`Error. ex: ${ex.message}`);
     }
 }));
 app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -61,44 +63,41 @@ app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.send(items);
         })
             .catch((ex) => {
-            res.send(`Error. ex: ${ex.message}`, 400);
+            res.status(400).send(`Error. ex: ${ex.message}`);
         });
     }
     catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500);
+        res.status(500).send(`Error. ex: ${ex.message}`);
     }
 }));
 app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = src_1.google.auth.fromJSON(authHeaders);
+        console.log("requestbody:", req);
         const body = req.body;
         GoogleHelper_1.GoogleHelper.append(authClient, req.query.spreadsheetId, req.query.range, body)
             .then((items) => {
             res.send(items);
         })
             .catch((ex) => {
-            res.send(`Error. ex: ${ex.message}`, 400);
+            res.status(400).send(`Error. ex: ${ex.message}`);
         });
     }
     catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500);
+        res.status(500).send(`Error. ex: ${ex.message}`);
     }
 }));
 app.get('/auth', (req, res) => {
-    console.log("Now in /auth");
     GoogleHelper_1.GoogleHelper.authenticate(req).then((authUrl) => {
         res.send({ url: authUrl });
     }).catch();
 });
 app.get('/getToken', (req, res) => {
-    console.log("Now in getToken");
     GoogleHelper_1.GoogleHelper.authorize(req.query.code).then((tokens) => {
-        console.log("authorize ok, tokens: ", tokens);
         res.send(tokens);
     }).catch((ex) => {
-        console.log("authorize ko, exception: ", ex.message);
-        res.send(ex.message, 500);
+        res.status(500).send(ex.message);
     });
 });
 app.listen(port, () => {

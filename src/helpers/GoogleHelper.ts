@@ -6,21 +6,21 @@ import { google } from 'googleapis';
 export class GoogleHelper {
     private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
-    // public static oauth2Client = new google.auth.OAuth2(
-    //     "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
-    //     "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",
-    //     "http://localhost:8100/acceptLogin"
-    // );
-
     public static oauth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.AUTH_REDIRECT_URI
+        "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
+        "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",
+        "http://localhost:8100/acceptLogin"
     );
+
+    // public static oauth2Client = new google.auth.OAuth2(
+    //     process.env.CLIENT_ID,
+    //     process.env.CLIENT_SECRET,
+    //     process.env.REDIRECT_URI
+    // );
 
     public static async authenticate(req: any): Promise<string> {
        
-        // console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret," ", this.oauth2Client.redirectUri)
+        console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret)
         const authorizationUrl = this.oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: this.SCOPES,
@@ -36,7 +36,7 @@ export class GoogleHelper {
             const { tokens } = await this.oauth2Client.getToken(code);
             return tokens;
         } catch (ex) {
-            throw new Error(ex.message);
+            throw new Error(ex);
         }
     }
 
@@ -55,8 +55,8 @@ export class GoogleHelper {
             type: "authorized_user",
             access_token: headers.access_token,
             refresh_token: headers.refresh_token,
-            client_secret: process.env.CLIENT_SECRET,
-            client_id: process.env.CLIENT_ID,
+            client_secret: "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",
+            client_id: "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com"
         };
     }
 
@@ -120,6 +120,7 @@ export class GoogleHelper {
     }
 
     public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
+        console.log("now in append")
         if (!spreadsheetId && !body) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');
         }
@@ -131,6 +132,7 @@ export class GoogleHelper {
         }
 
         try {
+            console.log("body: ",body)
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.append({
                 spreadsheetId: spreadsheetId,

@@ -13,7 +13,7 @@ const port = process.env.PORT || 8080
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin'],
     credentials: true
 }));
@@ -30,7 +30,7 @@ app.get('/', (req: any, res: any) => {
 })
 
 app.get('/get',async (req: any, res: any) => {
-
+    console.log("now in get")
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -40,10 +40,11 @@ app.get('/get',async (req: any, res: any) => {
                 res.send(items)
             })
             .catch((ex) => {
-                res.send(`Error. ex: ${ex.message}`, 400)
+                res.status(400).send(`Error. ex: ${ex.message}`)
             })
     } catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500)
+        console.log(ex)
+        res.status(500).send(`Error. ex: ${ex.message}`)
     }
 })
 
@@ -58,10 +59,10 @@ app.post('/update', async (req: any, res: any) => {
                 res.send(items)
             })
             .catch((ex) => {
-                res.send(`Error. ex: ${ex.message}`, 400)
+                res.status(400).send(`Error. ex: ${ex.message}`)
             })
     } catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500)
+        res.status(500).send(`Error. ex: ${ex.message}`)
     }
 })
 
@@ -69,37 +70,31 @@ app.post('/append', async (req: any, res: any) => {
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
+        console.log("requestbody:",req)
         const body = req.body;
         GoogleHelper.append(authClient, req.query.spreadsheetId, req.query.range, body)
             .then((items) => {
                 res.send(items)
             })
             .catch((ex) => {
-                res.send(`Error. ex: ${ex.message}`, 400)
+                res.status(400).send(`Error. ex: ${ex.message}`)
             })
     } catch (ex) {
-        res.send(`Error. ex: ${ex.message}`, 500)
+        res.status(500).send(`Error. ex: ${ex.message}`)
     }
 })
 
 app.get('/auth', (req: any, res: any) => {
-    console.log("Now in /auth") 
-
     GoogleHelper.authenticate(req).then((authUrl) => {
         res.send({url:authUrl})
     }).catch()
 })
 
 app.get('/getToken', (req: any, res: any) => {
-    
-    console.log("Now in getToken")
     GoogleHelper.authorize(req.query.code).then((tokens) => {
-        console.log("authorize ok, tokens: ",tokens)
         res.send(tokens)
     }).catch((ex)=>{
-        console.log("authorize ko, exception: ",ex.message)
-
-        res.send(ex.message, 500)
+        res.status(500).send(ex.message)
     })
 })
 
