@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -11,19 +44,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleHelper = void 0;
 const googleapis_1 = require("googleapis");
+const dotenv = __importStar(require("dotenv"));
+dotenv.config({ path: '.env.local' });
 class GoogleHelper {
-    // public static oauth2Client = new google.auth.OAuth2(
-    //     process.env.CLIENT_ID,
-    //     process.env.CLIENT_SECRET,
-    //     process.env.REDIRECT_URI
-    // );
     static authenticate(req) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret);
             const authorizationUrl = this.oauth2Client.generateAuthUrl({
                 access_type: 'offline',
                 scope: this.SCOPES,
-                include_granted_scopes: true,
+                include_granted_scopes: false,
             });
             return authorizationUrl;
         });
@@ -32,16 +61,17 @@ class GoogleHelper {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const code = decodeURIComponent(queryCode);
+                console.log(code);
                 const { tokens } = yield this.oauth2Client.getToken(code);
                 return tokens;
             }
             catch (ex) {
+                console.log(ex);
                 throw new Error(ex);
             }
         });
     }
     static parseAuthHeaders(headers) {
-        // const requiredHeaders = ['type', 'access_token', 'refresh_token', 'client_secret', 'client_id'];
         const requiredHeaders = ['access_token', 'refresh_token'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
         if (missingHeaders.length > 0) {
@@ -51,8 +81,8 @@ class GoogleHelper {
             type: "authorized_user",
             access_token: headers.access_token,
             refresh_token: headers.refresh_token,
-            client_secret: "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",
-            client_id: "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com"
+            client_secret: process.env.CLIENT_SECRET,
+            client_id: process.env.CLIENT_ID
         };
     }
     static get(auth, spreadsheetId, range) {
@@ -153,5 +183,10 @@ class GoogleHelper {
 }
 exports.GoogleHelper = GoogleHelper;
 GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2("1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com", "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", "https://my-balance-ionic.vercel.app/acceptLogin");
+// public static oauth2Client = new google.auth.OAuth2(
+//     "1034336371411-c26vlds0a64po2m69jb21mtnpsdeius5.apps.googleusercontent.com",
+//     "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",
+//     "http://localhost:8100"
+// );
+GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI);
 //# sourceMappingURL=GoogleHelper.js.map

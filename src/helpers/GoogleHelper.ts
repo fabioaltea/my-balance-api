@@ -1,41 +1,45 @@
 
 
 import { google } from 'googleapis';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' }); 
 
 
 export class GoogleHelper {
     private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
-    public static oauth2Client = new google.auth.OAuth2(
-        "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com",
-        "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",
-        "https://my-balance-ionic.vercel.app/acceptLogin"
-    );
-
     // public static oauth2Client = new google.auth.OAuth2(
-    //     process.env.CLIENT_ID,
-    //     process.env.CLIENT_SECRET,
-    //     process.env.REDIRECT_URI
+    //     "1034336371411-c26vlds0a64po2m69jb21mtnpsdeius5.apps.googleusercontent.com",
+    //     "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",
+    //     "http://localhost:8100"
     // );
+
+    public static oauth2Client = new google.auth.OAuth2(
+        process.env.CLIENT_ID,
+        process.env.CLIENT_SECRET,
+        process.env.REDIRECT_URI
+    );
 
     public static async authenticate(req: any): Promise<string> {
        
-        console.log(this.oauth2Client._clientId, " ", this.oauth2Client._clientSecret)
         const authorizationUrl = this.oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: this.SCOPES,
-            include_granted_scopes: true,
+            include_granted_scopes: false,
         });
 
         return authorizationUrl
     }
 
     public static async authorize(queryCode: any): Promise<any> {
+        
         try {
             const code = decodeURIComponent(queryCode);
+            console.log(code)
             const { tokens } = await this.oauth2Client.getToken(code);
             return tokens;
         } catch (ex) {
+            console.log(ex)
             throw new Error(ex);
         }
     }
@@ -43,7 +47,6 @@ export class GoogleHelper {
 
 
     public static parseAuthHeaders(headers: any) {
-        // const requiredHeaders = ['type', 'access_token', 'refresh_token', 'client_secret', 'client_id'];
         const requiredHeaders = ['access_token', 'refresh_token'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
 
@@ -55,11 +58,11 @@ export class GoogleHelper {
             type: "authorized_user",
             access_token: headers.access_token,
             refresh_token: headers.refresh_token,
-            client_secret: "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",
-            client_id: "1034336371411-9bld4rsek32mmqhn30fh5ae7ou4asm37.apps.googleusercontent.com"
+            client_secret: process.env.CLIENT_SECRET,
+            client_id: process.env.CLIENT_ID
         };
     }
-
+    
     public static async get(auth: any, spreadsheetId: string, range: string) {
         if (!spreadsheetId && !range) {
             throw new Error('Missing or invalid parameters: spreadsheetId, range');

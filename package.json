@@ -34,6 +34,7 @@
     "add-build"
   ],
   "devDependencies": {
-    "@types/cors": "^2.8.17"
+    "@types/cors": "^2.8.17",
+    "@types/dotenv": "^8.2.3"
   }
 }
