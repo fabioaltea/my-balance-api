@@ -52,7 +52,7 @@ class GoogleHelper {
             const authorizationUrl = this.oauth2Client.generateAuthUrl({
                 access_type: 'offline',
                 scope: this.SCOPES,
-                include_granted_scopes: false,
+                include_granted_scopes: true,
             });
             return authorizationUrl;
         });
@@ -72,7 +72,7 @@ class GoogleHelper {
         });
     }
     static parseAuthHeaders(headers) {
-        const requiredHeaders = ['access_token', 'refresh_token'];
+        const requiredHeaders = ['refresh_token'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
         if (missingHeaders.length > 0) {
             throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
@@ -131,7 +131,7 @@ class GoogleHelper {
                 const res = yield sheets.spreadsheets.values.batchUpdate({
                     spreadsheetId: spreadsheetId,
                     requestBody: {
-                        valueInputOption: "RAW",
+                        valueInputOption: "USER_ENTERED",
                         data: body
                     }
                 });

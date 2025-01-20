@@ -18,6 +18,7 @@ const process_1 = __importDefault(require("process"));
 const GoogleHelper_1 = require("./helpers/GoogleHelper");
 const src_1 = require("googleapis/build/src");
 const cors_1 = __importDefault(require("cors"));
+const MyBalanceHelper_1 = require("./helpers/MyBalanceHelper");
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 app.use((0, cors_1.default)({
@@ -62,6 +63,23 @@ app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         GoogleHelper_1.GoogleHelper.update(authClient, req.query.spreadsheetId, body)
             .then((items) => {
             res.send(items);
+        })
+            .catch((ex) => {
+            res.status(400).send(`Error. ex: ${ex.message}`);
+        });
+    }
+    catch (ex) {
+        res.status(500).send(`Error. ex: ${ex.message}`);
+    }
+}));
+app.post('/addMovement', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const body = req.body;
+        MyBalanceHelper_1.MyBalanceHelper.AppendMovement(authClient, req.query.spreadsheetId, body)
+            .then((items) => {
+            res.status(200).send("OK");
         })
             .catch((ex) => {
             res.status(400).send(`Error. ex: ${ex.message}`);

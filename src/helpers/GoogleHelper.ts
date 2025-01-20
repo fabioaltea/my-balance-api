@@ -25,7 +25,7 @@ export class GoogleHelper {
         const authorizationUrl = this.oauth2Client.generateAuthUrl({
             access_type: 'offline',
             scope: this.SCOPES,
-            include_granted_scopes: false,
+            include_granted_scopes: true,
         });
 
         return authorizationUrl
@@ -47,7 +47,7 @@ export class GoogleHelper {
 
 
     public static parseAuthHeaders(headers: any) {
-        const requiredHeaders = ['access_token', 'refresh_token'];
+        const requiredHeaders = [ 'refresh_token'];
         const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
 
         if (missingHeaders.length > 0) {
@@ -110,7 +110,7 @@ export class GoogleHelper {
             const res = await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: spreadsheetId,
                 requestBody: {
-                    valueInputOption:"RAW",
+                    valueInputOption:"USER_ENTERED",
                     data:body
                 }
             })

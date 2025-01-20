@@ -5,6 +5,7 @@ import { GoogleHelper } from './helpers/GoogleHelper';
 import { google } from 'googleapis/build/src';
 import cors from 'cors';
 import { URLSearchParams } from 'url';
+import { MyBalanceHelper } from './helpers/MyBalanceHelper';
 
 
 const app = express()
@@ -60,6 +61,23 @@ app.post('/update', async (req: any, res: any) => {
                 res.send(items)
             })
             .catch((ex) => {
+                res.status(400).send(`Error. ex: ${ex.message}`)
+            })
+    } catch (ex) {
+        res.status(500).send(`Error. ex: ${ex.message}`)
+    }
+})
+
+app.post('/addMovement', async (req: any, res: any) => {
+    try {
+        const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = google.auth.fromJSON(authHeaders);
+        const body = req.body;
+        MyBalanceHelper.AppendMovement(authClient, req.query.spreadsheetId, body)
+            .then((items:any) => {
+                res.status(200).send("OK")
+            })
+            .catch((ex:any) => {
                 res.status(400).send(`Error. ex: ${ex.message}`)
             })
     } catch (ex) {
