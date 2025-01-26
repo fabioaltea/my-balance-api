@@ -117,7 +117,20 @@ app.get('/getToken', (req: any, res: any) => {
     })
 })
 
+app.get('/checkCredentials', async(req: any, res: any) => {
+    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers)
+    await GoogleHelper.checkCredentials(authHeaders).then((r)=>{
+        if(r){
+            res.status(200).send(r)
+        }else{
+            res.status(401).send("Unauthorized")
+        }
+    }).catch((ex)=>{
+        res.status(500).send(ex.message)
+    })
+})
+
 
 app.listen(port, () => {
     return console.log(`Server is listening on ${port}`)
-})
+})   

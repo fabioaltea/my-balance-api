@@ -6,7 +6,7 @@ dotenv.config({ path: '.env.local' });
 
 
 export class GoogleHelper {
-    private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+    private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo'];
 
     // public static oauth2Client = new google.auth.OAuth2(
     //     "1034336371411-c26vlds0a64po2m69jb21mtnpsdeius5.apps.googleusercontent.com",
@@ -35,10 +35,32 @@ export class GoogleHelper {
         
         try {
             const code = decodeURIComponent(queryCode);
-            console.log(code)
             const { tokens } = await this.oauth2Client.getToken(code);
             return tokens;
         } catch (ex) {
+            console.log(ex)
+            throw new Error(ex);
+        }
+    }
+
+    public static async checkCredentials(auth:any):Promise<any|null>{
+        try{
+            var OAuth2 = google.auth.OAuth2;
+            var oauth2Client = new OAuth2(
+                auth.client_id, auth.client_secret, ""
+            );
+            oauth2Client.setCredentials({
+                refresh_token:auth.refresh_token,
+            })
+            var oauth2=google.oauth2({
+                auth:oauth2Client,
+                version:'v2'
+            });
+            const {data}= await oauth2.userinfo.get()
+            return data
+            
+            
+        }catch(ex){
             console.log(ex)
             throw new Error(ex);
         }

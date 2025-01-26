@@ -61,9 +61,29 @@ class GoogleHelper {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const code = decodeURIComponent(queryCode);
-                console.log(code);
                 const { tokens } = yield this.oauth2Client.getToken(code);
                 return tokens;
+            }
+            catch (ex) {
+                console.log(ex);
+                throw new Error(ex);
+            }
+        });
+    }
+    static checkCredentials(auth) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                var OAuth2 = googleapis_1.google.auth.OAuth2;
+                var oauth2Client = new OAuth2(auth.client_id, auth.client_secret, "");
+                oauth2Client.setCredentials({
+                    refresh_token: auth.refresh_token,
+                });
+                var oauth2 = googleapis_1.google.oauth2({
+                    auth: oauth2Client,
+                    version: 'v2'
+                });
+                const { data } = yield oauth2.userinfo.get();
+                return data;
             }
             catch (ex) {
                 console.log(ex);
@@ -182,7 +202,7 @@ class GoogleHelper {
     }
 }
 exports.GoogleHelper = GoogleHelper;
-GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo'];
 // public static oauth2Client = new google.auth.OAuth2(
 //     "1034336371411-c26vlds0a64po2m69jb21mtnpsdeius5.apps.googleusercontent.com",
 //     "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",

@@ -119,6 +119,19 @@ app.get('/getToken', (req, res) => {
         res.status(500).send(ex.message);
     });
 });
+app.get('/checkCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+    yield GoogleHelper_1.GoogleHelper.checkCredentials(authHeaders).then((r) => {
+        if (r) {
+            res.status(200).send(r);
+        }
+        else {
+            res.status(401).send("Unauthorized");
+        }
+    }).catch((ex) => {
+        res.status(500).send(ex.message);
+    });
+}));
 app.listen(port, () => {
     return console.log(`Server is listening on ${port}`);
 });
