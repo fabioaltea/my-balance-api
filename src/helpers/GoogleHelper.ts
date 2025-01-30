@@ -132,7 +132,7 @@ export class GoogleHelper {
             const res = await sheets.spreadsheets.values.batchUpdate({
                 spreadsheetId: spreadsheetId,
                 requestBody: {
-                    valueInputOption:"USER_ENTERED",
+                    valueInputOption:"RAW",
                     data:body
                 }
             })

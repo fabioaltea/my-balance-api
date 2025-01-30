@@ -151,7 +151,7 @@ class GoogleHelper {
                 const res = yield sheets.spreadsheets.values.batchUpdate({
                     spreadsheetId: spreadsheetId,
                     requestBody: {
-                        valueInputOption: "USER_ENTERED",
+                        valueInputOption: "RAW",
                         data: body
                     }
                 });
