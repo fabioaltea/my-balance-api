@@ -203,10 +203,5 @@ class GoogleHelper {
 }
 exports.GoogleHelper = GoogleHelper;
 GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo'];
-// public static oauth2Client = new google.auth.OAuth2(
-//     "1034336371411-c26vlds0a64po2m69jb21mtnpsdeius5.apps.googleusercontent.com",
-//     "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",
-//     "http://localhost:8100"
-// );
 GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI);
 //# sourceMappingURL=GoogleHelper.js.map

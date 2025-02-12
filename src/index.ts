@@ -6,6 +6,7 @@ import { google } from 'googleapis/build/src';
 import cors from 'cors';
 import { URLSearchParams } from 'url';
 import { MyBalanceHelper } from './helpers/MyBalanceHelper';
+import { inject } from "@vercel/analytics"
 
 
 const app = express()
