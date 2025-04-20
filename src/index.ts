@@ -7,6 +7,7 @@ import cors from 'cors';
 import { URLSearchParams } from 'url';
 import { MyBalanceHelper } from './helpers/MyBalanceHelper';
 import { inject } from "@vercel/analytics"
+import { DbHelper } from './helpers/DbHelper';
 
 
 const app = express()
@@ -31,6 +32,18 @@ app.get('/', (req: any, res: any) => {
     res.send("API Working")
 })
 
+app.get('/retrieveDbCredentials', async (req: any, res: any) => {
+    try {
+        DbHelper.getDbCredentials(req.headers.user_email, req.headers.pin).then((token) => {
+            if(token)res.status(200).send(token)  
+            else res.status(401).send("Unauthorized") 
+        })
+    }catch(ex){
+        res.status(500).send("Error. ex: "+ex.message)
+    }
+})
+
+
 app.get('/get',async (req: any, res: any) => {
     console.log("now in get")
     try {
@@ -49,6 +62,9 @@ app.get('/get',async (req: any, res: any) => {
         res.status(500).send(`Error. ex: ${ex.message}`)
     }
 })
+
+
+
 
 app.post('/update', async (req: any, res: any) => {
 

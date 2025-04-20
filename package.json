@@ -24,6 +24,7 @@
     "express-session": "^1.18.1",
     "googleapis": "^105.0.0",
     "nodemon": "^3.1.9",
+    "pg": "^8.14.1",
     "pre-commit": "^1.2.2",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
@@ -36,6 +37,7 @@
   ],
   "devDependencies": {
     "@types/cors": "^2.8.17",
-    "@types/dotenv": "^8.2.3"
+    "@types/dotenv": "^8.2.3",
+    "@types/pg": "^8.11.13"
   }
 }

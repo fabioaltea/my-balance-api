@@ -19,6 +19,7 @@ const GoogleHelper_1 = require("./helpers/GoogleHelper");
 const src_1 = require("googleapis/build/src");
 const cors_1 = __importDefault(require("cors"));
 const MyBalanceHelper_1 = require("./helpers/MyBalanceHelper");
+const DbHelper_1 = require("./helpers/DbHelper");
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 app.use((0, cors_1.default)({
@@ -36,6 +37,19 @@ app.use(body_parser_1.default.raw());
 app.get('/', (req, res) => {
     res.send("API Working");
 });
+app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, req.headers.pin).then((token) => {
+            if (token)
+                res.status(200).send(token);
+            else
+                res.status(401).send("Unauthorized");
+        });
+    }
+    catch (ex) {
+        res.status(500).send("Error. ex: " + ex.message);
+    }
+}));
 app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("now in get");
     try {
