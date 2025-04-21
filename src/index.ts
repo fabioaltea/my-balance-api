@@ -34,9 +34,14 @@ app.get('/', (req: any, res: any) => {
 
 app.get('/retrieveDbCredentials', async (req: any, res: any) => {
     try {
-        DbHelper.getDbCredentials(req.headers.user_email, req.headers.pin).then((token) => {
-            if(token)res.status(200).send(token)  
-            else res.status(401).send("Unauthorized") 
+        DbHelper.getDbCredentials(req.headers.user_email, DbHelper.hashPin(req.headers.pin)).then((info) => {
+            if(info)
+                res.status(200).send({
+                token: DbHelper.decryptToken(info.token, req.headers.pin),
+                spreadsheetId: info.spreadsheet_id
+                })
+            else 
+                res.status(401).send("Unauthorized")
         })
     }catch(ex){
         res.status(500).send("Error. ex: "+ex.message)
