@@ -8,6 +8,8 @@ import { URLSearchParams } from 'url';
 import { MyBalanceHelper } from './helpers/MyBalanceHelper';
 import { inject } from "@vercel/analytics"
 import { DbHelper } from './helpers/DbHelper';
+import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from '@simplewebauthn/server';
+import base64url from 'base64url/dist/base64url';
 
 
 const app = express()
@@ -50,7 +52,7 @@ app.get('/retrieveDbCredentials', async (req: any, res: any) => {
 
 
 app.get('/get',async (req: any, res: any) => {
-    console.log("now in get")
+    console.log("get")
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
@@ -63,7 +65,6 @@ app.get('/get',async (req: any, res: any) => {
                 res.status(400).send(`Error. ex: ${ex.message}`)
             })
     } catch (ex) {
-        console.log(ex)
         res.status(500).send(`Error. ex: ${ex.message}`)
     }
 })
@@ -77,7 +78,6 @@ app.post('/update', async (req: any, res: any) => {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
         const body = req.body;
-        console.log(body)
         GoogleHelper.update(authClient, req.query.spreadsheetId, body)
             .then((items) => {
                 res.send(items)
@@ -111,7 +111,6 @@ app.post('/append', async (req: any, res: any) => {
     try {
         const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
         const authClient = google.auth.fromJSON(authHeaders);
-        console.log("requestbody:",req)
         const body = req.body;
         GoogleHelper.append(authClient, req.query.spreadsheetId, req.query.range, body)
             .then((items) => {
@@ -150,6 +149,152 @@ app.get('/checkCredentials', async(req: any, res: any) => {
     }).catch((ex)=>{
         res.status(500).send(ex.message)
     })
+})
+
+
+app.post('/saveCredentials', async(req: any, res: any) => {
+    console.log("saveCredentials")
+    try {
+        const r=await DbHelper.saveUserToken(req.body.user_email,req.body.token)
+        res.send({ status: "OK" });
+    }catch(ex){
+            console.error(ex)
+
+        res.status(500).send(ex.message)
+    }
+})
+
+app.post('/generate-registration-options', (req:any, res:any) => {
+    console.log("generate-registration-options")
+
+    const { userEmail } = req.body;
+
+  if (!userEmail ) {
+    return res.status(400).send("Missing userEmail");
+  }
+
+  // Genera challenge e opzioni per la registrazione
+  generateRegistrationOptions({
+    rpName: 'My Balance',
+    rpID: 'localhost', // Sostituisci con il tuo
+    userID: new Uint8Array(Buffer.from(userEmail, 'utf-8')),
+    userName: userEmail,
+    attestationType: 'none', 
+    authenticatorSelection: {
+    residentKey: 'required',
+    userVerification: 'preferred',
+    },
+  }).then((options)=>{
+    DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
+      res.json(options);
+    }).catch((error) => {
+      console.error('Error saving challenge:', error);
+      res.status(500).send("Error saving challenge");
+    });
+})
+});
+
+
+app.post('/generate-auth-options', (req:any, res:any) => {
+    console.log("generate-auth-options")
+    
+    generateAuthenticationOptions({
+        rpID: 'localhost', // Sostituisci con il tuo
+        userVerification: 'preferred'
+    }).then((options)=>{
+        // DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
+        res.json(options);
+        // }).catch((error) => {
+        //     console.error('Error saving challenge:', error);
+        //     res.status(500).send("Error saving challenge");
+        // });
+    }).catch((error) => {
+        console.error('Error retrieving user credentials:', error);
+        res.status(500).send("Error retrieving user credentials");
+    });
+        
+});
+
+
+app.post('/verify-registration', async (req:any, res:any) => {
+  console.log("verify-registration")
+    const { userEmail, attestationResponse } = req.body;
+
+  // Recupera utente e challenge
+    DbHelper.getAuthChallenge(userEmail).then((row)=>{
+        if (!row) return res.status(400).send("User not found");
+        const { webauthn_challenge, webauthn_challenge_created_at } = row;
+        if (!webauthn_challenge) return res.status(400).send("No challenge stored");
+        const challengeAgeMinutes = (Date.now() - new Date(webauthn_challenge_created_at).getTime()) / 1000 / 60;
+        if (challengeAgeMinutes > 5) return res.status(400).send("Challenge expired");
+        verifyRegistrationResponse({
+            response: attestationResponse, 
+            expectedChallenge: webauthn_challenge, 
+            expectedOrigin: "http://localhost:8100", 
+            expectedRPID: "localhost" 
+        }).then((verification) => {
+            if (verification.verified && verification.registrationInfo) {
+                DbHelper.saveAuthChallenge(userEmail, null);
+                DbHelper.saveUserCredentials(
+                    userEmail, 
+                    verification.registrationInfo.credential.id,
+                    base64url.encode(Buffer.from(verification.registrationInfo.credential.publicKey)),
+                    verification.registrationInfo.credential.counter 
+                ).catch((error) => {
+                    console.error('Error saving user credentials:', error);
+                    return res.status(500).send("Error saving user credentials");
+                });
+                res.json({ verified: true });
+            }else{
+                res.status(400).json({ verified: false, error: 'Verification failed' });
+            }
+        });
+    });
+});
+
+
+app.post('/verify-authentication', async (req, res) => {
+  const {  assertionResponse, challenge } = req.body;
+    const userEmail = Buffer.from(assertionResponse.response.userHandle, 'base64url').toString();
+
+console.log("verify-authentication for user:", userEmail);
+  DbHelper.getUserCredentials(userEmail).then((credentials)=>{
+            if (!credentials || credentials.length === 0 ) {
+                console.warn("No credentials found for user:", userEmail);
+                return res.status(400).send("No credentials found for user");
+            }
+            if (!credentials[0].credentialPublicKey || credentials[0].counter === undefined) {
+                console.warn("Missing credentialPublicKey or counter for user:", userEmail);
+                return res.status(400).send("Invalid credential data for user");
+            }
+            verifyAuthenticationResponse({
+                response: assertionResponse,
+                expectedChallenge: challenge,
+                expectedOrigin: "http://localhost:8100",
+                expectedRPID: "localhost",
+                credential: {
+                    id: credentials[0].credentialID,
+                    publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url
+                    counter: credentials[0].counter // Assicurati che il counter sia un numero valido
+                },
+            } as any).then((verification:any)=>{
+                if (verification.verified) {
+                    // Aggiorna counter in DB
+                    //await updateCounter(userId, verification.authenticationInfo.newCounter);
+                    // Login riuscito → genera sessione / token JWT / refresh token
+                    console.log("Authentication successful for user:", userEmail);
+                    res.json({ verified: true, token: credentials[0].token, userEmail: userEmail });
+                } else {
+                    console.log("Authentication failed for user:", userEmail);
+                    res.status(400).json({ verified: false });
+                }
+            }).catch((error) => {
+                console.log("Error verifying authentication for user:", userEmail, error);
+                res.status(500).send(`Error verifying authentication: ${error.message}`);
+            })
+        
+        })
+  
 })
 
 

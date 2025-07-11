@@ -62,7 +62,8 @@ class GoogleHelper {
             try {
                 const code = decodeURIComponent(queryCode);
                 const { tokens } = yield this.oauth2Client.getToken(code);
-                return tokens;
+                const { user_id, email } = yield this.oauth2Client.getTokenInfo(tokens.access_token);
+                return { refreshToken: tokens.refresh_token, user_id, email };
             }
             catch (ex) {
                 console.log(ex);
@@ -99,7 +100,6 @@ class GoogleHelper {
         }
         return {
             type: "authorized_user",
-            access_token: headers.access_token,
             refresh_token: headers.refresh_token,
             client_secret: process.env.CLIENT_SECRET,
             client_id: process.env.CLIENT_ID
