@@ -21,7 +21,6 @@ class DbHelper {
             const client = yield DbHelper._pool.connect();
             try {
                 const { rows } = yield client.query('SELECT * FROM users');
-                console.log(rows);
                 return rows;
             }
             finally {
@@ -44,6 +43,98 @@ class DbHelper {
             catch (error) {
                 console.error('Error retrieving credentials:', error);
                 throw new Error('Error retrieving credentials');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static saveAuthChallenge(userEmail, challenge) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET webauthn_challenge = $1, webauthn_challenge_created = NOW() WHERE user_email = $2`, [challenge, userEmail]);
+            }
+            catch (error) {
+                console.error('Error saving credentials:', error);
+                throw new Error('Error saving credentials');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static getUserCredentials(userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT credential_id, credential_public_key, counter, token FROM users WHERE user_email = $1`, [userEmail]);
+                if (rows.length < 1) {
+                    return null;
+                }
+                else {
+                    return rows.map(row => ({
+                        credentialID: Buffer.from(row.credential_id, "base64"), // base64url string
+                        credentialPublicKey: Buffer.from(row.credential_public_key, "base64"), // base64url string
+                        counter: row.counter,
+                        token: row.token
+                    }));
+                }
+            }
+            catch (error) {
+                console.error('Error retrieving credentials:', error);
+                throw new Error('Error retrieving credentials');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static saveUserToken(userEmail, token) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const r = yield client.query(`UPDATE users SET token = $1 WHERE user_email = $2`, [token, userEmail]);
+            }
+            catch (error) {
+                console.error('Error saving user token:', error);
+                throw new Error('Error saving user token');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static saveUserCredentials(userEmail, credentialID, credentialPublicKey, counter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET credential_id = $1, credential_public_key = $2, counter = $3 WHERE user_email = $4`, [credentialID, credentialPublicKey, counter, userEmail]);
+            }
+            catch (error) {
+                console.error('Error saving credentials:', error);
+                throw new Error('Error saving credentials');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static getAuthChallenge(userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT webauthn_challenge, webauthn_challenge_created FROM users WHERE user_email = $1`, [userEmail]);
+                if (rows.length < 1) {
+                    return null;
+                }
+                else {
+                    return rows[0];
+                }
+            }
+            catch (error) {
+                console.error('Error saving credentials:', error);
+                throw new Error('Error saving credentials');
             }
             finally {
                 client.release();

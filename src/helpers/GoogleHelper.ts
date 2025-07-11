@@ -2,7 +2,9 @@
 
 import { google } from 'googleapis';
 import * as dotenv from 'dotenv';
+import { IGetBody } from './interfaces';
 dotenv.config({ path: '.env.local' }); 
+
 
 
 export class GoogleHelper {
@@ -30,7 +32,8 @@ export class GoogleHelper {
         try {
             const code = decodeURIComponent(queryCode);
             const { tokens } = await this.oauth2Client.getToken(code);
-            return tokens;
+            const {user_id, email} =await this.oauth2Client.getTokenInfo(tokens.access_token)
+            return {refreshToken:tokens.refresh_token, user_id, email};
         } catch (ex) {
             console.log(ex)
             throw new Error(ex);
@@ -72,7 +75,6 @@ export class GoogleHelper {
 
         return {
             type: "authorized_user",
-            access_token: headers.access_token,
             refresh_token: headers.refresh_token,
             client_secret: process.env.CLIENT_SECRET,
             client_id: process.env.CLIENT_ID
@@ -95,7 +97,7 @@ export class GoogleHelper {
             const res = await sheets.spreadsheets.values.get({
                 spreadsheetId: spreadsheetId,
                 range: range
-            });
+            } as IGetBody);
             const rows = res.data.values;
             if (!rows || rows.length === 0) {
                 console.log('No data found.');
@@ -141,6 +143,8 @@ export class GoogleHelper {
             throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
         }
     }
+
+    
 
     public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
         if (!spreadsheetId && !body) {

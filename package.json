@@ -15,9 +15,11 @@
   "description": "",
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.0",
+    "@simplewebauthn/server": "^13.1.2",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.3",
     "@vercel/analytics": "^1.5.0",
+    "base64url": "^3.0.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "crypto-js": "^4.2.0",
