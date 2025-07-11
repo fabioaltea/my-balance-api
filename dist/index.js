@@ -25,7 +25,7 @@ const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 app.use((0, cors_1.default)({
-    origin: '*',
+    origin: 'https://my-balance-ionic.vercel.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
