@@ -176,7 +176,7 @@ app.post('/generate-registration-options', (req:any, res:any) => {
   // Genera challenge e opzioni per la registrazione
   generateRegistrationOptions({
     rpName: 'My Balance',
-    rpID: 'localhost', // Sostituisci con il tuo
+    rpID: process.env.RPID, // Sostituisci con il tuo
     userID: new Uint8Array(Buffer.from(userEmail, 'utf-8')),
     userName: userEmail,
     attestationType: 'none', 
@@ -199,7 +199,7 @@ app.post('/generate-auth-options', (req:any, res:any) => {
     console.log("generate-auth-options")
     
     generateAuthenticationOptions({
-        rpID: 'localhost', // Sostituisci con il tuo
+        rpID: process.env.RPID, // Sostituisci con il tuo
         userVerification: 'preferred'
     }).then((options)=>{
         // DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
@@ -230,8 +230,8 @@ app.post('/verify-registration', async (req:any, res:any) => {
         verifyRegistrationResponse({
             response: attestationResponse, 
             expectedChallenge: webauthn_challenge, 
-            expectedOrigin: "http://localhost:8100", 
-            expectedRPID: "localhost" 
+            expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100", 
+            expectedRPID: process.env.RPID || "localhost" 
         }).then((verification) => {
             if (verification.verified && verification.registrationInfo) {
                 DbHelper.saveAuthChallenge(userEmail, null);
@@ -270,8 +270,8 @@ console.log("verify-authentication for user:", userEmail);
             verifyAuthenticationResponse({
                 response: assertionResponse,
                 expectedChallenge: challenge,
-                expectedOrigin: "http://localhost:8100",
-                expectedRPID: "localhost",
+                expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
+                expectedRPID: process.env.RPID || "localhost",
                 credential: {
                     id: credentials[0].credentialID,
                     publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url

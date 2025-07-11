@@ -168,7 +168,7 @@ app.post('/generate-registration-options', (req, res) => {
     // Genera challenge e opzioni per la registrazione
     (0, server_1.generateRegistrationOptions)({
         rpName: 'My Balance',
-        rpID: 'localhost', // Sostituisci con il tuo
+        rpID: process_1.default.env.RPID, // Sostituisci con il tuo
         userID: new Uint8Array(Buffer.from(userEmail, 'utf-8')),
         userName: userEmail,
         attestationType: 'none',
@@ -188,7 +188,7 @@ app.post('/generate-registration-options', (req, res) => {
 app.post('/generate-auth-options', (req, res) => {
     console.log("generate-auth-options");
     (0, server_1.generateAuthenticationOptions)({
-        rpID: 'localhost', // Sostituisci con il tuo
+        rpID: process_1.default.env.RPID, // Sostituisci con il tuo
         userVerification: 'preferred'
     }).then((options) => {
         // DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
@@ -218,8 +218,8 @@ app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0,
         (0, server_1.verifyRegistrationResponse)({
             response: attestationResponse,
             expectedChallenge: webauthn_challenge,
-            expectedOrigin: "http://localhost:8100",
-            expectedRPID: "localhost"
+            expectedOrigin: process_1.default.env.RP_ORIGIN || "http://localhost:8100",
+            expectedRPID: process_1.default.env.RPID || "localhost"
         }).then((verification) => {
             if (verification.verified && verification.registrationInfo) {
                 DbHelper_1.DbHelper.saveAuthChallenge(userEmail, null);
@@ -251,8 +251,8 @@ app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 
         (0, server_1.verifyAuthenticationResponse)({
             response: assertionResponse,
             expectedChallenge: challenge,
-            expectedOrigin: "http://localhost:8100",
-            expectedRPID: "localhost",
+            expectedOrigin: process_1.default.env.RP_ORIGIN || "http://localhost:8100",
+            expectedRPID: process_1.default.env.RPID || "localhost",
             credential: {
                 id: credentials[0].credentialID,
                 publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url
