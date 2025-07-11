@@ -187,6 +187,14 @@ app.post('/generate-registration-options', (req, res) => {
 });
 app.post('/generate-auth-options', (req, res) => {
     console.log("generate-auth-options");
+    res.setHeader('Access-Control-Allow-Origin', 'https://my-balance-ionic.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
     (0, server_1.generateAuthenticationOptions)({
         rpID: process_1.default.env.RPID, // Sostituisci con il tuo
         userVerification: 'preferred'
