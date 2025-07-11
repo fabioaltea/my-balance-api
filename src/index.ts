@@ -16,7 +16,7 @@ const app = express()
 const port = process.env.PORT || 8080
 
 app.use(cors({
-    origin: '*',
+    origin: 'https://my-balance-ionic.vercel.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
