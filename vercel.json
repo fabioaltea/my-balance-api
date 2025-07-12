@@ -8,6 +8,6 @@
         }
     ],
     "rewrites": [
-    { "source": "/(.*)", "destination": "dist/index.ts" }
+    { "source": "/(.*)", "destination": "dist/index.js" }
   ]
 }
