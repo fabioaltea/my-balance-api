@@ -24,14 +24,15 @@ const server_1 = require("@simplewebauthn/server");
 const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
-app.use((0, cors_1.default)({
+const corsOptions = {
     origin: 'https://my-balance-ionic.vercel.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
     credentials: true
-}));
-app.options('*', (0, cors_1.default)());
+};
+app.use((0, cors_1.default)(corsOptions));
+app.options('*', (0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
@@ -184,13 +185,6 @@ app.post('/generate-registration-options', (req, res) => {
             res.status(500).send("Error saving challenge");
         });
     });
-});
-app.options('/generate-auth-options', (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', 'https://my-balance-ionic.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.status(200).end();
 });
 app.post('/generate-auth-options', (req, res) => {
     console.log("generate-auth-options");

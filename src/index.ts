@@ -15,15 +15,18 @@ import base64url from 'base64url/dist/base64url';
 const app = express()
 const port = process.env.PORT || 8080
 
-app.use(cors({
+const corsOptions={
     origin: 'https://my-balance-ionic.vercel.app',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
     credentials: true
-}));
+}
 
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+app.options('*', cors(corsOptions));
+
 app.use(express.json())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -192,14 +195,6 @@ app.post('/generate-registration-options', (req:any, res:any) => {
       res.status(500).send("Error saving challenge");
     });
 })
-});
-
-app.options('/generate-auth-options', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://my-balance-ionic.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.status(200).end();
 });
 
 
