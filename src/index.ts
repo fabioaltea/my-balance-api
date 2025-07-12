@@ -32,6 +32,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.raw());
 
+app.use((req, res, next) => {
+  console.log('Passing through express. REQ:', req.method, req.url);
+  next();
+});
+
 
 app.get('/', (req: any, res: any) => {
     res.send("API Working")

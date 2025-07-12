@@ -37,6 +37,10 @@ app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.raw());
+app.use((req, res, next) => {
+    console.log('Passing through express. REQ:', req.method, req.url);
+    next();
+});
 app.get('/', (req, res) => {
     res.send("API Working");
 });
