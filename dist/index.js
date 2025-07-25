@@ -25,7 +25,7 @@ const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 const corsOptions = {
-    origin: 'https://my-balance-ionic.vercel.app',
+    origin: process_1.default.env.ORIGIN_URL || 'http://localhost:8100',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
     exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
@@ -44,22 +44,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.send("API Working");
 });
-app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, DbHelper_1.DbHelper.hashPin(req.headers.pin)).then((info) => {
-            if (info)
-                res.status(200).send({
-                    token: DbHelper_1.DbHelper.decryptToken(info.token, req.headers.pin),
-                    spreadsheetId: info.spreadsheet_id
-                });
-            else
-                res.status(401).send("Unauthorized");
-        });
-    }
-    catch (ex) {
-        res.status(500).send("Error. ex: " + ex.message);
-    }
-}));
+//#region Google Sheets
 app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("get");
     try {
@@ -128,6 +113,24 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.status(500).send(`Error. ex: ${ex.message}`);
     }
 }));
+//#endregion
+//#region CustomCredentials
+app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, DbHelper_1.DbHelper.hashPin(req.headers.pin)).then((info) => {
+            if (info)
+                res.status(200).send({
+                    token: DbHelper_1.DbHelper.decryptToken(info.token, req.headers.pin),
+                    spreadsheetId: info.spreadsheet_id
+                });
+            else
+                res.status(401).send("Unauthorized");
+        });
+    }
+    catch (ex) {
+        res.status(500).send("Error. ex: " + ex.message);
+    }
+}));
 app.get('/auth', (req, res) => {
     GoogleHelper_1.GoogleHelper.authenticate(req).then((authUrl) => {
         res.send({ url: authUrl });
@@ -164,6 +167,8 @@ app.post('/saveCredentials', (req, res) => __awaiter(void 0, void 0, void 0, fun
         res.status(500).send(ex.message);
     }
 }));
+//#endregion
+//#region WebAuthn
 app.post('/generate-registration-options', (req, res) => {
     console.log("generate-registration-options");
     const { userEmail } = req.body;
@@ -188,31 +193,6 @@ app.post('/generate-registration-options', (req, res) => {
             console.error('Error saving challenge:', error);
             res.status(500).send("Error saving challenge");
         });
-    });
-});
-app.post('/generate-auth-options', (req, res) => {
-    console.log("generate-auth-options");
-    res.setHeader('Access-Control-Allow-Origin', 'https://my-balance-ionic.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    (0, server_1.generateAuthenticationOptions)({
-        rpID: process_1.default.env.RPID, // Sostituisci con il tuo
-        userVerification: 'preferred'
-    }).then((options) => {
-        // DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
-        res.json(options);
-        // }).catch((error) => {
-        //     console.error('Error saving challenge:', error);
-        //     res.status(500).send("Error saving challenge");
-        // });
-    }).catch((error) => {
-        console.error('Error retrieving user credentials:', error);
-        res.status(500).send("Error retrieving user credentials");
     });
 });
 app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -248,6 +228,26 @@ app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0,
         });
     });
 }));
+app.post('/generate-auth-options', (req, res) => {
+    console.log("generate-auth-options");
+    res.setHeader('Access-Control-Allow-Origin', process_1.default.env.ORIGIN_URL || 'http://localhost:8100');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    (0, server_1.generateAuthenticationOptions)({
+        rpID: process_1.default.env.RPID,
+        userVerification: 'preferred'
+    }).then((options) => {
+        res.json(options);
+    }).catch((error) => {
+        console.error('Error retrieving user credentials:', error);
+        res.status(500).send("Error retrieving user credentials");
+    });
+});
 app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { assertionResponse, challenge } = req.body;
     const userEmail = Buffer.from(assertionResponse.response.userHandle, 'base64url').toString();
@@ -289,6 +289,7 @@ app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 
         });
     });
 }));
+//#endregion
 app.listen(port, () => {
     return console.log(`Server is listening on ${port}`);
 });
