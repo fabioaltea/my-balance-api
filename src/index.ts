@@ -124,7 +124,7 @@ app.get('/retrieveDbCredentials', async (req: any, res: any) => {
         DbHelper.getDbCredentials(req.headers.user_email, DbHelper.hashPin(req.headers.pin)).then((info) => {
             if (info)
                 res.status(200).send({
-                    token: DbHelper.decryptToken(info.token, req.headers.pin),
+                    token: info.token,
                     spreadsheetId: info.spreadsheet_id
                 })
             else

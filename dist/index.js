@@ -120,7 +120,7 @@ app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0
         DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, DbHelper_1.DbHelper.hashPin(req.headers.pin)).then((info) => {
             if (info)
                 res.status(200).send({
-                    token: DbHelper_1.DbHelper.decryptToken(info.token, req.headers.pin),
+                    token: info.token,
                     spreadsheetId: info.spreadsheet_id
                 });
             else
