@@ -3,6 +3,8 @@
 import { google } from 'googleapis';
 import * as dotenv from 'dotenv';
 import { IGetBody } from './interfaces';
+import { template } from "../assets/template";
+
 dotenv.config({ path: '.env.local' }); 
 
 
@@ -177,4 +179,20 @@ export class GoogleHelper {
         }
     }
 
+    public static async create(auth: any, userEmail: any) {
+        if (!userEmail) {
+            throw new Error('Missing or invalid parameter: userEmail');
+        }
+
+        try {
+            const sheets = google.sheets({ version: 'v4', auth });
+            const res = await sheets.spreadsheets.create({
+                requestBody: template
+            });
+            return res;
+        } catch (error) {
+            console.error('Error fetching items:', error);
+            throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+        }
+    }
 }

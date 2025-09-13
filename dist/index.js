@@ -113,6 +113,25 @@ app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.status(500).send(`Error. ex: ${ex.message}`);
     }
 }));
+app.get('/create', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const userEmail = req.query.user_email;
+        if (!userEmail) {
+            res.status(400).send("Missing user_email");
+            return;
+        }
+        GoogleHelper_1.GoogleHelper.create(authClient, userEmail).then((r) => {
+            DbHelper_1.DbHelper.insertUser(userEmail, r.data.spreadsheetId).then(() => {
+                res.status(200).send(r);
+            });
+        });
+    }
+    catch (ex) {
+        res.status(500).send(`Error. ex: ${ex.message}`);
+    }
+}));
 //#endregion
 //#region CustomCredentials
 app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {

@@ -115,6 +115,26 @@ app.post('/append', async (req: any, res: any) => {
     }
 })
 
+app.get('/create', async (req: any, res: any) => {
+    try {
+        const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = google.auth.fromJSON(authHeaders);
+        const userEmail = req.query.user_email;
+        if (!userEmail) {
+            res.status(400).send("Missing user_email")
+            return
+        }
+        GoogleHelper.create(authClient, userEmail).then((r)=>{
+            DbHelper.insertUser(userEmail, r.data.spreadsheetId).then(()=>{
+                res.status(200).send(r)
+            })
+        })
+        
+    } catch (ex) {
+        res.status(500).send(`Error. ex: ${ex.message}`)
+    }
+})
+
 //#endregion
 
 //#region CustomCredentials
