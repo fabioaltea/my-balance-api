@@ -117,6 +117,7 @@ class GoogleHelper {
                 throw new Error('Missing or invalid parameter: range');
             }
             try {
+                console.log("AUTH", auth);
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
                 const res = yield sheets.spreadsheets.values.get({
                     spreadsheetId: spreadsheetId,

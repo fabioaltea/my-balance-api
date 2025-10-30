@@ -18,34 +18,463 @@ const process_1 = __importDefault(require("process"));
 const GoogleHelper_1 = require("./helpers/GoogleHelper");
 const src_1 = require("googleapis/build/src");
 const cors_1 = __importDefault(require("cors"));
-const MyBalanceHelper_1 = require("./helpers/MyBalanceHelper");
+const TransactionsHelper_1 = require("./helpers/MyBalance/TransactionsHelper");
+const AccountsHelper_1 = require("./helpers/MyBalance/AccountsHelper");
+const CategoriesHelper_1 = require("./helpers/MyBalance/CategoriesHelper");
+const SpreadsheetsHelper_1 = require("./helpers/MyBalance/SpreadsheetsHelper");
 const DbHelper_1 = require("./helpers/DbHelper");
 const server_1 = require("@simplewebauthn/server");
 const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
-app.use((0, cors_1.default)({
-    origin: 'https://my-balance-ionic.vercel.app',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'access_token', 'refresh_token'],
-    exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
-    credentials: true
-}));
-app.options('*', (0, cors_1.default)());
+const corsOptions = {
+    origin: process_1.default.env.ORIGIN_URL || "http://localhost:8100",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "access_token",
+        "refresh_token",
+        "spreadsheet_id",
+    ],
+    exposedHeaders: [
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Credentials",
+    ],
+    credentials: true,
+};
+app.use((0, cors_1.default)(corsOptions));
+app.options("*", (0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.raw());
-app.get('/', (req, res) => {
+app.use((req, res, next) => {
+    console.log("Passing through express. REQ:", req.method, req.url);
+    next();
+});
+app.get("/", (req, res) => {
     res.send("API Working");
 });
-app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+//#region Google Sheets
+app.get("/get", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("get");
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const items = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, req.query.range);
+        res.json({ success: true, data: items });
+    }
+    catch (error) {
+        console.error("Error in get:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to get data",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.post("/update", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const body = req.body;
+        const items = yield GoogleHelper_1.GoogleHelper.update(authClient, spreadsheetId, body);
+        res.json({ success: true, data: items });
+    }
+    catch (error) {
+        console.error("Error in update:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to update data",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.post("/addMovement", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const body = req.body; // Dovrebbe essere IMovementRequest o compatibile
+        // Backwards compatibility: se il body ha il vecchio formato, convertiamo
+        if (body.movementId && body.description && !body.transactions) {
+            // Formato legacy: singolo movimento diventa array di 1 transaction
+            const movementRequest = {
+                movementId: body.movementId,
+                description: body.description,
+                category: body.category || "",
+                date: body.date || new Date().toISOString().split("T")[0],
+                type: body.type || "",
+                location: body.location || "",
+                notes: body.notes || "",
+                recurrenceId: body.recurrenceId || "",
+                transactions: [
+                    {
+                        amount: body.amount || 0,
+                        account: body.account || "",
+                        _operation: "create",
+                    },
+                ],
+            };
+            yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
+        }
+        else {
+            // Nuovo formato
+            yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, body);
+        }
+        res.json({ success: true, data: "Movement added successfully" });
+    }
+    catch (error) {
+        console.error("Error adding movement:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to add movement",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.post("/append", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const body = req.body;
+        const items = yield GoogleHelper_1.GoogleHelper.append(authClient, spreadsheetId, req.query.range, body);
+        res.json({ success: true, data: items });
+    }
+    catch (error) {
+        console.error("Error in append:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to append data",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+// New RESTful movements endpoints
+app.get("/movements", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const movements = yield TransactionsHelper_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
+        res.json({ success: true, data: movements });
+    }
+    catch (error) {
+        console.error("Error fetching movements:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch movements",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.get("/movements/:movementId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const { movementId } = req.params;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const movement = yield TransactionsHelper_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
+        if (!movement) {
+            return res.status(404).json({
+                success: false,
+                error: "Movement not found",
+            });
+        }
+        res.json({ success: true, data: movement });
+    }
+    catch (error) {
+        console.error("Error fetching movement:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch movement",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.post("/movements", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const movementRequest = req.body; // IMovementRequest
+        if (!movementRequest.transactions ||
+            !Array.isArray(movementRequest.transactions)) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing or invalid transactions array",
+            });
+        }
+        yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
+        res
+            .status(201)
+            .json({ success: true, data: "Movement created successfully" });
+    }
+    catch (error) {
+        console.error("Error creating movement:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to create movement",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.put("/movements/:movementId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const { movementId } = req.params;
+        // Verifica che il movimento esista
+        const existing = yield TransactionsHelper_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
+        if (!existing) {
+            return res.status(404).json({
+                success: false,
+                error: "Movement not found",
+            });
+        }
+        const movementRequest = req.body; // IMovementRequest
+        movementRequest.movementId = movementId; // Assicura che movementId sia corretto
+        if (!movementRequest.transactions ||
+            !Array.isArray(movementRequest.transactions)) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing or invalid transactions array",
+            });
+        }
+        yield TransactionsHelper_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, movementRequest);
+        res.json({ success: true, data: "Movement updated successfully" });
+    }
+    catch (error) {
+        console.error("Error updating movement:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to update movement",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+app.delete("/movements/:movementId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        const { movementId } = req.params;
+        yield TransactionsHelper_1.TransactionsHelper.deleteMovement(authClient, spreadsheetId, movementId);
+        res.json({ success: true, data: "Movement deleted successfully" });
+    }
+    catch (error) {
+        console.error("Error deleting movement:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to delete movement",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+// #region TRANSACTIONS ENDPOINTS
+/**
+ * GET /transactions - Restituisce tutte le transazioni individuali estratte dai movements
+ * Headers: refresh_token (required), spreadsheet_id (required)
+ * Returns: Array di ITransaction
+ */
+app.get("/transactions", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing spreadsheet_id in headers",
+            });
+        }
+        // Ottieni tutti i movements e poi estrai le singole transazioni
+        const allTransactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
+        res.json({ success: true, data: allTransactions });
+    }
+    catch (error) {
+        console.error("Error fetching transactions:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch transactions",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+/**
+ * GET /accounts-with-transactions - Load generica: restituisce tutti gli account con le loro transazioni
+ * Query params: spreadsheetId (required)
+ * Headers: refresh_token (required)
+ * Returns: Array di account con transazioni, balance e metadati
+ */
+// app.get("/accounts-with-transactions", async (req: any, res: any) => {
+//   try {
+//     const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+//     const authClient = google.auth.fromJSON(authHeaders);
+//     const refreshToken = authHeaders.refresh_token;
+//     const spreadsheetId = req.query.spreadsheetId;
+//     if (!spreadsheetId) return res.status(400).send("Missing spreadsheetId");
+//     // Carica account e movements in parallelo
+//     const [accounts, movements] = await Promise.all([
+//       AccountsHelper.getAccounts(spreadsheetId, refreshToken),
+//       TransactionsHelper.listMovements(authClient, spreadsheetId),
+//     ]);
+//     // Estrai tutte le transazioni da tutti i movements
+//     const allTransactions = movements.flatMap((movement) =>
+//       movement.transactions.map((transaction) => ({
+//         ...transaction,
+//         // Aggiungi metadati del movement
+//         movementDescription: movement.description,
+//         movementCategory: movement.category,
+//         movementDate: movement.date,
+//         movementType: movement.type,
+//         movementLocation: movement.location,
+//         movementNotes: movement.notes,
+//         movementRecurrenceId: movement.recurrenceId,
+//         movementStatus: movement.status,
+//       }))
+//     );
+//     // Organizza le transazioni per account
+//     const accountsWithTransactions = accounts.map((account) => {
+//       // Filtra transazioni per questo account (o tutte se è account "Total")
+//       const accountTransactions = allTransactions.filter((transaction) => {
+//         // Se l'account è "Total", include tutte le transazioni
+//         if (account.name === "Total") {
+//           return transaction.status !== "DELETED";
+//         }
+//         // Altrimenti filtra per nome account
+//         return (
+//           transaction.account === account.name &&
+//           transaction.status !== "DELETED"
+//         );
+//       });
+//       // Ordina transazioni per data
+//       accountTransactions.sort((a, b) => {
+//         if (a.date < b.date) return -1;
+//         else return 1;
+//       });
+//       // Calcola balance progressivo
+//       let runningBalance = parseFloat(account.balance || "0");
+//       const transactionsWithBalance = accountTransactions.map((transaction) => {
+//         runningBalance += transaction.amount;
+//         return {
+//           ...transaction,
+//           previousTransactionsAmount: runningBalance,
+//         };
+//       });
+//       // Calcola balance finale
+//       const finalBalance =
+//         transactionsWithBalance.length > 0
+//           ? transactionsWithBalance[transactionsWithBalance.length - 1]
+//               .previousTransactionsAmount
+//           : parseFloat(account.balance || "0");
+//       return {
+//         ...account,
+//         transactions: transactionsWithBalance,
+//         balance: finalBalance.toFixed(2),
+//         transactionCount: transactionsWithBalance.length,
+//       };
+//     });
+//     // Calcola total balance da tutti gli account (escluso il "Total" stesso per evitare doppio conteggio)
+//     const totalBalance = accountsWithTransactions
+//       .filter((account) => account.name !== "Total")
+//       .reduce((sum, account) => sum + parseFloat(account.balance), 0);
+//     res.status(200).json({
+//       accounts: accountsWithTransactions,
+//       totalBalance: totalBalance.toFixed(2),
+//       timestamp: new Date().toISOString(),
+//     });
+//   } catch (ex: any) {
+//     res.status(500).send(`Error. ex: ${ex.message}`);
+//   }
+// });
+// #endregion
+// app.get("/create", async (req: any, res: any) => {
+//   try {
+//     const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+//     const authClient = google.auth.fromJSON(authHeaders);
+//     const userEmail = req.query.user_email;
+//     if (!userEmail) {
+//       res.status(400).send("Missing user_email");
+//       return;
+//     }
+//     GoogleHelper.create(authClient, userEmail).then((r) => {
+//       DbHelper.insertUser(userEmail, r.data.spreadsheetId).then(() => {
+//         res.status(200).send(r);
+//       });
+//     });
+//   } catch (ex) {
+//     res.status(500).send(`Error. ex: ${ex.message}`);
+//   }
+// });
+//#endregion
+//#region CustomCredentials
+app.get("/retrieveDbCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, DbHelper_1.DbHelper.hashPin(req.headers.pin)).then((info) => {
             if (info)
                 res.status(200).send({
-                    token: DbHelper_1.DbHelper.decryptToken(info.token, req.headers.pin),
-                    spreadsheetId: info.spreadsheet_id
+                    token: info.token,
+                    spreadsheetId: info.spreadsheet_id,
                 });
             else
                 res.status(401).send("Unauthorized");
@@ -55,100 +484,38 @@ app.get('/retrieveDbCredentials', (req, res) => __awaiter(void 0, void 0, void 0
         res.status(500).send("Error. ex: " + ex.message);
     }
 }));
-app.get('/get', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("get");
-    try {
-        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-        const authClient = src_1.google.auth.fromJSON(authHeaders);
-        GoogleHelper_1.GoogleHelper.get(authClient, req.query.spreadsheetId, req.query.range)
-            .then((items) => {
-            res.send(items);
-        })
-            .catch((ex) => {
-            res.status(400).send(`Error. ex: ${ex.message}`);
-        });
-    }
-    catch (ex) {
-        res.status(500).send(`Error. ex: ${ex.message}`);
-    }
-}));
-app.post('/update', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-        const authClient = src_1.google.auth.fromJSON(authHeaders);
-        const body = req.body;
-        GoogleHelper_1.GoogleHelper.update(authClient, req.query.spreadsheetId, body)
-            .then((items) => {
-            res.send(items);
-        })
-            .catch((ex) => {
-            res.status(400).send(`Error. ex: ${ex.message}`);
-        });
-    }
-    catch (ex) {
-        res.status(500).send(`Error. ex: ${ex.message}`);
-    }
-}));
-app.post('/addMovement', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-        const authClient = src_1.google.auth.fromJSON(authHeaders);
-        const body = req.body;
-        MyBalanceHelper_1.MyBalanceHelper.AppendMovement(authClient, req.query.spreadsheetId, body)
-            .then((items) => {
-            res.status(200).send("OK");
-        })
-            .catch((ex) => {
-            res.status(400).send(`Error. ex: ${ex.message}`);
-        });
-    }
-    catch (ex) {
-        res.status(500).send(`Error. ex: ${ex.message}`);
-    }
-}));
-app.post('/append', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-        const authClient = src_1.google.auth.fromJSON(authHeaders);
-        const body = req.body;
-        GoogleHelper_1.GoogleHelper.append(authClient, req.query.spreadsheetId, req.query.range, body)
-            .then((items) => {
-            res.send(items);
-        })
-            .catch((ex) => {
-            res.status(400).send(`Error. ex: ${ex.message}`);
-        });
-    }
-    catch (ex) {
-        res.status(500).send(`Error. ex: ${ex.message}`);
-    }
-}));
-app.get('/auth', (req, res) => {
-    GoogleHelper_1.GoogleHelper.authenticate(req).then((authUrl) => {
+app.get("/auth", (req, res) => {
+    GoogleHelper_1.GoogleHelper.authenticate(req)
+        .then((authUrl) => {
         res.send({ url: authUrl });
-    }).catch();
+    })
+        .catch();
 });
-app.get('/getToken', (req, res) => {
-    GoogleHelper_1.GoogleHelper.authorize(req.query.code).then((tokens) => {
+app.get("/getToken", (req, res) => {
+    GoogleHelper_1.GoogleHelper.authorize(req.query.code)
+        .then((tokens) => {
         res.send(tokens);
-    }).catch((ex) => {
+    })
+        .catch((ex) => {
         res.status(500).send(ex.message);
     });
 });
-app.get('/checkCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get("/checkCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-    yield GoogleHelper_1.GoogleHelper.checkCredentials(authHeaders).then((r) => {
+    yield GoogleHelper_1.GoogleHelper.checkCredentials(authHeaders)
+        .then((r) => {
         if (r) {
             res.status(200).send(r);
         }
         else {
             res.status(401).send("Unauthorized");
         }
-    }).catch((ex) => {
+    })
+        .catch((ex) => {
         res.status(500).send(ex.message);
     });
 }));
-app.post('/saveCredentials', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post("/saveCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("saveCredentials");
     try {
         const r = yield DbHelper_1.DbHelper.saveUserToken(req.body.user_email, req.body.token);
@@ -159,7 +526,9 @@ app.post('/saveCredentials', (req, res) => __awaiter(void 0, void 0, void 0, fun
         res.status(500).send(ex.message);
     }
 }));
-app.post('/generate-registration-options', (req, res) => {
+//#endregion
+//#region WebAuthn
+app.post("/generate-registration-options", (req, res) => {
     console.log("generate-registration-options");
     const { userEmail } = req.body;
     if (!userEmail) {
@@ -167,50 +536,27 @@ app.post('/generate-registration-options', (req, res) => {
     }
     // Genera challenge e opzioni per la registrazione
     (0, server_1.generateRegistrationOptions)({
-        rpName: 'My Balance',
+        rpName: "My Balance",
         rpID: process_1.default.env.RPID, // Sostituisci con il tuo
-        userID: new Uint8Array(Buffer.from(userEmail, 'utf-8')),
+        userID: new Uint8Array(Buffer.from(userEmail, "utf-8")),
         userName: userEmail,
-        attestationType: 'none',
+        attestationType: "none",
         authenticatorSelection: {
-            residentKey: 'required',
-            userVerification: 'preferred',
+            residentKey: "required",
+            userVerification: "preferred",
         },
     }).then((options) => {
-        DbHelper_1.DbHelper.saveAuthChallenge(userEmail, options.challenge).then(() => {
+        DbHelper_1.DbHelper.saveAuthChallenge(userEmail, options.challenge)
+            .then(() => {
             res.json(options);
-        }).catch((error) => {
-            console.error('Error saving challenge:', error);
+        })
+            .catch((error) => {
+            console.error("Error saving challenge:", error);
             res.status(500).send("Error saving challenge");
         });
     });
 });
-app.post('/generate-auth-options', (req, res) => {
-    console.log("generate-auth-options");
-    res.setHeader('Access-Control-Allow-Origin', 'https://my-balance-ionic.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    (0, server_1.generateAuthenticationOptions)({
-        rpID: process_1.default.env.RPID, // Sostituisci con il tuo
-        userVerification: 'preferred'
-    }).then((options) => {
-        // DbHelper.saveAuthChallenge(userEmail, options.challenge).then(()=>{
-        res.json(options);
-        // }).catch((error) => {
-        //     console.error('Error saving challenge:', error);
-        //     res.status(500).send("Error saving challenge");
-        // });
-    }).catch((error) => {
-        console.error('Error retrieving user credentials:', error);
-        res.status(500).send("Error retrieving user credentials");
-    });
-});
-app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post("/verify-registration", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("verify-registration");
     const { userEmail, attestationResponse } = req.body;
     // Recupera utente e challenge
@@ -220,39 +566,64 @@ app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0,
         const { webauthn_challenge, webauthn_challenge_created_at } = row;
         if (!webauthn_challenge)
             return res.status(400).send("No challenge stored");
-        const challengeAgeMinutes = (Date.now() - new Date(webauthn_challenge_created_at).getTime()) / 1000 / 60;
+        const challengeAgeMinutes = (Date.now() - new Date(webauthn_challenge_created_at).getTime()) /
+            1000 /
+            60;
         if (challengeAgeMinutes > 5)
             return res.status(400).send("Challenge expired");
         (0, server_1.verifyRegistrationResponse)({
             response: attestationResponse,
             expectedChallenge: webauthn_challenge,
             expectedOrigin: process_1.default.env.RP_ORIGIN || "http://localhost:8100",
-            expectedRPID: process_1.default.env.RPID || "localhost"
+            expectedRPID: process_1.default.env.RPID || "localhost",
         }).then((verification) => {
             if (verification.verified && verification.registrationInfo) {
                 DbHelper_1.DbHelper.saveAuthChallenge(userEmail, null);
                 DbHelper_1.DbHelper.saveUserCredentials(userEmail, verification.registrationInfo.credential.id, base64url_1.default.encode(Buffer.from(verification.registrationInfo.credential.publicKey)), verification.registrationInfo.credential.counter).catch((error) => {
-                    console.error('Error saving user credentials:', error);
+                    console.error("Error saving user credentials:", error);
                     return res.status(500).send("Error saving user credentials");
                 });
                 res.json({ verified: true });
             }
             else {
-                res.status(400).json({ verified: false, error: 'Verification failed' });
+                res.status(400).json({ verified: false, error: "Verification failed" });
             }
         });
     });
 }));
-app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post("/generate-auth-options", (req, res) => {
+    console.log("generate-auth-options");
+    res.setHeader("Access-Control-Allow-Origin", process_1.default.env.ORIGIN_URL || "http://localhost:8100");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    if (req.method === "OPTIONS") {
+        res.status(200).end();
+        return;
+    }
+    (0, server_1.generateAuthenticationOptions)({
+        rpID: process_1.default.env.RPID,
+        userVerification: "preferred",
+    })
+        .then((options) => {
+        res.json(options);
+    })
+        .catch((error) => {
+        console.error("Error retrieving user credentials:", error);
+        res.status(500).send("Error retrieving user credentials");
+    });
+});
+app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { assertionResponse, challenge } = req.body;
-    const userEmail = Buffer.from(assertionResponse.response.userHandle, 'base64url').toString();
+    const userEmail = Buffer.from(assertionResponse.response.userHandle, "base64url").toString();
     console.log("verify-authentication for user:", userEmail);
     DbHelper_1.DbHelper.getUserCredentials(userEmail).then((credentials) => {
         if (!credentials || credentials.length === 0) {
             console.warn("No credentials found for user:", userEmail);
             return res.status(400).send("No credentials found for user");
         }
-        if (!credentials[0].credentialPublicKey || credentials[0].counter === undefined) {
+        if (!credentials[0].credentialPublicKey ||
+            credentials[0].counter === undefined) {
             console.warn("Missing credentialPublicKey or counter for user:", userEmail);
             return res.status(400).send("Invalid credential data for user");
         }
@@ -264,26 +635,419 @@ app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 
             credential: {
                 id: credentials[0].credentialID,
                 publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url
-                counter: credentials[0].counter // Assicurati che il counter sia un numero valido
+                counter: credentials[0].counter, // Assicurati che il counter sia un numero valido
             },
-        }).then((verification) => {
+        })
+            .then((verification) => {
             if (verification.verified) {
                 // Aggiorna counter in DB
                 //await updateCounter(userId, verification.authenticationInfo.newCounter);
                 // Login riuscito → genera sessione / token JWT / refresh token
                 console.log("Authentication successful for user:", userEmail);
-                res.json({ verified: true, token: credentials[0].token, userEmail: userEmail });
+                res.json({
+                    verified: true,
+                    token: credentials[0].token,
+                    userEmail: userEmail,
+                });
             }
             else {
                 console.log("Authentication failed for user:", userEmail);
                 res.status(400).json({ verified: false });
             }
-        }).catch((error) => {
+        })
+            .catch((error) => {
             console.log("Error verifying authentication for user:", userEmail, error);
-            res.status(500).send(`Error verifying authentication: ${error.message}`);
+            res
+                .status(500)
+                .send(`Error verifying authentication: ${error.message}`);
         });
     });
 }));
+//#endregion
+//#region Accounts Controllers
+/**
+ * GET /accounts - Recupera tutti gli accounts
+ */
+app.get("/accounts", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        if (!refreshToken || !spreadsheetId) {
+            res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+            return;
+        }
+        const accounts = yield AccountsHelper_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+        res.json({ success: true, data: accounts });
+    }
+    catch (error) {
+        console.error("Error fetching accounts:", error);
+        res.status(500).json({
+            error: "Failed to fetch accounts",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+/**
+ * POST /accounts - Crea nuovo account
+ */
+app.post("/accounts", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { name, description, balance, color, textColor } = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        if (!name) {
+            return res.status(400).json({ error: "Account name is required" });
+        }
+        const account = yield AccountsHelper_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+            name,
+            description: description || "",
+            balance: balance || "0,00",
+            color: color || "#808080",
+            textColor: textColor || "#ffffff",
+        });
+        res.json({ success: true, data: account });
+    }
+    catch (error) {
+        console.error("Error creating account:", error);
+        res.status(500).json({
+            error: "Failed to create account",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * PUT /accounts/:accountId - Aggiorna account esistente
+ */
+app.put("/accounts/:accountId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { accountId } = req.params;
+        const updateData = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        const updatedAccount = yield AccountsHelper_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
+        res.json({ success: true, data: updatedAccount });
+    }
+    catch (error) {
+        console.error("Error updating account:", error);
+        res.status(500).json({
+            error: "Failed to update account",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * DELETE /accounts/:accountId - Elimina account (soft delete)
+ */
+app.delete("/accounts/:accountId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { accountId } = req.params;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        yield AccountsHelper_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
+        res.json({ success: true, message: "Account deleted successfully" });
+    }
+    catch (error) {
+        console.error("Error deleting account:", error);
+        res.status(500).json({
+            error: "Failed to delete account",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * POST /accounts/batch - Crea multipli accounts in batch
+ */
+app.post("/accounts/batch", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { accounts } = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        if (!Array.isArray(accounts) || accounts.length === 0) {
+            return res.status(400).json({ error: "Accounts array is required" });
+        }
+        const createdAccounts = yield AccountsHelper_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
+        res.json({ success: true, data: createdAccounts });
+    }
+    catch (error) {
+        console.error("Error creating accounts batch:", error);
+        res.status(500).json({
+            error: "Failed to create accounts batch",
+            details: error.message,
+        });
+    }
+}));
+//#endregion
+//#region Categories Controllers
+/**
+ * GET /categories - Recupera tutte le categorie
+ */
+app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
+        const authClient = src_1.google.auth.fromJSON(authHeaders);
+        if (!refreshToken || !spreadsheetId) {
+            res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+            return;
+        }
+        const categories = yield CategoriesHelper_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
+        res.json({ success: true, data: categories });
+    }
+    catch (error) {
+        console.error("Error fetching categories:", error);
+        res.status(500).json({
+            error: "Failed to fetch categories",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * POST /categories - Crea nuova categoria
+ */
+app.post("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { name, description, color, icon } = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        if (!name) {
+            return res.status(400).json({ error: "Category name is required" });
+        }
+        const category = yield CategoriesHelper_1.CategoriesHelper.createCategory(spreadsheetId, refreshToken, {
+            name,
+            description: description || "",
+            color: color || "#808080",
+            icon: icon || "",
+        });
+        res.json({ success: true, data: category });
+    }
+    catch (error) {
+        console.error("Error creating category:", error);
+        res.status(500).json({
+            error: "Failed to create category",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * PUT /categories/:categoryId - Aggiorna categoria esistente
+ */
+app.put("/categories/:categoryId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { categoryId } = req.params;
+        const updateData = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        const updatedCategory = yield CategoriesHelper_1.CategoriesHelper.updateCategory(spreadsheetId, refreshToken, categoryId, updateData);
+        res.json({ success: true, data: updatedCategory });
+    }
+    catch (error) {
+        console.error("Error updating category:", error);
+        res.status(500).json({
+            error: "Failed to update category",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * DELETE /categories/:categoryId - Elimina categoria (soft delete)
+ */
+app.delete("/categories/:categoryId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { categoryId } = req.params;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        yield CategoriesHelper_1.CategoriesHelper.deleteCategory(spreadsheetId, refreshToken, categoryId);
+        res.json({ success: true, message: "Category deleted successfully" });
+    }
+    catch (error) {
+        console.error("Error deleting category:", error);
+        res.status(500).json({
+            error: "Failed to delete category",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * POST /categories/batch - Crea multiple categorie in batch
+ */
+app.post("/categories/batch", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        const { categories } = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        if (!Array.isArray(categories) || categories.length === 0) {
+            return res.status(400).json({ error: "Categories array is required" });
+        }
+        const createdCategories = yield CategoriesHelper_1.CategoriesHelper.createCategoriesBatch(spreadsheetId, refreshToken, categories);
+        res.json({ success: true, data: createdCategories });
+    }
+    catch (error) {
+        console.error("Error creating categories batch:", error);
+        res.status(500).json({
+            error: "Failed to create categories batch",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * GET /categories/default - Recupera categorie default del sistema
+ */
+app.get("/categories/default", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const defaultCategories = CategoriesHelper_1.CategoriesHelper.getDefaultCategories();
+        res.json({ success: true, data: defaultCategories });
+    }
+    catch (error) {
+        console.error("Error fetching default categories:", error);
+        res.status(500).json({
+            error: "Failed to fetch default categories",
+            details: error.message,
+        });
+    }
+}));
+//#endregion
+//#region Spreadsheet Management Controllers
+/**
+ * POST /spreadsheet/create - Crea nuovo spreadsheet vuoto
+ */
+app.post("/spreadsheet/create", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const { title, userEmail } = req.body;
+        if (!refreshToken) {
+            return res.status(400).json({
+                error: "Missing refresh_token in headers",
+            });
+        }
+        if (!title || !userEmail) {
+            return res.status(400).json({
+                error: "Title and userEmail are required",
+            });
+        }
+        const spreadsheetId = yield SpreadsheetsHelper_1.SpreadsheetsHelper.createSpreadsheet(refreshToken, title, userEmail);
+        res.json({ success: true, data: { spreadsheetId } });
+    }
+    catch (error) {
+        console.error("Error creating spreadsheet:", error);
+        res.status(500).json({
+            error: "Failed to create spreadsheet",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * POST /spreadsheet/initialize - Setup headers e struttura iniziale
+ */
+app.post("/spreadsheet/initialize", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const { spreadsheetId } = req.body;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token in headers or spreadsheetId in body",
+            });
+        }
+        yield SpreadsheetsHelper_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, refreshToken);
+        res.json({
+            success: true,
+            message: "Spreadsheet initialized successfully",
+        });
+    }
+    catch (error) {
+        console.error("Error initializing spreadsheet:", error);
+        res.status(500).json({
+            error: "Failed to initialize spreadsheet",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * GET /spreadsheet/validate - Valida struttura spreadsheet esistente
+ */
+app.get("/spreadsheet/validate", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const refreshToken = req.headers.refresh_token;
+        const spreadsheetId = req.headers.spreadsheet_id;
+        if (!refreshToken || !spreadsheetId) {
+            return res.status(400).json({
+                error: "Missing refresh_token or spreadsheet_id in headers",
+            });
+        }
+        const validation = yield SpreadsheetsHelper_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, refreshToken);
+        res.json({ success: true, data: validation });
+    }
+    catch (error) {
+        console.error("Error validating spreadsheet:", error);
+        res.status(500).json({
+            error: "Failed to validate spreadsheet",
+            details: error.message,
+        });
+    }
+}));
+/**
+ * GET /spreadsheet/template - Ottieni dati template per nuovo setup
+ */
+app.get("/spreadsheet/template", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const templateData = SpreadsheetsHelper_1.SpreadsheetsHelper.getTemplateData();
+        res.json({ success: true, data: templateData });
+    }
+    catch (error) {
+        console.error("Error getting template data:", error);
+        res.status(500).json({
+            error: "Failed to get template data",
+            details: error.message,
+        });
+    }
+}));
+//#endregion
 app.listen(port, () => {
     return console.log(`Server is listening on ${port}`);
 });
