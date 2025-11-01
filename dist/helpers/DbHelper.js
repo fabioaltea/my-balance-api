@@ -141,6 +141,21 @@ class DbHelper {
             }
         });
     }
+    static insertUser(userEmail, spreadsheetId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`INSERT INTO users (user_email, spreadsheet_id) VALUES ($1, $2) RETURNING *`, [userEmail, spreadsheetId]);
+            }
+            catch (error) {
+                console.error("Error saving credentials:", error);
+                throw new Error("Error saving credentials");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
     static decryptToken(encryptedToken, secretKey) {
         const bytes = crypto_js_1.default.AES.decrypt(encryptedToken, secretKey);
         const decrypted = bytes.toString(crypto_js_1.default.enc.Utf8);

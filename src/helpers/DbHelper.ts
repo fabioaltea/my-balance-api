@@ -128,6 +128,22 @@ export class DbHelper{
 
     }
 
+    public static async insertUser(userEmail:string, spreadsheetId:string){
+        const client = await DbHelper._pool.connect();
+        try {
+          await client.query(
+            `INSERT INTO users (user_email, spreadsheet_id) VALUES ($1, $2) RETURNING *`,
+            [userEmail, spreadsheetId]
+          );
+        
+        } catch (error) {
+          console.error("Error saving credentials:", error);
+          throw new Error("Error saving credentials");
+        } finally {
+          client.release();
+        }
+    }
+
     
 
     public static decryptToken(encryptedToken: string, secretKey: string): string {
