@@ -30,7 +30,7 @@ const corsOptions = {
     "Authorization",
     "access_token",
     "refresh_token",
-    "spreadsheet_id",
+    "spreadsheet_id", 
   ],
   exposedHeaders: [
     "Access-Control-Allow-Origin",
