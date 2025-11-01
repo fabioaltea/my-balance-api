@@ -45,6 +45,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleHelper = void 0;
 const googleapis_1 = require("googleapis");
 const dotenv = __importStar(require("dotenv"));
+const template_1 = require("../assets/template");
 dotenv.config({ path: '.env.local' });
 class GoogleHelper {
     static authenticate(req) {
@@ -194,6 +195,24 @@ class GoogleHelper {
                 else {
                     throw new Error();
                 }
+            }
+            catch (error) {
+                console.error('Error fetching items:', error);
+                throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+            }
+        });
+    }
+    static create(auth, userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!userEmail) {
+                throw new Error('Missing or invalid parameter: userEmail');
+            }
+            try {
+                const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
+                const res = yield sheets.spreadsheets.create({
+                    requestBody: template_1.template
+                });
+                return res;
             }
             catch (error) {
                 console.error('Error fetching items:', error);
