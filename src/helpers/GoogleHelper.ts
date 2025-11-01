@@ -95,6 +95,7 @@ export class GoogleHelper {
         }
 
         try {
+            console.log("AUTH", auth);
             const sheets = google.sheets({ version: 'v4', auth });
             const res = await sheets.spreadsheets.values.get({
                 spreadsheetId: spreadsheetId,

@@ -180,7 +180,10 @@ app.get('/checkCredentials', async (req: any, res: any) => {
     }).catch((ex) => {
         res.status(500).send(ex.message)
     })
-})
+    .catch((ex) => {
+      res.status(500).send(ex.message);
+    });
+});
 
 app.post('/saveCredentials', async (req: any, res: any) => {
     console.log("saveCredentials")
@@ -199,7 +202,7 @@ app.post('/saveCredentials', async (req: any, res: any) => {
 app.post('/generate-registration-options', (req: any, res: any) => {
     console.log("generate-registration-options")
 
-    const { userEmail } = req.body;
+  const { userEmail } = req.body;
 
     if (!userEmail) {
         return res.status(400).send("Missing userEmail");
@@ -260,8 +263,43 @@ app.post('/verify-registration', async (req: any, res: any) => {
             }
         });
     });
+  }
 });
 
+/**
+ * DELETE /accounts/:accountId - Elimina account (soft delete)
+ */
+app.delete("/accounts/:accountId", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { accountId } = req.params;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    await AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({
+      error: "Failed to delete account",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /accounts/batch - Crea multipli accounts in batch
+ */
+app.post("/accounts/batch", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { accounts } = req.body;
 
 app.post('/generate-auth-options', (req: any, res: any) => {
     console.log("generate-auth-options")
@@ -332,7 +370,310 @@ app.post('/verify-authentication', async (req, res) => {
 })
 //#endregion
 
+//#endregion
+
+//#region Categories Controllers
+
+/**
+ * GET /categories - Recupera tutte le categorie
+ */
+app.get("/categories", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+    const authClient = google.auth.fromJSON(authHeaders);
+
+    if (!refreshToken || !spreadsheetId) {
+      res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+      return;
+    }
+
+    const categories = await CategoriesHelper.getCategories(
+      spreadsheetId,
+      authClient
+    );
+    res.json({ success: true, data: categories });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({
+      error: "Failed to fetch categories",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /categories - Crea nuova categoria
+ */
+app.post("/categories", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { name, description, color, icon } = req.body;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: "Category name is required" });
+    }
+
+    const category = await CategoriesHelper.createCategory(
+      spreadsheetId,
+      refreshToken,
+      {
+        name,
+        description: description || "",
+        color: color || "#808080",
+        icon: icon || "",
+      }
+    );
+
+    res.json({ success: true, data: category });
+  } catch (error) {
+    console.error("Error creating category:", error);
+    res.status(500).json({
+      error: "Failed to create category",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /categories/:categoryId - Aggiorna categoria esistente
+ */
+app.put("/categories/:categoryId", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { categoryId } = req.params;
+    const updateData = req.body;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    const updatedCategory = await CategoriesHelper.updateCategory(
+      spreadsheetId,
+      refreshToken,
+      categoryId,
+      updateData
+    );
+
+    res.json({ success: true, data: updatedCategory });
+  } catch (error) {
+    console.error("Error updating category:", error);
+    res.status(500).json({
+      error: "Failed to update category",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /categories/:categoryId - Elimina categoria (soft delete)
+ */
+app.delete("/categories/:categoryId", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { categoryId } = req.params;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    await CategoriesHelper.deleteCategory(
+      spreadsheetId,
+      refreshToken,
+      categoryId
+    );
+    res.json({ success: true, message: "Category deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({
+      error: "Failed to delete category",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /categories/batch - Crea multiple categorie in batch
+ */
+app.post("/categories/batch", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+    const { categories } = req.body;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    if (!Array.isArray(categories) || categories.length === 0) {
+      return res.status(400).json({ error: "Categories array is required" });
+    }
+
+    const createdCategories = await CategoriesHelper.createCategoriesBatch(
+      spreadsheetId,
+      refreshToken,
+      categories
+    );
+
+    res.json({ success: true, data: createdCategories });
+  } catch (error) {
+    console.error("Error creating categories batch:", error);
+    res.status(500).json({
+      error: "Failed to create categories batch",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /categories/default - Recupera categorie default del sistema
+ */
+app.get("/categories/default", async (req, res) => {
+  try {
+    const defaultCategories = CategoriesHelper.getDefaultCategories();
+    res.json({ success: true, data: defaultCategories });
+  } catch (error) {
+    console.error("Error fetching default categories:", error);
+    res.status(500).json({
+      error: "Failed to fetch default categories",
+      details: error.message,
+    });
+  }
+});
+
+//#endregion
+
+//#region Spreadsheet Management Controllers
+
+/**
+ * POST /spreadsheet/create - Crea nuovo spreadsheet vuoto
+ */
+app.post("/spreadsheet/create", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const { title, userEmail } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        error: "Missing refresh_token in headers",
+      });
+    }
+
+    if (!title || !userEmail) {
+      return res.status(400).json({
+        error: "Title and userEmail are required",
+      });
+    }
+
+    const spreadsheetId = await SpreadsheetsHelper.createSpreadsheet(
+      refreshToken,
+      title,
+      userEmail
+    );
+
+    res.json({ success: true, data: { spreadsheetId } });
+  } catch (error) {
+    console.error("Error creating spreadsheet:", error);
+    res.status(500).json({
+      error: "Failed to create spreadsheet",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * POST /spreadsheet/initialize - Setup headers e struttura iniziale
+ */
+app.post("/spreadsheet/initialize", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const { spreadsheetId } = req.body;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token in headers or spreadsheetId in body",
+      });
+    }
+
+    await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, refreshToken);
+    res.json({
+      success: true,
+      message: "Spreadsheet initialized successfully",
+    });
+  } catch (error) {
+    console.error("Error initializing spreadsheet:", error);
+    res.status(500).json({
+      error: "Failed to initialize spreadsheet",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /spreadsheet/validate - Valida struttura spreadsheet esistente
+ */
+app.get("/spreadsheet/validate", async (req: any, res: any) => {
+  try {
+    const refreshToken = req.headers.refresh_token as string;
+    const spreadsheetId = req.headers.spreadsheet_id as string;
+
+    if (!refreshToken || !spreadsheetId) {
+      return res.status(400).json({
+        error: "Missing refresh_token or spreadsheet_id in headers",
+      });
+    }
+
+    const validation = await SpreadsheetsHelper.validateSpreadsheetStructure(
+      spreadsheetId,
+      refreshToken
+    );
+
+    res.json({ success: true, data: validation });
+  } catch (error) {
+    console.error("Error validating spreadsheet:", error);
+    res.status(500).json({
+      error: "Failed to validate spreadsheet",
+      details: error.message,
+    });
+  }
+});
+
+/**
+ * GET /spreadsheet/template - Ottieni dati template per nuovo setup
+ */
+app.get("/spreadsheet/template", async (req, res) => {
+  try {
+    const templateData = SpreadsheetsHelper.getTemplateData();
+    res.json({ success: true, data: templateData });
+  } catch (error) {
+    console.error("Error getting template data:", error);
+    res.status(500).json({
+      error: "Failed to get template data",
+      details: error.message,
+    });
+  }
+});
+
+//#endregion
 
 app.listen(port, () => {
-    return console.log(`Server is listening on ${port}`)
-})   
+  return console.log(`Server is listening on ${port}`);
+});
