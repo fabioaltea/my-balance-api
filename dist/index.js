@@ -628,15 +628,22 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
             return res.status(400).send("Invalid credential data for user");
         }
         console.log("Verifying authentication for user:", userEmail, "id:", credentials[0].credentialID, "counter:", credentials[0].counter, "publicKey:", credentials[0].credentialPublicKey, "challenge:", challenge, "assertionResponse:", assertionResponse, "RP_ORIGIN:", process_1.default.env.RP_ORIGIN, "RPID:", process_1.default.env.RPID);
+        // Convert Buffer to base64url string if needed
+        const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
+            ? (0, base64url_1.default)(credentials[0].credentialID)
+            : credentials[0].credentialID;
+        const credentialPublicKeyBuffer = Buffer.isBuffer(credentials[0].credentialPublicKey)
+            ? credentials[0].credentialPublicKey
+            : Buffer.from(credentials[0].credentialPublicKey, "base64url");
         (0, server_1.verifyAuthenticationResponse)({
             response: assertionResponse,
             expectedChallenge: challenge,
             expectedOrigin: process_1.default.env.RP_ORIGIN || "http://localhost:8100",
             expectedRPID: process_1.default.env.RPID || "localhost",
             credential: {
-                id: credentials[0].credentialID,
-                publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url
-                counter: credentials[0].counter, // Assicurati che il counter sia un numero valido
+                id: credentialIDString,
+                publicKey: credentialPublicKeyBuffer,
+                counter: credentials[0].counter,
             },
         })
             .then((verification) => {

@@ -748,16 +748,44 @@ app.post("/verify-authentication", async (req, res) => {
       );
       return res.status(400).send("Invalid credential data for user");
     }
-    console.log("Verifying authentication for user:", userEmail, "id:", credentials[0].credentialID, "counter:", credentials[0].counter, "publicKey:", credentials[0].credentialPublicKey,  "challenge:", challenge, "assertionResponse:", assertionResponse, "RP_ORIGIN:", process.env.RP_ORIGIN, "RPID:", process.env.RPID);
+    console.log(
+      "Verifying authentication for user:",
+      userEmail,
+      "id:",
+      credentials[0].credentialID,
+      "counter:",
+      credentials[0].counter,
+      "publicKey:",
+      credentials[0].credentialPublicKey,
+      "challenge:",
+      challenge,
+      "assertionResponse:",
+      assertionResponse,
+      "RP_ORIGIN:",
+      process.env.RP_ORIGIN,
+      "RPID:",
+      process.env.RPID
+    );
+
+    // Convert Buffer to base64url string if needed
+    const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
+      ? base64url(credentials[0].credentialID)
+      : credentials[0].credentialID;
+    const credentialPublicKeyBuffer = Buffer.isBuffer(
+      credentials[0].credentialPublicKey
+    )
+      ? credentials[0].credentialPublicKey
+      : Buffer.from(credentials[0].credentialPublicKey, "base64url");
+
     verifyAuthenticationResponse({
       response: assertionResponse,
       expectedChallenge: challenge,
       expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
       expectedRPID: process.env.RPID || "localhost",
       credential: {
-        id: credentials[0].credentialID,
-        publicKey: credentials[0].credentialPublicKey, // Assicurati che sia in formato base64url
-        counter: credentials[0].counter, // Assicurati che il counter sia un numero valido
+        id: credentialIDString,
+        publicKey: credentialPublicKeyBuffer,
+        counter: credentials[0].counter,
       },
     } as any)
       .then((verification: any) => {
@@ -765,9 +793,7 @@ app.post("/verify-authentication", async (req, res) => {
           // Aggiorna counter in DB
           //await updateCounter(userId, verification.authenticationInfo.newCounter);
           // Login riuscito → genera sessione / token JWT / refresh token
-          DbHelper.updateUserLastAccess(
-            userEmail
-          ).catch((error) => {
+          DbHelper.updateUserLastAccess(userEmail).catch((error) => {
             console.log(
               "Error updating last access for user:",
               userEmail,

@@ -1,5 +1,6 @@
-import { Pool } from 'pg';
-import CryptoJS from 'crypto-js';
+import { Pool } from "pg";
+import CryptoJS from "crypto-js";
+import base64url from "base64url/dist/base64url";
 
 export class DbHelper {
   private static _pool = new Pool({
@@ -65,8 +66,8 @@ export class DbHelper {
         return null;
       } else {
         return rows.map((row) => ({
-          credentialID: Buffer.from(row.credential_id, "base64"), // base64url string
-          credentialPublicKey: Buffer.from(row.cred_public_key, "base64"), // base64url string
+          credentialID: row.credential_id, // Keep as base64url string
+          credentialPublicKey: base64url.toBuffer(row.cred_public_key), // Convert base64url string to Buffer
           counter: row.counter,
           token: row.token,
         }));
@@ -162,7 +163,7 @@ export class DbHelper {
     } finally {
       client.release();
     }
-}
+  }
 
   public static decryptToken(
     encryptedToken: string,

@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DbHelper = void 0;
 const pg_1 = require("pg");
 const crypto_js_1 = __importDefault(require("crypto-js"));
+const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 class DbHelper {
     static getData() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -74,8 +75,8 @@ class DbHelper {
                 }
                 else {
                     return rows.map((row) => ({
-                        credentialID: Buffer.from(row.credential_id, "base64"), // base64url string
-                        credentialPublicKey: Buffer.from(row.cred_public_key, "base64"), // base64url string
+                        credentialID: row.credential_id, // Keep as base64url string
+                        credentialPublicKey: base64url_1.default.toBuffer(row.cred_public_key), // Convert base64url string to Buffer
                         counter: row.counter,
                         token: row.token,
                     }));
