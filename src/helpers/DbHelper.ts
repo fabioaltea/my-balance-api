@@ -55,12 +55,12 @@ export class DbHelper {
     }
   }
 
-  public static async getUserCredentials(userEmail: string) {
+  public static async getUserCredentials(userEmail: string, clientCredentialId: string) {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1`,
-        [userEmail]
+        `SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1 AND credentials.credential_id = $2`,
+        [userEmail, clientCredentialId]
       );
       if (rows.length < 1) {
         return null;
