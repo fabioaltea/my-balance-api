@@ -764,6 +764,15 @@ app.post("/verify-authentication", async (req, res) => {
           // Aggiorna counter in DB
           //await updateCounter(userId, verification.authenticationInfo.newCounter);
           // Login riuscito → genera sessione / token JWT / refresh token
+          DbHelper.updateUserLastAccess(
+            userEmail
+          ).catch((error) => {
+            console.log(
+              "Error updating last access for user:",
+              userEmail,
+              error
+            );
+          });
           console.log("Authentication successful for user:", userEmail);
           res.json({
             verified: true,
