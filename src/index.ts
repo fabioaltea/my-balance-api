@@ -731,9 +731,9 @@ app.post("/verify-authentication", async (req, res) => {
     assertionResponse.response.userHandle,
     "base64url"
   ).toString();
-
+  const clientCredentialId = assertionResponse.id;
   console.log("verify-authentication for user:", userEmail);
-  DbHelper.getUserCredentials(userEmail).then((credentials) => {
+  DbHelper.getUserCredentials(userEmail, clientCredentialId).then((credentials) => {
     if (!credentials || credentials.length === 0) {
       console.warn("No credentials found for user:", userEmail);
       return res.status(400).send("No credentials found for user");
@@ -748,24 +748,7 @@ app.post("/verify-authentication", async (req, res) => {
       );
       return res.status(400).send("Invalid credential data for user");
     }
-    console.log(
-      "Verifying authentication for user:",
-      userEmail,
-      "id:",
-      credentials[0].credentialID,
-      "counter:",
-      credentials[0].counter,
-      "publicKey:",
-      credentials[0].credentialPublicKey,
-      "challenge:",
-      challenge,
-      "assertionResponse:",
-      assertionResponse,
-      "RP_ORIGIN:",
-      process.env.RP_ORIGIN,
-      "RPID:",
-      process.env.RPID
-    );
+   
 
     // Convert Buffer to base64url string if needed
     const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
@@ -782,23 +765,11 @@ app.post("/verify-authentication", async (req, res) => {
       const clientDataDecoded = JSON.parse(
         Buffer.from(assertionResponse.response.clientDataJSON, 'base64').toString()
       );
-      console.log("Client data decoded:", clientDataDecoded);
-      console.log("Expected challenge:", challenge);
-      console.log("Received challenge:", clientDataDecoded.challenge);
-      console.log("Challenge match:", clientDataDecoded.challenge === challenge);
-    } catch (e) {
+      } catch (e) {
       console.log("Error decoding clientDataJSON:", e);
     }
 
-    console.log("Verification parameters:", {
-      expectedChallenge: challenge,
-      expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
-      expectedRPID: process.env.RPID || "localhost",
-      credentialId: credentialIDString,
-      credentialCounter: credentials[0].counter,
-      credentialPublicKeyLength: credentialPublicKeyBuffer?.length
-    });
-
+   
     verifyAuthenticationResponse({
       response: assertionResponse,
       expectedChallenge: challenge,

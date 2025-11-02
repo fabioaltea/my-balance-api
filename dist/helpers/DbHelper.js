@@ -65,11 +65,11 @@ class DbHelper {
             }
         });
     }
-    static getUserCredentials(userEmail) {
+    static getUserCredentials(userEmail, clientCredentialId) {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1`, [userEmail]);
+                const { rows } = yield client.query(`SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1 AND credentials.credential_id = $2`, [userEmail, clientCredentialId]);
                 if (rows.length < 1) {
                     return null;
                 }
