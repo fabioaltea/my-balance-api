@@ -634,7 +634,7 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
             : credentials[0].credentialID;
         const credentialPublicKeyBuffer = Buffer.isBuffer(credentials[0].credentialPublicKey)
             ? credentials[0].credentialPublicKey
-            : Buffer.from(credentials[0].credentialPublicKey, 'base64url');
+            : Buffer.from(credentials[0].credentialPublicKey, "base64url");
         (0, server_1.verifyAuthenticationResponse)({
             response: assertionResponse,
             expectedChallenge: challenge,

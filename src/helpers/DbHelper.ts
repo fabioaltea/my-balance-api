@@ -1,5 +1,5 @@
-import { Pool } from 'pg';
-import CryptoJS from 'crypto-js';
+import { Pool } from "pg";
+import CryptoJS from "crypto-js";
 import base64url from "base64url/dist/base64url";
 
 export class DbHelper {
@@ -163,7 +163,7 @@ export class DbHelper {
     } finally {
       client.release();
     }
-}
+  }
 
   public static decryptToken(
     encryptedToken: string,
