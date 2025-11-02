@@ -748,6 +748,7 @@ app.post("/verify-authentication", async (req, res) => {
       );
       return res.status(400).send("Invalid credential data for user");
     }
+    console.log("Verifying authentication for user:", userEmail, "id:", credentials[0].credentialID, "counter:", credentials[0].counter, "publicKey:", credentials[0].credentialPublicKey,  "challenge:", challenge, "assertionResponse:", assertionResponse, "RP_ORIGIN:", process.env.RP_ORIGIN, "RPID:", process.env.RPID);
     verifyAuthenticationResponse({
       response: assertionResponse,
       expectedChallenge: challenge,
