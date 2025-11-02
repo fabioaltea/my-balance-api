@@ -20,7 +20,7 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query('SELECT * FROM users');
+                const { rows } = yield client.query("SELECT * FROM users");
                 return rows;
             }
             finally {
@@ -32,7 +32,7 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query('SELECT token, spreadsheet_id FROM users WHERE user_email = $1 AND pin = $2', [userEmail, pin]);
+                const { rows } = yield client.query("SELECT token, spreadsheet_id FROM users WHERE user_email = $1 AND pin = $2", [userEmail, pin]);
                 if (rows.length < 1) {
                     return null;
                 }
@@ -41,8 +41,8 @@ class DbHelper {
                 }
             }
             catch (error) {
-                console.error('Error retrieving credentials:', error);
-                throw new Error('Error retrieving credentials');
+                console.error("Error retrieving credentials:", error);
+                throw new Error("Error retrieving credentials");
             }
             finally {
                 client.release();
@@ -56,8 +56,8 @@ class DbHelper {
                 yield client.query(`UPDATE users SET webauthn_challenge = $1, webauthn_challenge_created = NOW() WHERE user_email = $2`, [challenge, userEmail]);
             }
             catch (error) {
-                console.error('Error saving credentials:', error);
-                throw new Error('Error saving credentials');
+                console.error("Error saving credentials:", error);
+                throw new Error("Error saving credentials");
             }
             finally {
                 client.release();
@@ -68,22 +68,22 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT credential_id, credential_public_key, counter, token FROM users WHERE user_email = $1`, [userEmail]);
+                const { rows } = yield client.query(`SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1`, [userEmail]);
                 if (rows.length < 1) {
                     return null;
                 }
                 else {
-                    return rows.map(row => ({
+                    return rows.map((row) => ({
                         credentialID: Buffer.from(row.credential_id, "base64"), // base64url string
-                        credentialPublicKey: Buffer.from(row.credential_public_key, "base64"), // base64url string
+                        credentialPublicKey: Buffer.from(row.cred_public_key, "base64"), // base64url string
                         counter: row.counter,
-                        token: row.token
+                        token: row.token,
                     }));
                 }
             }
             catch (error) {
-                console.error('Error retrieving credentials:', error);
-                throw new Error('Error retrieving credentials');
+                console.error("Error retrieving credentials:", error);
+                throw new Error("Error retrieving credentials");
             }
             finally {
                 client.release();
@@ -97,8 +97,8 @@ class DbHelper {
                 const r = yield client.query(`UPDATE users SET token = $1 WHERE user_email = $2`, [token, userEmail]);
             }
             catch (error) {
-                console.error('Error saving user token:', error);
-                throw new Error('Error saving user token');
+                console.error("Error saving user token:", error);
+                throw new Error("Error saving user token");
             }
             finally {
                 client.release();
@@ -109,11 +109,11 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                yield client.query(`UPDATE users SET credential_id = $1, credential_public_key = $2, counter = $3 WHERE user_email = $4`, [credentialID, credentialPublicKey, counter, userEmail]);
+                yield client.query(`INSERT INTO credentials (credential_id, cred_public_key, counter, user_id) VALUES ($1, $2, $3, $4)`, [credentialID, credentialPublicKey, counter, userEmail]);
             }
             catch (error) {
-                console.error('Error saving credentials:', error);
-                throw new Error('Error saving credentials');
+                console.error("Error saving credentials:", error);
+                throw new Error("Error saving credentials");
             }
             finally {
                 client.release();
@@ -133,8 +133,8 @@ class DbHelper {
                 }
             }
             catch (error) {
-                console.error('Error saving credentials:', error);
-                throw new Error('Error saving credentials');
+                console.error("Error getting Auth challengeq:", error);
+                throw new Error("Error getting Auth challenge");
             }
             finally {
                 client.release();
@@ -148,8 +148,23 @@ class DbHelper {
                 yield client.query(`INSERT INTO users (user_email, spreadsheet_id) VALUES ($1, $2) RETURNING *`, [userEmail, spreadsheetId]);
             }
             catch (error) {
-                console.error("Error saving credentials:", error);
-                throw new Error("Error saving credentials");
+                console.error("Error inserting user:", error);
+                throw new Error("Error inserting user");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    static updateUserLastAccess(userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET last_access = NOW() WHERE user_email = $1`, [userEmail]);
+            }
+            catch (error) {
+                console.error("Error updating user last access:", error);
+                throw new Error("Error updating user last access");
             }
             finally {
                 client.release();
