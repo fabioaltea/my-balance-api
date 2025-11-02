@@ -635,6 +635,25 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
         const credentialPublicKeyBuffer = Buffer.isBuffer(credentials[0].credentialPublicKey)
             ? credentials[0].credentialPublicKey
             : Buffer.from(credentials[0].credentialPublicKey, "base64url");
+        // Debug: decode and check clientDataJSON
+        try {
+            const clientDataDecoded = JSON.parse(Buffer.from(assertionResponse.response.clientDataJSON, 'base64').toString());
+            console.log("Client data decoded:", clientDataDecoded);
+            console.log("Expected challenge:", challenge);
+            console.log("Received challenge:", clientDataDecoded.challenge);
+            console.log("Challenge match:", clientDataDecoded.challenge === challenge);
+        }
+        catch (e) {
+            console.log("Error decoding clientDataJSON:", e);
+        }
+        console.log("Verification parameters:", {
+            expectedChallenge: challenge,
+            expectedOrigin: process_1.default.env.RP_ORIGIN || "http://localhost:8100",
+            expectedRPID: process_1.default.env.RPID || "localhost",
+            credentialId: credentialIDString,
+            credentialCounter: credentials[0].counter,
+            credentialPublicKeyLength: credentialPublicKeyBuffer === null || credentialPublicKeyBuffer === void 0 ? void 0 : credentialPublicKeyBuffer.length
+        });
         (0, server_1.verifyAuthenticationResponse)({
             response: assertionResponse,
             expectedChallenge: challenge,
@@ -647,6 +666,7 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
             },
         })
             .then((verification) => {
+            console.log("Verification result:", verification);
             if (verification.verified) {
                 // Aggiorna counter in DB
                 //await updateCounter(userId, verification.authenticationInfo.newCounter);
@@ -662,7 +682,7 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
                 });
             }
             else {
-                console.log("Authentication failed for user:", userEmail);
+                console.log("Authentication failed for user:", userEmail, "verification details:", verification);
                 res.status(400).json({ verified: false });
             }
         })

@@ -777,6 +777,28 @@ app.post("/verify-authentication", async (req, res) => {
       ? credentials[0].credentialPublicKey
       : Buffer.from(credentials[0].credentialPublicKey, "base64url");
 
+    // Debug: decode and check clientDataJSON
+    try {
+      const clientDataDecoded = JSON.parse(
+        Buffer.from(assertionResponse.response.clientDataJSON, 'base64').toString()
+      );
+      console.log("Client data decoded:", clientDataDecoded);
+      console.log("Expected challenge:", challenge);
+      console.log("Received challenge:", clientDataDecoded.challenge);
+      console.log("Challenge match:", clientDataDecoded.challenge === challenge);
+    } catch (e) {
+      console.log("Error decoding clientDataJSON:", e);
+    }
+
+    console.log("Verification parameters:", {
+      expectedChallenge: challenge,
+      expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
+      expectedRPID: process.env.RPID || "localhost",
+      credentialId: credentialIDString,
+      credentialCounter: credentials[0].counter,
+      credentialPublicKeyLength: credentialPublicKeyBuffer?.length
+    });
+
     verifyAuthenticationResponse({
       response: assertionResponse,
       expectedChallenge: challenge,
@@ -789,6 +811,7 @@ app.post("/verify-authentication", async (req, res) => {
       },
     } as any)
       .then((verification: any) => {
+        console.log("Verification result:", verification);
         if (verification.verified) {
           // Aggiorna counter in DB
           //await updateCounter(userId, verification.authenticationInfo.newCounter);
@@ -807,7 +830,7 @@ app.post("/verify-authentication", async (req, res) => {
             userEmail: userEmail,
           });
         } else {
-          console.log("Authentication failed for user:", userEmail);
+          console.log("Authentication failed for user:", userEmail, "verification details:", verification);
           res.status(400).json({ verified: false });
         }
       })
