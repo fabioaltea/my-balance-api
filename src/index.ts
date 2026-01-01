@@ -19,6 +19,13 @@ import {
 } from "@simplewebauthn/server";
 import base64url from "base64url/dist/base64url";
 
+// NEW AUTHENTICATION IMPORTS
+import { authRoutes } from "./auth/routes/auth.routes";
+import { RequireAuthMiddleware } from "./auth/middleware/requireAuth.middleware";
+import { CryptoHelper } from "./auth/helpers/crypto.helper";
+import { GoogleAuthHelper } from "./helpers/GoogleAuthHelper";
+import { JwtHelper } from "./auth/helpers/jwt.helper";
+
 const app = express();
 const port = process.env.PORT || 8080;
 
@@ -53,23 +60,128 @@ app.use((req, res, next) => {
   next();
 });
 
+// NEW AUTHENTICATION ROUTES
+app.use("/auth", authRoutes);
+
+// User data endpoints (protected)
+app.get(
+  "/user/spreadsheet",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware
+
+      const user = await DbHelper.getUserByEmail(userEmail);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          spreadSheetID: user.spreadsheet_id,
+          userInfo: {
+            user_email: user.user_email,
+            user_name: user.user_name,
+            spreadsheet_id: user.spreadsheet_id,
+            last_access: user.last_access,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting user spreadsheet:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get user spreadsheet",
+        details: error?.message,
+      });
+    }
+  }
+);
+
+app.post(
+  "/user/last-access",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware
+
+      const result = await DbHelper.updateUserLastAccess(userEmail);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error updating last access:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update last access",
+        details: error?.message,
+      });
+    }
+  }
+);
+
+// Helper endpoint to get user's decrypted Google token (for server-side Google API calls)
+app.get("/internal/google-token/:userEmail", async (req: any, res: any) => {
+  try {
+    const { userEmail } = req.params;
+
+    // This is an internal endpoint - add IP whitelist or other security in production
+    const encryptedToken = await DbHelper.getGoogleRefreshToken(userEmail);
+
+    if (!encryptedToken) {
+      return res.status(404).json({
+        success: false,
+        error: "No Google token found for user",
+      });
+    }
+
+    const decryptedToken = CryptoHelper.decrypt(encryptedToken);
+
+    res.json({
+      success: true,
+      refreshToken: decryptedToken,
+    });
+  } catch (error: any) {
+    console.error("Error getting Google token:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to retrieve Google token",
+    });
+  }
+});
+
 app.get("/", (req: any, res: any) => {
   res.send("API Working");
 });
 
-//#region Google Sheets
+//#region Google Sheets (Protected Endpoints)
 
-app.get("/get", async (req: any, res: any) => {
+// All Google Sheets endpoints now require authentication
+app.get("/get", RequireAuthMiddleware.verify, async (req: any, res: any) => {
   console.log("get");
   try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+    const userEmail = req.userId; // From auth middleware (now contains email)
+
+    // Get user's Google auth client
+    const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+    // Get spreadsheet ID - either from header or user's default
+    let spreadsheetId = req.headers.spreadsheet_id;
+    if (!spreadsheetId) {
+      spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+    }
 
     if (!spreadsheetId) {
       return res.status(400).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error:
+          "Missing spreadsheet_id in headers and no default spreadsheet configured",
       });
     }
 
@@ -89,315 +201,432 @@ app.get("/get", async (req: any, res: any) => {
   }
 });
 
-app.post("/update", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+app.post(
+  "/update",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!spreadsheetId) {
-      return res.status(400).json({
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from header or user's default
+      let spreadsheetId = req.headers.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in headers and no default spreadsheet configured",
+        });
+      }
+
+      const body = req.body;
+      const items = await GoogleHelper.update(authClient, spreadsheetId, body);
+      res.json({ success: true, data: items });
+    } catch (error: any) {
+      console.error("Error in update:", error);
+      res.status(500).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error: "Failed to update data",
+        details: error?.message,
       });
     }
-
-    const body = req.body;
-    const items = await GoogleHelper.update(authClient, spreadsheetId, body);
-    res.json({ success: true, data: items });
-  } catch (error: any) {
-    console.error("Error in update:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to update data",
-      details: error?.message,
-    });
   }
-});
+);
 
-app.post("/addMovement", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+app.post(
+  "/addMovement",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!spreadsheetId) {
-      return res.status(400).json({
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from header or user's default
+      let spreadsheetId = req.headers.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in headers and no default spreadsheet configured",
+        });
+      }
+
+      const body = req.body; // Dovrebbe essere IMovementRequest o compatibile
+
+      // Backwards compatibility: se il body ha il vecchio formato, convertiamo
+      if (body.movementId && body.description && !body.transactions) {
+        // Formato legacy: singolo movimento diventa array di 1 transaction
+        const movementRequest = {
+          movementId: body.movementId,
+          description: body.description,
+          category: body.category || "",
+          date: body.date || new Date().toISOString().split("T")[0],
+          type: body.type || "",
+          location: body.location || "",
+          notes: body.notes || "",
+          recurrenceId: body.recurrenceId || "",
+          transactions: [
+            {
+              amount: body.amount || 0,
+              account: body.account || "",
+              _operation: "create" as const,
+            },
+          ],
+        };
+        await TransactionsHelper.appendMovement(
+          authClient,
+          spreadsheetId,
+          movementRequest
+        );
+      } else {
+        // Nuovo formato
+        await TransactionsHelper.appendMovement(
+          authClient,
+          spreadsheetId,
+          body
+        );
+      }
+
+      res.json({ success: true, data: "Movement added successfully" });
+    } catch (error: any) {
+      console.error("Error adding movement:", error);
+      res.status(500).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error: "Failed to add movement",
+        details: error?.message,
       });
     }
+  }
+);
 
-    const body = req.body; // Dovrebbe essere IMovementRequest o compatibile
+app.post(
+  "/append",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    // Backwards compatibility: se il body ha il vecchio formato, convertiamo
-    if (body.movementId && body.description && !body.transactions) {
-      // Formato legacy: singolo movimento diventa array di 1 transaction
-      const movementRequest = {
-        movementId: body.movementId,
-        description: body.description,
-        category: body.category || "",
-        date: body.date || new Date().toISOString().split("T")[0],
-        type: body.type || "",
-        location: body.location || "",
-        notes: body.notes || "",
-        recurrenceId: body.recurrenceId || "",
-        transactions: [
-          {
-            amount: body.amount || 0,
-            account: body.account || "",
-            _operation: "create" as const,
-          },
-        ],
-      };
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from header or user's default
+      let spreadsheetId = req.headers.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in headers and no default spreadsheet configured",
+        });
+      }
+
+      const body = req.body;
+      const items = await GoogleHelper.append(
+        authClient,
+        spreadsheetId,
+        req.query.range,
+        body
+      );
+      res.json({ success: true, data: items });
+    } catch (error: any) {
+      console.error("Error in append:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to append data",
+        details: error?.message,
+      });
+    }
+  }
+);
+
+// New RESTful movements endpoints
+app.get(
+  "/movements",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const movements = await TransactionsHelper.listMovements(
+        authClient,
+        spreadsheetId
+      );
+      res.json({ success: true, data: movements });
+    } catch (error: any) {
+      console.error("Error fetching movements:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch movements",
+        details: error?.message,
+      });
+    }
+  }
+);
+
+app.get(
+  "/movements/:movementId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      const { movementId } = req.params;
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const movement = await TransactionsHelper.getMovement(
+        authClient,
+        spreadsheetId,
+        movementId
+      );
+
+      if (!movement) {
+        return res.status(404).json({
+          success: false,
+          error: "Movement not found",
+        });
+      }
+
+      res.json({ success: true, data: movement });
+    } catch (error: any) {
+      console.error("Error fetching movement:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch movement",
+        details: error?.message,
+      });
+    }
+  }
+);
+
+app.post(
+  "/movements",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const movementRequest = req.body; // IMovementRequest
+      if (
+        !movementRequest.transactions ||
+        !Array.isArray(movementRequest.transactions)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing or invalid transactions array",
+        });
+      }
+
       await TransactionsHelper.appendMovement(
         authClient,
         spreadsheetId,
         movementRequest
       );
-    } else {
-      // Nuovo formato
-      await TransactionsHelper.appendMovement(authClient, spreadsheetId, body);
+      res
+        .status(201)
+        .json({ success: true, data: "Movement created successfully" });
+    } catch (error: any) {
+      console.error("Error creating movement:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to create movement",
+        details: error?.message,
+      });
     }
-
-    res.json({ success: true, data: "Movement added successfully" });
-  } catch (error: any) {
-    console.error("Error adding movement:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to add movement",
-      details: error?.message,
-    });
   }
-});
+);
 
-app.post("/append", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+app.put(
+  "/movements/:movementId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!spreadsheetId) {
-      return res.status(400).json({
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const { movementId } = req.params;
+
+      // Verifica che il movimento esista
+      const existing = await TransactionsHelper.getMovement(
+        authClient,
+        spreadsheetId,
+        movementId
+      );
+
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: "Movement not found",
+        });
+      }
+
+      const movementRequest = req.body; // IMovementRequest
+      movementRequest.movementId = movementId; // Assicura che movementId sia corretto
+
+      if (
+        !movementRequest.transactions ||
+        !Array.isArray(movementRequest.transactions)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing or invalid transactions array",
+        });
+      }
+
+      await TransactionsHelper.updateMovement(
+        authClient,
+        spreadsheetId,
+        movementRequest
+      );
+      res.json({ success: true, data: "Movement updated successfully" });
+    } catch (error: any) {
+      console.error("Error updating movement:", error);
+      res.status(500).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error: "Failed to update movement",
+        details: error?.message,
       });
     }
-
-    const body = req.body;
-    const items = await GoogleHelper.append(
-      authClient,
-      spreadsheetId,
-      req.query.range,
-      body
-    );
-    res.json({ success: true, data: items });
-  } catch (error: any) {
-    console.error("Error in append:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to append data",
-      details: error?.message,
-    });
   }
-});
+);
 
-// New RESTful movements endpoints
-app.get("/movements", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+app.delete(
+  "/movements/:movementId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!spreadsheetId) {
-      return res.status(400).json({
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const { movementId } = req.params;
+      await TransactionsHelper.deleteMovement(
+        authClient,
+        spreadsheetId,
+        movementId
+      );
+      res.json({ success: true, data: "Movement deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting movement:", error);
+      res.status(500).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error: "Failed to delete movement",
+        details: error?.message,
       });
     }
-
-    const movements = await TransactionsHelper.listMovements(
-      authClient,
-      spreadsheetId
-    );
-    res.json({ success: true, data: movements });
-  } catch (error: any) {
-    console.error("Error fetching movements:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch movements",
-      details: error?.message,
-    });
   }
-});
-
-app.get("/movements/:movementId", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const { movementId } = req.params;
-    const spreadsheetId = req.headers.spreadsheet_id;
-
-    if (!spreadsheetId) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing spreadsheet_id in headers",
-      });
-    }
-
-    const movement = await TransactionsHelper.getMovement(
-      authClient,
-      spreadsheetId,
-      movementId
-    );
-
-    if (!movement) {
-      return res.status(404).json({
-        success: false,
-        error: "Movement not found",
-      });
-    }
-
-    res.json({ success: true, data: movement });
-  } catch (error: any) {
-    console.error("Error fetching movement:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch movement",
-      details: error?.message,
-    });
-  }
-});
-
-app.post("/movements", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
-
-    if (!spreadsheetId) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing spreadsheet_id in headers",
-      });
-    }
-
-    const movementRequest = req.body; // IMovementRequest
-    if (
-      !movementRequest.transactions ||
-      !Array.isArray(movementRequest.transactions)
-    ) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing or invalid transactions array",
-      });
-    }
-
-    await TransactionsHelper.appendMovement(
-      authClient,
-      spreadsheetId,
-      movementRequest
-    );
-    res
-      .status(201)
-      .json({ success: true, data: "Movement created successfully" });
-  } catch (error: any) {
-    console.error("Error creating movement:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to create movement",
-      details: error?.message,
-    });
-  }
-});
-
-app.put("/movements/:movementId", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
-
-    if (!spreadsheetId) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing spreadsheet_id in headers",
-      });
-    }
-
-    const { movementId } = req.params;
-
-    // Verifica che il movimento esista
-    const existing = await TransactionsHelper.getMovement(
-      authClient,
-      spreadsheetId,
-      movementId
-    );
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: "Movement not found",
-      });
-    }
-
-    const movementRequest = req.body; // IMovementRequest
-    movementRequest.movementId = movementId; // Assicura che movementId sia corretto
-
-    if (
-      !movementRequest.transactions ||
-      !Array.isArray(movementRequest.transactions)
-    ) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing or invalid transactions array",
-      });
-    }
-
-    await TransactionsHelper.updateMovement(
-      authClient,
-      spreadsheetId,
-      movementRequest
-    );
-    res.json({ success: true, data: "Movement updated successfully" });
-  } catch (error: any) {
-    console.error("Error updating movement:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to update movement",
-      details: error?.message,
-    });
-  }
-});
-
-app.delete("/movements/:movementId", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
-
-    if (!spreadsheetId) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing spreadsheet_id in headers",
-      });
-    }
-
-    const { movementId } = req.params;
-    await TransactionsHelper.deleteMovement(
-      authClient,
-      spreadsheetId,
-      movementId
-    );
-    res.json({ success: true, data: "Movement deleted successfully" });
-  } catch (error: any) {
-    console.error("Error deleting movement:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to delete movement",
-      details: error?.message,
-    });
-  }
-});
+);
 
 // #region TRANSACTIONS ENDPOINTS
 
@@ -406,35 +635,49 @@ app.delete("/movements/:movementId", async (req: any, res: any) => {
  * Headers: refresh_token (required), spreadsheet_id (required)
  * Returns: Array di ITransaction
  */
-app.get("/transactions", async (req: any, res: any) => {
-  try {
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
-    const spreadsheetId = req.headers.spreadsheet_id;
+app.get(
+  "/transactions",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!spreadsheetId) {
-      return res.status(400).json({
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      // Ottieni tutti i movements e poi estrai le singole transazioni
+      const allTransactions = await TransactionsHelper.listTransactions(
+        authClient,
+        spreadsheetId
+      );
+
+      res.json({ success: true, data: allTransactions });
+    } catch (error: any) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({
         success: false,
-        error: "Missing spreadsheet_id in headers",
+        error: "Failed to fetch transactions",
+        details: error?.message,
       });
     }
-
-    // Ottieni tutti i movements e poi estrai le singole transazioni
-    const allTransactions = await TransactionsHelper.listTransactions(
-      authClient,
-      spreadsheetId
-    );
-
-    res.json({ success: true, data: allTransactions });
-  } catch (error: any) {
-    console.error("Error fetching transactions:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch transactions",
-      details: error?.message,
-    });
   }
-});
+);
 
 /**
  * GET /accounts-with-transactions - Load generica: restituisce tutti gli account con le loro transazioni
@@ -644,6 +887,8 @@ app.post("/generate-registration-options", (req: any, res: any) => {
       userVerification: "preferred",
     },
   }).then((options) => {
+    console.log("Generated registration options:", options);
+    console.log("Saving challenge for user:", userEmail);
     DbHelper.saveAuthChallenge(userEmail, options.challenge)
       .then(() => {
         res.json(options);
@@ -657,8 +902,10 @@ app.post("/generate-registration-options", (req: any, res: any) => {
 
 app.post("/verify-registration", async (req: any, res: any) => {
   console.log("verify-registration");
+
   const { userEmail, attestationResponse } = req.body;
 
+  console.log("Getting auth challenge for user:", userEmail);
   // Recupera utente e challenge
   DbHelper.getAuthChallenge(userEmail).then((row) => {
     if (!row) return res.status(400).send("User not found");
@@ -670,30 +917,132 @@ app.post("/verify-registration", async (req: any, res: any) => {
       60;
     if (challengeAgeMinutes > 5)
       return res.status(400).send("Challenge expired");
-    verifyRegistrationResponse({
-      response: attestationResponse,
+    console.log("Verifying registration response for user:", userEmail);
+    console.log("Registration parameters:", {
       expectedChallenge: webauthn_challenge,
       expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
       expectedRPID: process.env.RPID || "localhost",
-    }).then((verification) => {
-      if (verification.verified && verification.registrationInfo) {
-        DbHelper.saveAuthChallenge(userEmail, null);
-        DbHelper.saveUserCredentials(
-          userEmail,
-          verification.registrationInfo.credential.id,
-          base64url.encode(
-            Buffer.from(verification.registrationInfo.credential.publicKey)
-          ),
-          verification.registrationInfo.credential.counter
-        ).catch((error) => {
-          console.error("Error saving user credentials:", error);
-          return res.status(500).send("Error saving user credentials");
-        });
-        res.json({ verified: true });
-      } else {
-        res.status(400).json({ verified: false, error: "Verification failed" });
-      }
+      attestationResponse: attestationResponse,
     });
+
+    // Debug: decode and check clientDataJSON
+    try {
+      const clientDataDecoded = JSON.parse(
+        Buffer.from(
+          attestationResponse.response.clientDataJSON,
+          "base64"
+        ).toString()
+      );
+      console.log("Registration client data decoded:", clientDataDecoded);
+      console.log("Registration expected challenge:", webauthn_challenge);
+      console.log(
+        "Registration received challenge:",
+        clientDataDecoded.challenge
+      );
+      console.log(
+        "Registration challenge match:",
+        clientDataDecoded.challenge === webauthn_challenge
+      );
+      console.log(
+        "Registration expected origin:",
+        process.env.RP_ORIGIN || "http://localhost:8100"
+      );
+      console.log("Registration received origin:", clientDataDecoded.origin);
+      console.log(
+        "Registration origin match:",
+        clientDataDecoded.origin ===
+          (process.env.RP_ORIGIN || "http://localhost:8100")
+      );
+    } catch (e) {
+      console.log("Error decoding registration clientDataJSON:", e);
+    }
+
+    try {
+      console.log("About to call verifyRegistrationResponse...");
+      const verificationPromise = verifyRegistrationResponse({
+        response: attestationResponse,
+        expectedChallenge: webauthn_challenge,
+        expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
+        expectedRPID: process.env.RPID || "localhost",
+      });
+
+      console.log("verifyRegistrationResponse called, waiting for result...");
+
+      verificationPromise
+        .then((verification) => {
+          console.log("Registration verification result:", verification);
+
+          if (verification.verified && verification.registrationInfo) {
+            console.log(
+              "Verification success for user:",
+              userEmail,
+              "Saving auth challenge as null"
+            );
+            DbHelper.saveAuthChallenge(userEmail, null);
+            console.log("Saving user credentials for user:", userEmail);
+
+            const credentialId = verification.registrationInfo.credential.id;
+            const publicKeyBuffer =
+              verification.registrationInfo.credential.publicKey;
+            const counter = verification.registrationInfo.credential.counter;
+
+            console.log("Credential details:", {
+              id: credentialId,
+              publicKeyLength: publicKeyBuffer?.length,
+              counter: counter,
+            });
+
+            DbHelper.saveUserCredentials(
+              userEmail,
+              credentialId,
+              base64url.encode(Buffer.from(publicKeyBuffer)),
+              counter
+            )
+              .then(() => {
+                console.log(
+                  "User credentials saved successfully for user:",
+                  userEmail
+                );
+                res.json({ verified: true });
+              })
+              .catch((error) => {
+                console.error("Error saving user credentials:", error);
+                return res.status(500).send("Error saving user credentials");
+              });
+          } else {
+            console.log(
+              "Registration verification failed for user:",
+              userEmail,
+              "verification:",
+              verification
+            );
+            res
+              .status(400)
+              .json({ verified: false, error: "Verification failed" });
+          }
+        })
+        .catch((error) => {
+          console.error(
+            "Error verifying registration for user:",
+            userEmail,
+            error
+          );
+          res
+            .status(500)
+            .send(`Error verifying registration: ${error.message}`);
+        });
+    } catch (error) {
+      console.error(
+        "Synchronous error in verifyRegistrationResponse for user:",
+        userEmail,
+        error
+      );
+      res
+        .status(500)
+        .send(
+          `Synchronous error in verifyRegistrationResponse: ${error.message}`
+        );
+    }
   });
 });
 
@@ -733,89 +1082,130 @@ app.post("/verify-authentication", async (req, res) => {
   ).toString();
   const clientCredentialId = assertionResponse.id;
   console.log("verify-authentication for user:", userEmail);
-  DbHelper.getUserCredentials(userEmail, clientCredentialId).then((credentials) => {
-    if (!credentials || credentials.length === 0) {
-      console.warn("No credentials found for user:", userEmail);
-      return res.status(400).send("No credentials found for user");
-    }
-    if (
-      !credentials[0].credentialPublicKey ||
-      credentials[0].counter === undefined
-    ) {
-      console.warn(
-        "Missing credentialPublicKey or counter for user:",
-        userEmail
-      );
-      return res.status(400).send("Invalid credential data for user");
-    }
-   
-
-    // Convert Buffer to base64url string if needed
-    const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
-      ? base64url(credentials[0].credentialID)
-      : credentials[0].credentialID;
-    const credentialPublicKeyBuffer = Buffer.isBuffer(
-      credentials[0].credentialPublicKey
-    )
-      ? credentials[0].credentialPublicKey
-      : Buffer.from(credentials[0].credentialPublicKey, "base64url");
-
-    // Debug: decode and check clientDataJSON
-    try {
-      const clientDataDecoded = JSON.parse(
-        Buffer.from(assertionResponse.response.clientDataJSON, 'base64').toString()
-      );
-      } catch (e) {
-      console.log("Error decoding clientDataJSON:", e);
-    }
-
-   
-    verifyAuthenticationResponse({
-      response: assertionResponse,
-      expectedChallenge: challenge,
-      expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
-      expectedRPID: process.env.RPID || "localhost",
-      credential: {
-        id: credentialIDString,
-        publicKey: credentialPublicKeyBuffer,
-        counter: credentials[0].counter,
-      },
-    } as any)
-      .then((verification: any) => {
-        console.log("Verification result:", verification);
-        if (verification.verified) {
-          // Aggiorna counter in DB
-          //await updateCounter(userId, verification.authenticationInfo.newCounter);
-          // Login riuscito → genera sessione / token JWT / refresh token
-          DbHelper.updateUserLastAccess(userEmail).catch((error) => {
-            console.log(
-              "Error updating last access for user:",
-              userEmail,
-              error
-            );
-          });
-          console.log("Authentication successful for user:", userEmail);
-          res.json({
-            verified: true,
-            token: credentials[0].token,
-            userEmail: userEmail,
-          });
-        } else {
-          console.log("Authentication failed for user:", userEmail, "verification details:", verification);
-          res.status(400).json({ verified: false });
-        }
-      })
-      .catch((error) => {
-        console.log(
-          "Error verifying authentication for user:",
-          userEmail,
-          error
+  DbHelper.getUserCredentials(userEmail, clientCredentialId).then(
+    (credentials) => {
+      if (!credentials || credentials.length === 0) {
+        console.warn(
+          `Credential ${clientCredentialId} not found for user`,
+          userEmail
         );
-        res
-          .status(500)
-          .send(`Error verifying authentication: ${error.message}`);
-      });
-  });
+        return res.status(400).send("No credentials found for user");
+      }
+      if (
+        !credentials[0].credentialPublicKey ||
+        credentials[0].counter === undefined
+      ) {
+        console.warn(
+          "Missing credentialPublicKey or counter for user:",
+          userEmail
+        );
+        return res.status(400).send("Invalid credential data for user");
+      }
+
+      // Convert Buffer to base64url string if needed
+      const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
+        ? base64url(credentials[0].credentialID)
+        : credentials[0].credentialID;
+      const credentialPublicKeyBuffer = Buffer.isBuffer(
+        credentials[0].credentialPublicKey
+      )
+        ? credentials[0].credentialPublicKey
+        : Buffer.from(credentials[0].credentialPublicKey, "base64url");
+
+      // Debug: decode and check clientDataJSON
+      try {
+        const clientDataDecoded = JSON.parse(
+          Buffer.from(
+            assertionResponse.response.clientDataJSON,
+            "base64"
+          ).toString()
+        );
+      } catch (e) {
+        console.log("Error decoding clientDataJSON:", e);
+      }
+
+      verifyAuthenticationResponse({
+        response: assertionResponse,
+        expectedChallenge: challenge,
+        expectedOrigin: process.env.RP_ORIGIN || "http://localhost:8100",
+        expectedRPID: process.env.RPID || "localhost",
+        credential: {
+          id: credentialIDString,
+          publicKey: credentialPublicKeyBuffer,
+          counter: credentials[0].counter,
+        },
+      } as any)
+        .then(async (verification: any) => {
+          console.log("Verification result:", verification);
+          if (verification.verified) {
+            // Aggiorna counter in DB
+            //await updateCounter(userId, verification.authenticationInfo.newCounter);
+            // Login riuscito → genera JWT tokens
+            DbHelper.updateUserLastAccess(userEmail).catch((error) => {
+              console.log(
+                "Error updating last access for user:",
+                userEmail,
+                error
+              );
+            });
+
+            // Get user info for JWT payload
+            const user = await DbHelper.getUserByEmail(userEmail);
+            if (!user) {
+              console.error(
+                "User not found after successful authentication:",
+                userEmail
+              );
+              res
+                .status(500)
+                .json({ verified: false, error: "User not found" });
+              return;
+            }
+
+            // Generate JWT tokens
+            const tokenPayload = {
+              userId: user.user_email,
+              scopes: ["read", "write"], // Default scopes for WebAuthn users
+            };
+
+            const accessToken = JwtHelper.signAccessToken(tokenPayload);
+            const refreshToken = JwtHelper.signRefreshToken(tokenPayload);
+
+            console.log("Authentication successful for user:", userEmail);
+            res.json({
+              verified: true,
+              success: true,
+              accessToken,
+              refreshToken,
+              user: {
+                id: user.id,
+                email: user.user_email,
+                name: user.user_name,
+                picture: user.user_picture,
+              },
+            });
+          } else {
+            console.log(
+              "Authentication failed for user:",
+              userEmail,
+              "verification details:",
+              verification
+            );
+            res.status(400).json({ verified: false });
+          }
+        })
+        .catch((error) => {
+          console.log(
+            "Error verifying authentication for user:",
+            userEmail,
+            error
+          );
+          res
+            .status(500)
+            .send(`Error verifying authentication: ${error.message}`);
+        });
+    }
+  );
 });
 //#endregion
 
@@ -824,168 +1214,245 @@ app.post("/verify-authentication", async (req, res) => {
 /**
  * GET /accounts - Recupera tutti gli accounts
  */
-app.get("/accounts", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
+app.get(
+  "/accounts",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!refreshToken || !spreadsheetId) {
-      res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const accounts = await AccountsHelper.getAccounts(
+        spreadsheetId,
+        authClient
+      );
+      res.json({ success: true, data: accounts });
+    } catch (error: any) {
+      console.error("Error fetching accounts:", error);
+      res.status(500).json({
+        error: "Failed to fetch accounts",
+        details: error?.message,
       });
-      return;
     }
-
-    const accounts = await AccountsHelper.getAccounts(
-      spreadsheetId,
-      authClient
-    );
-    res.json({ success: true, data: accounts });
-  } catch (error: any) {
-    console.error("Error fetching accounts:", error);
-    res.status(500).json({
-      error: "Failed to fetch accounts",
-      details: error?.message,
-    });
   }
-});
+);
 
 /**
  * POST /accounts - Crea nuovo account
  */
-app.post("/accounts", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { name, description, balance, color, textColor } = req.body;
+app.post(
+  "/accounts",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { name, description, balance, color, textColor } = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      if (!name) {
+        return res.status(400).json({ error: "Account name is required" });
+      }
+
+      const account = await AccountsHelper.createAccount(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        {
+          name,
+          description: description || "",
+          balance: balance || "0,00",
+          color: color || "#808080",
+          textColor: textColor || "#ffffff",
+        }
+      );
+
+      res.json({ success: true, data: account });
+    } catch (error) {
+      console.error("Error creating account:", error);
+      res.status(500).json({
+        error: "Failed to create account",
+        details: error.message,
       });
     }
-
-    if (!name) {
-      return res.status(400).json({ error: "Account name is required" });
-    }
-
-    const account = await AccountsHelper.createAccount(
-      spreadsheetId,
-      refreshToken,
-      {
-        name,
-        description: description || "",
-        balance: balance || "0,00",
-        color: color || "#808080",
-        textColor: textColor || "#ffffff",
-      }
-    );
-
-    res.json({ success: true, data: account });
-  } catch (error) {
-    console.error("Error creating account:", error);
-    res.status(500).json({
-      error: "Failed to create account",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * PUT /accounts/:accountId - Aggiorna account esistente
  */
-app.put("/accounts/:accountId", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { accountId } = req.params;
-    const updateData = req.body;
+app.put(
+  "/accounts/:accountId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { accountId } = req.params;
+      const updateData = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const updatedAccount = await AccountsHelper.updateAccount(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        accountId,
+        updateData
+      );
+
+      res.json({ success: true, data: updatedAccount });
+    } catch (error) {
+      console.error("Error updating account:", error);
+      res.status(500).json({
+        error: "Failed to update account",
+        details: error.message,
       });
     }
-
-    const updatedAccount = await AccountsHelper.updateAccount(
-      spreadsheetId,
-      refreshToken,
-      accountId,
-      updateData
-    );
-
-    res.json({ success: true, data: updatedAccount });
-  } catch (error) {
-    console.error("Error updating account:", error);
-    res.status(500).json({
-      error: "Failed to update account",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * DELETE /accounts/:accountId - Elimina account (soft delete)
  */
-app.delete("/accounts/:accountId", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { accountId } = req.params;
+app.delete(
+  "/accounts/:accountId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { accountId } = req.params;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      await AccountsHelper.deleteAccount(spreadsheetId, userEmail, accountId);
+      res.json({ success: true, message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      res.status(500).json({
+        error: "Failed to delete account",
+        details: error.message,
       });
     }
-
-    await AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
-    res.json({ success: true, message: "Account deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting account:", error);
-    res.status(500).json({
-      error: "Failed to delete account",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /accounts/batch - Crea multipli accounts in batch
  */
-app.post("/accounts/batch", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { accounts } = req.body;
+app.post(
+  "/accounts/batch",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { accounts } = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        return res.status(400).json({ error: "Accounts array is required" });
+      }
+
+      const createdAccounts = await AccountsHelper.createAccountsBatch(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        accounts
+      );
+
+      res.json({ success: true, data: createdAccounts });
+    } catch (error) {
+      console.error("Error creating accounts batch:", error);
+      res.status(500).json({
+        error: "Failed to create accounts batch",
+        details: error.message,
       });
     }
-
-    if (!Array.isArray(accounts) || accounts.length === 0) {
-      return res.status(400).json({ error: "Accounts array is required" });
-    }
-
-    const createdAccounts = await AccountsHelper.createAccountsBatch(
-      spreadsheetId,
-      refreshToken,
-      accounts
-    );
-
-    res.json({ success: true, data: createdAccounts });
-  } catch (error) {
-    console.error("Error creating accounts batch:", error);
-    res.status(500).json({
-      error: "Failed to create accounts batch",
-      details: error.message,
-    });
   }
-});
+);
 
 //#endregion
 
@@ -994,171 +1461,248 @@ app.post("/accounts/batch", async (req: any, res: any) => {
 /**
  * GET /categories - Recupera tutte le categorie
  */
-app.get("/categories", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
-    const authClient = google.auth.fromJSON(authHeaders);
+app.get(
+  "/categories",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!refreshToken || !spreadsheetId) {
-      res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const categories = await CategoriesHelper.getCategories(
+        spreadsheetId,
+        authClient
+      );
+      res.json({ success: true, data: categories });
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({
+        error: "Failed to fetch categories",
+        details: error.message,
       });
-      return;
     }
-
-    const categories = await CategoriesHelper.getCategories(
-      spreadsheetId,
-      authClient
-    );
-    res.json({ success: true, data: categories });
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-    res.status(500).json({
-      error: "Failed to fetch categories",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /categories - Crea nuova categoria
  */
-app.post("/categories", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { name, description, color, icon } = req.body;
+app.post(
+  "/categories",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { name, description, color, icon } = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      if (!name) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+
+      const category = await CategoriesHelper.createCategory(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        {
+          name,
+          description: description || "",
+          color: color || "#808080",
+          icon: icon || "",
+        }
+      );
+
+      res.json({ success: true, data: category });
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({
+        error: "Failed to create category",
+        details: error.message,
       });
     }
-
-    if (!name) {
-      return res.status(400).json({ error: "Category name is required" });
-    }
-
-    const category = await CategoriesHelper.createCategory(
-      spreadsheetId,
-      refreshToken,
-      {
-        name,
-        description: description || "",
-        color: color || "#808080",
-        icon: icon || "",
-      }
-    );
-
-    res.json({ success: true, data: category });
-  } catch (error) {
-    console.error("Error creating category:", error);
-    res.status(500).json({
-      error: "Failed to create category",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * PUT /categories/:categoryId - Aggiorna categoria esistente
  */
-app.put("/categories/:categoryId", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { categoryId } = req.params;
-    const updateData = req.body;
+app.put(
+  "/categories/:categoryId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { categoryId } = req.params;
+      const updateData = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const updatedCategory = await CategoriesHelper.updateCategory(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        categoryId,
+        updateData
+      );
+
+      res.json({ success: true, data: updatedCategory });
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({
+        error: "Failed to update category",
+        details: error.message,
       });
     }
-
-    const updatedCategory = await CategoriesHelper.updateCategory(
-      spreadsheetId,
-      refreshToken,
-      categoryId,
-      updateData
-    );
-
-    res.json({ success: true, data: updatedCategory });
-  } catch (error) {
-    console.error("Error updating category:", error);
-    res.status(500).json({
-      error: "Failed to update category",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * DELETE /categories/:categoryId - Elimina categoria (soft delete)
  */
-app.delete("/categories/:categoryId", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { categoryId } = req.params;
+app.delete(
+  "/categories/:categoryId",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { categoryId } = req.params;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      await CategoriesHelper.deleteCategory(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        categoryId
+      );
+      res.json({ success: true, message: "Category deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({
+        error: "Failed to delete category",
+        details: error.message,
       });
     }
-
-    await CategoriesHelper.deleteCategory(
-      spreadsheetId,
-      refreshToken,
-      categoryId
-    );
-    res.json({ success: true, message: "Category deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting category:", error);
-    res.status(500).json({
-      error: "Failed to delete category",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /categories/batch - Crea multiple categorie in batch
  */
-app.post("/categories/batch", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
-    const { categories } = req.body;
+app.post(
+  "/categories/batch",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { categories } = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      if (!Array.isArray(categories) || categories.length === 0) {
+        return res.status(400).json({ error: "Categories array is required" });
+      }
+
+      const createdCategories = await CategoriesHelper.createCategoriesBatch(
+        spreadsheetId,
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        categories
+      );
+
+      res.json({ success: true, data: createdCategories });
+    } catch (error) {
+      console.error("Error creating categories batch:", error);
+      res.status(500).json({
+        error: "Failed to create categories batch",
+        details: error.message,
       });
     }
-
-    if (!Array.isArray(categories) || categories.length === 0) {
-      return res.status(400).json({ error: "Categories array is required" });
-    }
-
-    const createdCategories = await CategoriesHelper.createCategoriesBatch(
-      spreadsheetId,
-      refreshToken,
-      categories
-    );
-
-    res.json({ success: true, data: createdCategories });
-  } catch (error) {
-    console.error("Error creating categories batch:", error);
-    res.status(500).json({
-      error: "Failed to create categories batch",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /categories/default - Recupera categorie default del sistema
@@ -1183,95 +1727,119 @@ app.get("/categories/default", async (req, res) => {
 /**
  * POST /spreadsheet/create - Crea nuovo spreadsheet vuoto
  */
-app.post("/spreadsheet/create", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const { title, userEmail } = req.body;
+app.post(
+  "/spreadsheet/create",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { title } = req.body;
 
-    if (!refreshToken) {
-      return res.status(400).json({
-        error: "Missing refresh_token in headers",
+      if (!title) {
+        return res.status(400).json({
+          error: "Title is required",
+        });
+      }
+
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      const spreadsheetId = await SpreadsheetsHelper.createSpreadsheet(
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        title,
+        userEmail
+      );
+
+      res.json({ success: true, data: { spreadsheetId } });
+    } catch (error) {
+      console.error("Error creating spreadsheet:", error);
+      res.status(500).json({
+        error: "Failed to create spreadsheet",
+        details: error.message,
       });
     }
-
-    if (!title || !userEmail) {
-      return res.status(400).json({
-        error: "Title and userEmail are required",
-      });
-    }
-
-    const spreadsheetId = await SpreadsheetsHelper.createSpreadsheet(
-      refreshToken,
-      title,
-      userEmail
-    );
-
-    res.json({ success: true, data: { spreadsheetId } });
-  } catch (error) {
-    console.error("Error creating spreadsheet:", error);
-    res.status(500).json({
-      error: "Failed to create spreadsheet",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /spreadsheet/initialize - Setup headers e struttura iniziale
  */
-app.post("/spreadsheet/initialize", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const { spreadsheetId } = req.body;
+app.post(
+  "/spreadsheet/initialize",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
+      const { spreadsheetId } = req.body;
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token in headers or spreadsheetId in body",
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          error: "Missing spreadsheetId in body",
+        });
+      }
+
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
+      res.json({
+        success: true,
+        message: "Spreadsheet initialized successfully",
+      });
+    } catch (error) {
+      console.error("Error initializing spreadsheet:", error);
+      res.status(500).json({
+        error: "Failed to initialize spreadsheet",
+        details: error.message,
       });
     }
-
-    await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, refreshToken);
-    res.json({
-      success: true,
-      message: "Spreadsheet initialized successfully",
-    });
-  } catch (error) {
-    console.error("Error initializing spreadsheet:", error);
-    res.status(500).json({
-      error: "Failed to initialize spreadsheet",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /spreadsheet/validate - Valida struttura spreadsheet esistente
  */
-app.get("/spreadsheet/validate", async (req: any, res: any) => {
-  try {
-    const refreshToken = req.headers.refresh_token as string;
-    const spreadsheetId = req.headers.spreadsheet_id as string;
+app.get(
+  "/spreadsheet/validate",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId; // From auth middleware (now contains email)
 
-    if (!refreshToken || !spreadsheetId) {
-      return res.status(400).json({
-        error: "Missing refresh_token or spreadsheet_id in headers",
+      // Get user's Google auth client
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(userEmail);
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+      }
+
+      const validation = await SpreadsheetsHelper.validateSpreadsheetStructure(
+        spreadsheetId,
+        userEmail // Pass userEmail as refreshToken parameter (will need Helper refactor)
+      );
+
+      res.json({ success: true, data: validation });
+    } catch (error) {
+      console.error("Error validating spreadsheet:", error);
+      res.status(500).json({
+        error: "Failed to validate spreadsheet",
+        details: error.message,
       });
     }
-
-    const validation = await SpreadsheetsHelper.validateSpreadsheetStructure(
-      spreadsheetId,
-      refreshToken
-    );
-
-    res.json({ success: true, data: validation });
-  } catch (error) {
-    console.error("Error validating spreadsheet:", error);
-    res.status(500).json({
-      error: "Failed to validate spreadsheet",
-      details: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /spreadsheet/template - Ottieni dati template per nuovo setup

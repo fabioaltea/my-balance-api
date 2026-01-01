@@ -123,6 +123,7 @@ class DbHelper {
     }
     static getAuthChallenge(userEmail) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log("DbHelper.getAuthChallenge called for user:", userEmail);
             const client = yield DbHelper._pool.connect();
             try {
                 const { rows } = yield client.query(`SELECT webauthn_challenge, webauthn_challenge_created FROM users WHERE user_email = $1`, [userEmail]);
@@ -180,6 +181,273 @@ class DbHelper {
     static hashPin(pin) {
         const hash = crypto_js_1.default.SHA256(pin);
         return hash.toString(crypto_js_1.default.enc.Hex);
+    }
+    // === NEW AUTHENTICATION METHODS ===
+    /**
+     * Get user by email
+     */
+    static getUserByEmail(email) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT id, user_email, google_sub, email_verified, 
+                credential_public_key, counter, created_at, last_access, spreadsheet_id 
+         FROM users WHERE user_email = $1`, [email]);
+                return rows.length > 0 ? rows[0] : null;
+            }
+            catch (error) {
+                console.error("Error getting user by email:", error);
+                throw new Error("Error getting user by email");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Get user by ID
+     */
+    static getUserById(userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT id, user_email, google_sub, email_verified, 
+                credential_public_key, counter, created_at, last_access, spreadsheet_id 
+         FROM users WHERE id = $1`, [userId]);
+                return rows.length > 0 ? rows[0] : null;
+            }
+            catch (error) {
+                console.error("Error getting user by ID:", error);
+                throw new Error("Error getting user by ID");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Create new user
+     */
+    static createUser(userData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`INSERT INTO users (user_email, google_sub, email_verified, created_at, last_access) 
+         VALUES ($1, $2, $3, NOW(), NOW()) 
+         RETURNING id, user_email, google_sub, email_verified, created_at, last_access`, [userData.email, userData.googleSub, userData.emailVerified]);
+                return rows[0];
+            }
+            catch (error) {
+                console.error("Error creating user:", error);
+                throw new Error("Error creating user");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Update user information
+     */
+    static updateUser(userEmail, userData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const updateFields = [];
+                const values = [];
+                let paramIndex = 1;
+                if (userData.emailVerified !== undefined) {
+                    updateFields.push(`email_verified = $${paramIndex++}`);
+                    values.push(userData.emailVerified);
+                }
+                if (userData.googleSub !== undefined) {
+                    updateFields.push(`google_sub = $${paramIndex++}`);
+                    values.push(userData.googleSub);
+                }
+                if (userData.spreadsheetId !== undefined) {
+                    updateFields.push(`spreadsheet_id = $${paramIndex++}`);
+                    values.push(userData.spreadsheetId);
+                }
+                updateFields.push(`last_access = NOW()`);
+                values.push(userEmail);
+                yield client.query(`UPDATE users SET ${updateFields.join(", ")} WHERE user_email = $${paramIndex}`, values);
+            }
+            catch (error) {
+                console.error("Error updating user:", error);
+                throw new Error("Error updating user");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Store encrypted Google refresh token
+     */
+    static storeGoogleRefreshToken(userEmail, encryptedToken) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET google_refresh_token = $1 WHERE user_email = $2`, [encryptedToken, userEmail]);
+            }
+            catch (error) {
+                console.error("Error storing Google refresh token:", error);
+                throw new Error("Error storing Google refresh token");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Get encrypted Google refresh token
+     */
+    static getGoogleRefreshToken(userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT google_refresh_token FROM users WHERE user_email = $1`, [userEmail]);
+                return rows.length > 0 ? rows[0].google_refresh_token : null;
+            }
+            catch (error) {
+                console.error("Error getting Google refresh token:", error);
+                throw new Error("Error getting Google refresh token");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Create session
+     */
+    static createSession(sessionData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`INSERT INTO sessions (user_email, device_id, refresh_token_hash, expires_at, scopes, created_at) 
+         VALUES ($1, $2, $3, $4, $5, NOW()) 
+         RETURNING id`, [sessionData.userEmail, sessionData.deviceId, sessionData.refreshTokenHash,
+                    sessionData.expiresAt, JSON.stringify(sessionData.scopes)]);
+                return rows[0].id;
+            }
+            catch (error) {
+                console.error("Error creating session:", error);
+                throw new Error("Error creating session");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Get session by device ID
+     */
+    static getSessionByDeviceId(deviceId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT id, user_email, device_id, refresh_token_hash, expires_at, scopes, created_at 
+         FROM sessions WHERE device_id = $1 AND expires_at > NOW() 
+         ORDER BY created_at DESC LIMIT 1`, [deviceId]);
+                if (rows.length > 0) {
+                    const row = rows[0];
+                    return Object.assign(Object.assign({}, row), { scopes: JSON.parse(row.scopes || '[]') });
+                }
+                return null;
+            }
+            catch (error) {
+                console.error("Error getting session:", error);
+                throw new Error("Error getting session");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Update session
+     */
+    static updateSession(sessionId, updateData) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const updateFields = [];
+                const values = [];
+                let paramIndex = 1;
+                if (updateData.refreshTokenHash !== undefined) {
+                    updateFields.push(`refresh_token_hash = $${paramIndex++}`);
+                    values.push(updateData.refreshTokenHash);
+                }
+                if (updateData.expiresAt !== undefined) {
+                    updateFields.push(`expires_at = $${paramIndex++}`);
+                    values.push(updateData.expiresAt);
+                }
+                values.push(sessionId);
+                yield client.query(`UPDATE sessions SET ${updateFields.join(", ")} WHERE id = $${paramIndex}`, values);
+            }
+            catch (error) {
+                console.error("Error updating session:", error);
+                throw new Error("Error updating session");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Revoke session by device ID
+     */
+    static revokeSession(deviceId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE sessions SET expires_at = NOW() WHERE device_id = $1`, [deviceId]);
+            }
+            catch (error) {
+                console.error("Error revoking session:", error);
+                throw new Error("Error revoking session");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Update WebAuthn counter
+     */
+    static updateWebAuthnCounter(userId, newCounter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET webauthn_counter = $1 WHERE id = $2`, [newCounter, userId]);
+            }
+            catch (error) {
+                console.error("Error updating WebAuthn counter:", error);
+                throw new Error("Error updating WebAuthn counter");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Clean expired sessions
+     */
+    static cleanExpiredSessions() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`DELETE FROM sessions WHERE expires_at < NOW()`);
+            }
+            catch (error) {
+                console.error("Error cleaning expired sessions:", error);
+                throw new Error("Error cleaning expired sessions");
+            }
+            finally {
+                client.release();
+            }
+        });
     }
 }
 exports.DbHelper = DbHelper;
