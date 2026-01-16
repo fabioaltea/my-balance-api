@@ -26,8 +26,11 @@ const server_1 = require("@simplewebauthn/server");
 const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 // NEW AUTHENTICATION IMPORTS
 const auth_routes_1 = require("./auth/routes/auth.routes");
+const accounts_routes_1 = require("./auth/routes/accounts.routes");
+const categories_routes_1 = require("./auth/routes/categories.routes");
+const transactions_routes_1 = require("./auth/routes/transactions.routes");
+const movements_routes_1 = require("./auth/routes/movements.routes");
 const requireAuth_middleware_1 = require("./auth/middleware/requireAuth.middleware");
-const crypto_helper_1 = require("./auth/helpers/crypto.helper");
 const GoogleAuthHelper_1 = require("./helpers/GoogleAuthHelper");
 const jwt_helper_1 = require("./auth/helpers/jwt.helper");
 const app = (0, express_1.default)();
@@ -48,6 +51,17 @@ const corsOptions = {
     ],
     credentials: true,
 };
+// Very first middleware - should catch ALL requests
+app.use("*", (req, res, next) => {
+    console.log(`🚨 === RAW REQUEST RECEIVED ===`);
+    console.log(`🚨 Timestamp: ${new Date().toISOString()}`);
+    console.log(`🚨 Method: ${req.method}`);
+    console.log(`🚨 Original URL: ${req.originalUrl}`);
+    console.log(`🚨 Headers:`, req.headers);
+    console.log(`🚨 User-Agent: ${req.headers["user-agent"]}`);
+    console.log(`🚨 Origin: ${req.headers.origin}`);
+    next();
+});
 app.use((0, cors_1.default)(corsOptions));
 app.options("*", (0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
@@ -55,11 +69,21 @@ app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.raw());
 app.use((req, res, next) => {
-    console.log("Passing through express. REQ:", req.method, req.url);
+    console.log("=== INCOMING REQUEST ===");
+    console.log("Method:", req.method);
+    console.log("URL:", req.url);
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Body:", req.body);
+    console.log("========================");
     next();
 });
 // NEW AUTHENTICATION ROUTES
 app.use("/auth", auth_routes_1.authRoutes);
+// NEW ORGANIZED API ROUTES
+app.use("/accounts", accounts_routes_1.accountsRoutes);
+app.use("/categories", categories_routes_1.categoriesRoutes);
+app.use("/transactions", transactions_routes_1.transactionsRoutes);
+app.use("/movements", movements_routes_1.movementsRoutes);
 // User data endpoints (protected)
 app.get("/user/spreadsheet", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -112,31 +136,30 @@ app.post("/user/last-access", requireAuth_middleware_1.RequireAuthMiddleware.ver
     }
 }));
 // Helper endpoint to get user's decrypted Google token (for server-side Google API calls)
-app.get("/internal/google-token/:userEmail", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { userEmail } = req.params;
-        // This is an internal endpoint - add IP whitelist or other security in production
-        const encryptedToken = yield DbHelper_1.DbHelper.getGoogleRefreshToken(userEmail);
-        if (!encryptedToken) {
-            return res.status(404).json({
-                success: false,
-                error: "No Google token found for user",
-            });
-        }
-        const decryptedToken = crypto_helper_1.CryptoHelper.decrypt(encryptedToken);
-        res.json({
-            success: true,
-            refreshToken: decryptedToken,
-        });
-    }
-    catch (error) {
-        console.error("Error getting Google token:", error);
-        res.status(500).json({
-            success: false,
-            error: "Failed to retrieve Google token",
-        });
-    }
-}));
+// app.get("/internal/google-token/:userEmail", async (req: any, res: any) => {
+//   try {
+//     const { userEmail } = req.params;
+//     // This is an internal endpoint - add IP whitelist or other security in production
+//     const encryptedToken = await DbHelper.getGoogleRefreshToken(userEmail);
+//     if (!encryptedToken) {
+//       return res.status(404).json({
+//         success: false,
+//         error: "No Google token found for user",
+//       });
+//     }
+//     const decryptedToken = CryptoHelper.decrypt(encryptedToken);
+//     res.json({
+//       success: true,
+//       refreshToken: decryptedToken,
+//     });
+//   } catch (error: any) {
+//     console.error("Error getting Google token:", error);
+//     res.status(500).json({
+//       success: false,
+//       error: "Failed to retrieve Google token",
+//     });
+//   }
+// });
 app.get("/", (req, res) => {
     res.send("API Working");
 });
@@ -146,8 +169,9 @@ app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res
     console.log("get");
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
+        const deviceType = req.deviceType || "web"; // From auth middleware
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
@@ -175,7 +199,8 @@ app.post("/update", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
@@ -204,7 +229,8 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
@@ -258,7 +284,8 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
@@ -284,11 +311,18 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
     }
 }));
 // New RESTful movements endpoints
-app.get("/movements", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+console.log("🔧 Setting up MOVEMENTS routes...");
+console.log("🔧 Defining GET /movements route...");
+app.get("/movements", (req, res, next) => {
+    console.log("🔧 GET /movements route hit - before auth middleware");
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        console.log("🔄 GET /movements endpoint hit!");
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -316,7 +350,8 @@ app.get("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         const { movementId } = req.params;
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
@@ -351,7 +386,8 @@ app.post("/movements", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -389,7 +425,8 @@ app.put("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -435,7 +472,8 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -461,16 +499,29 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
     }
 }));
 // #region TRANSACTIONS ENDPOINTS
+console.log("🔧 Setting up TRANSACTIONS routes...");
 /**
  * GET /transactions - Restituisce tutte le transazioni individuali estratte dai movements
  * Headers: refresh_token (required), spreadsheet_id (required)
  * Returns: Array di ITransaction
  */
-app.get("/transactions", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+console.log("🔧 Defining GET /transactions route...");
+app.get("/transactions", (req, res, next) => {
+    console.log("🔧 GET /transactions route hit - before auth middleware");
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        console.log("🔄 =============");
+        console.log("🔄 GET /transactions endpoint hit!");
+        console.log("🔄 User ID:", req.userId);
+        console.log("🔄 Device Type:", req.deviceType);
+        console.log("🔄 Query params:", req.query);
+        console.log("🔄 Headers:", req.headers);
+        console.log("🔄 =============");
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -482,12 +533,57 @@ app.get("/transactions", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
+        console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
         // Ottieni tutti i movements e poi estrai le singole transazioni
         const allTransactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
+        console.log("🔄 Transactions loaded successfully:", allTransactions.length);
         res.json({ success: true, data: allTransactions });
     }
     catch (error) {
-        console.error("Error fetching transactions:", error);
+        console.error("❌ Error fetching transactions:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch transactions",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
+/**
+ * GET /transactions/:spreadsheetId - Restituisce tutte le transazioni per un specifico spreadsheet
+ */
+console.log("🔧 Defining GET /transactions/:spreadsheetId route...");
+app.get("/transactions/:spreadsheetId", (req, res, next) => {
+    console.log("🔧 GET /transactions/:spreadsheetId route hit - before auth middleware");
+    console.log("🔧 Spreadsheet ID from path:", req.params.spreadsheetId);
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        console.log("🔄 =============");
+        console.log("🔄 GET /transactions/:spreadsheetId endpoint hit!");
+        console.log("🔄 User ID:", req.userId);
+        console.log("🔄 Device Type:", req.deviceType);
+        console.log("🔄 Spreadsheet ID:", req.params.spreadsheetId);
+        console.log("🔄 =============");
+        const userEmail = req.userId; // From auth middleware (now contains email)
+        // Get user's Google auth client
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        // Use spreadsheet ID from path
+        const spreadsheetId = req.params.spreadsheetId;
+        if (!spreadsheetId) {
+            return res.status(400).json({
+                success: false,
+                error: "No spreadsheet ID provided",
+            });
+        }
+        console.log("📊 Reading transactions from spreadsheet:", spreadsheetId);
+        // Get all transactions using TransactionsHelper
+        const allTransactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
+        console.log("🔄 Transactions loaded successfully:", allTransactions.length);
+        res.json({ success: true, data: allTransactions });
+    }
+    catch (error) {
+        console.error("❌ Error fetching transactions with spreadsheet ID:", error);
         res.status(500).json({
             success: false,
             error: "Failed to fetch transactions",
@@ -603,64 +699,63 @@ app.get("/transactions", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
 // });
 //#endregion
 //#region CustomCredentials
-app.get("/retrieveDbCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        DbHelper_1.DbHelper.getDbCredentials(req.headers.user_email, DbHelper_1.DbHelper.hashPin(req.headers.pin)).then((info) => {
-            if (info)
-                res.status(200).send({
-                    token: info.token,
-                    spreadsheetId: info.spreadsheet_id,
-                });
-            else
-                res.status(401).send("Unauthorized");
-        });
-    }
-    catch (ex) {
-        res.status(500).send("Error. ex: " + ex.message);
-    }
-}));
-app.get("/auth", (req, res) => {
-    GoogleHelper_1.GoogleHelper.authenticate(req)
-        .then((authUrl) => {
-        res.send({ url: authUrl });
-    })
-        .catch();
-});
-app.get("/getToken", (req, res) => {
-    GoogleHelper_1.GoogleHelper.authorize(req.query.code)
-        .then((tokens) => {
-        res.send(tokens);
-    })
-        .catch((ex) => {
-        res.status(500).send(ex.message);
-    });
-});
-app.get("/checkCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const authHeaders = GoogleHelper_1.GoogleHelper.parseAuthHeaders(req.headers);
-    yield GoogleHelper_1.GoogleHelper.checkCredentials(authHeaders)
-        .then((r) => {
-        if (r) {
-            res.status(200).send(r);
-        }
-        else {
-            res.status(401).send("Unauthorized");
-        }
-    })
-        .catch((ex) => {
-        res.status(500).send(ex.message);
-    });
-}));
-app.post("/saveCredentials", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("saveCredentials");
-    try {
-        const r = yield DbHelper_1.DbHelper.saveUserToken(req.body.user_email, req.body.token);
-        res.send({ status: "OK" });
-    }
-    catch (ex) {
-        console.error(ex);
-        res.status(500).send(ex.message);
-    }
-}));
+// app.get("/retrieveDbCredentials", async (req: any, res: any) => {
+//   try {
+//     DbHelper.getDbCredentials(
+//       req.headers.user_email,
+//       DbHelper.hashPin(req.headers.pin)
+//     ).then((info) => {
+//       if (info)
+//         res.status(200).send({
+//           token: info.token,
+//           spreadsheetId: info.spreadsheet_id,
+//         });
+//       else res.status(401).send("Unauthorized");
+//     });
+//   } catch (ex) {
+//     res.status(500).send("Error. ex: " + ex.message);
+//   }
+// });
+// app.get("/auth", (req: any, res: any) => {
+//   GoogleHelper.authenticate(req)
+//     .then((authUrl) => {
+//       res.send({ url: authUrl });
+//     })
+//     .catch();
+// });
+// app.get("/getToken", (req: any, res: any) => {
+//   GoogleHelper.authorize(req.query.code)
+//     .then((tokens) => {
+//       res.send(tokens);
+//     })
+//     .catch((ex) => {
+//       res.status(500).send(ex.message);
+//     });
+// });
+// app.get("/checkCredentials", async (req: any, res: any) => {
+//   const authHeaders = GoogleHelper.parseAuthHeaders(req.headers);
+//   await GoogleHelper.checkCredentials(authHeaders)
+//     .then((r) => {
+//       if (r) {
+//         res.status(200).send(r);
+//       } else {
+//         res.status(401).send("Unauthorized");
+//       }
+//     })
+//     .catch((ex) => {
+//       res.status(500).send(ex.message);
+//     });
+// });
+// app.post("/saveCredentials", async (req: any, res: any) => {
+//   console.log("saveCredentials");
+//   try {
+//     const r = await DbHelper.saveUserToken(req.body.user_email, req.body.token);
+//     res.send({ status: "OK" });
+//   } catch (ex) {
+//     console.error(ex);
+//     res.status(500).send(ex.message);
+//   }
+// });
 //#endregion
 //#region WebAuthn
 app.post("/generate-registration-options", (req, res) => {
@@ -902,15 +997,26 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
     });
 }));
 //#endregion
-//#region Accounts Controllers
-/**
- * GET /accounts - Recupera tutti gli accounts
- */
-app.get("/accounts", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+// ==============================
+// ACCOUNTS ROUTES MOVED TO: /auth/routes/accounts.routes.ts
+// ==============================
+//#region Categories Controllers
+// GET /accounts - MOVED TO: /auth/routes/accounts.routes.ts
+app.get("/accounts", (req, res, next) => {
+    console.log("🔧 GET /accounts route hit - before auth middleware");
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        console.log("💰 =============");
+        console.log("💰 GET /accounts endpoint hit!");
+        console.log("💰 User ID:", req.userId);
+        console.log("💰 Device Type:", req.deviceType);
+        console.log("💰 Query params:", req.query);
+        console.log("💰 =============");
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -936,12 +1042,17 @@ app.get("/accounts", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req
 /**
  * POST /accounts - Crea nuovo account
  */
-app.post("/accounts", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+console.log("🔧 Defining POST /accounts route...");
+app.post("/accounts", (req, res, next) => {
+    console.log("🔧 POST /accounts route hit - before auth middleware");
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { name, description, balance, color, textColor } = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -983,7 +1094,8 @@ app.put("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddleware.v
         const { accountId } = req.params;
         const updateData = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1015,7 +1127,8 @@ app.delete("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddlewar
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { accountId } = req.params;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1046,7 +1159,8 @@ app.post("/accounts/batch", requireAuth_middleware_1.RequireAuthMiddleware.verif
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { accounts } = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1082,7 +1196,8 @@ app.get("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1113,7 +1228,8 @@ app.post("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { name, description, color, icon } = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1154,7 +1270,8 @@ app.put("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddlewar
         const { categoryId } = req.params;
         const updateData = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1186,7 +1303,8 @@ app.delete("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddle
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { categoryId } = req.params;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1218,7 +1336,8 @@ app.post("/categories/batch", requireAuth_middleware_1.RequireAuthMiddleware.ver
         const userEmail = req.userId; // From auth middleware (now contains email)
         const { categories } = req.body;
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1276,7 +1395,8 @@ app.post("/spreadsheet/create", requireAuth_middleware_1.RequireAuthMiddleware.v
             });
         }
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         const spreadsheetId = yield SpreadsheetsHelper_1.SpreadsheetsHelper.createSpreadsheet(userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         title, userEmail);
         res.json({ success: true, data: { spreadsheetId } });
@@ -1302,7 +1422,8 @@ app.post("/spreadsheet/initialize", requireAuth_middleware_1.RequireAuthMiddlewa
             });
         }
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         yield SpreadsheetsHelper_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
         res.json({
             success: true,
@@ -1324,7 +1445,8 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
     try {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail);
+        const deviceType = req.deviceType || "web"; // From auth middleware
+        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
@@ -1365,7 +1487,24 @@ app.get("/spreadsheet/template", (req, res) => __awaiter(void 0, void 0, void 0,
     }
 }));
 //#endregion
-app.listen(port, () => {
-    return console.log(`Server is listening on ${port}`);
+// Catch-all middleware for debugging - should be LAST
+app.use("*", (req, res, next) => {
+    console.log(`🔍 === CATCH-ALL MIDDLEWARE ===`);
+    console.log(`🔍 Method: ${req.method}`);
+    console.log(`🔍 URL: ${req.originalUrl}`);
+    console.log(`🔍 No route matched - sending 404`);
+    res.status(404).json({ error: "Route not found" });
 });
+app.listen(port, () => {
+    console.log("🚀 =================================");
+    console.log(`🚀 MyBalance API Server is running on port ${port}`);
+    console.log("🚀 =================================");
+    console.log("🔧 Routes setup complete");
+    console.log("🔧 Auth middleware initialized");
+    console.log("🔧 Ready to accept requests");
+    console.log("🚀 =================================");
+});
+console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || "development"}`);
+console.log(`🚀 CORS Origin: ${process_1.default.env.ORIGIN_URL || "http://localhost:8100"}`);
+console.log("🚀 =================================");
 //# sourceMappingURL=index.js.map

@@ -4,6 +4,7 @@ import { JwtHelper } from "../helpers/jwt.helper";
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   scopes?: string[];
+  deviceType?: "web" | "ios" | "android";
 }
 
 export class RequireAuthMiddleware {
@@ -15,11 +16,18 @@ export class RequireAuthMiddleware {
     res: Response,
     next: NextFunction
   ): void {
+    console.log("🔐 === AUTH MIDDLEWARE START ===");
     try {
       const authHeader = req.headers.authorization;
       const token = JwtHelper.extractTokenFromHeader(authHeader);
+      console.log(
+        "🔐 Authorization header:",
+        authHeader ? "present" : "missing"
+      );
+      console.log("🔐 Extracted token:", token ? "present" : "missing");
 
       if (!token) {
+        console.log("❌ No token found, returning 401");
         res.status(401).json({
           success: false,
           error: "Missing authorization token",
@@ -28,15 +36,23 @@ export class RequireAuthMiddleware {
         return;
       }
 
+      console.log("🔐 Verifying access token...");
       const payload = JwtHelper.verifyAccessToken(token);
+      console.log("✅ Token verified successfully. Payload:", {
+        userId: payload.userId,
+        scopes: payload.scopes,
+        deviceType: payload.deviceType,
+      });
 
       // Attach user info to request
       req.userId = payload.userId;
       req.scopes = payload.scopes;
+      req.deviceType = payload.deviceType || "web"; // Default to web if not specified
 
+      console.log("🔐 Auth middleware completed successfully, calling next()");
       next();
     } catch (error: any) {
-      console.error("Authentication middleware error:", error);
+      console.error("❌ Authentication middleware error:", error);
 
       let errorCode = "INVALID_TOKEN";
       let message = "Invalid or expired access token";
@@ -46,12 +62,14 @@ export class RequireAuthMiddleware {
         message = "Access token has expired";
       }
 
+      console.log("❌ Returning auth error:", { errorCode, message });
       res.status(401).json({
         success: false,
         error: message,
         code: errorCode,
       });
     }
+    console.log("🔐 === AUTH MIDDLEWARE END ===");
   }
 
   /**

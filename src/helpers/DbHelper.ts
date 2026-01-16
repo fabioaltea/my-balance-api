@@ -5,7 +5,6 @@ import base64url from "base64url/dist/base64url";
 // New interfaces for authentication
 export interface CreateUserRequest {
   email: string;
-  googleSub: string;
   name: string;
   picture: string;
   emailVerified: boolean;
@@ -15,21 +14,20 @@ export interface UpdateUserRequest {
   name?: string;
   picture?: string;
   emailVerified?: boolean;
-  googleSub?: string;
   spreadsheetId?: string;
 }
 
 export interface CreateSessionRequest {
   userEmail: string;
   deviceId: string;
-  refreshTokenHash: string;
-  expiresAt: Date;
   scopes: string[];
+  deviceType?: "web" | "ios" | "android";
+  googleRefreshToken?: string; // Encrypted Google refresh token for this session
 }
 
 export interface UpdateSessionRequest {
-  refreshTokenHash?: string;
-  expiresAt?: Date;
+  scopes?: string[];
+  deviceType?: string;
 }
 
 export class DbHelper {
@@ -55,7 +53,7 @@ export class DbHelper {
     try {
       const { rows } = await client.query(
         "SELECT token, spreadsheet_id FROM users WHERE user_email = $1 AND pin = $2",
-        [userEmail, pin]
+        [userEmail, pin],
       );
       if (rows.length < 1) {
         return null;
@@ -75,7 +73,7 @@ export class DbHelper {
     try {
       await client.query(
         `UPDATE users SET webauthn_challenge = $1, webauthn_challenge_created = NOW() WHERE user_email = $2`,
-        [challenge, userEmail]
+        [challenge, userEmail],
       );
     } catch (error) {
       console.error("Error saving credentials:", error);
@@ -85,12 +83,15 @@ export class DbHelper {
     }
   }
 
-  public static async getUserCredentials(userEmail: string, clientCredentialId: string) {
+  public static async getUserCredentials(
+    userEmail: string,
+    clientCredentialId: string,
+  ) {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
         `SELECT credentials.credential_id, credentials.cred_public_key, credentials.counter, users.token FROM credentials JOIN users ON credentials.user_id = users.user_email WHERE users.user_email = $1 AND credentials.credential_id = $2`,
-        [userEmail, clientCredentialId]
+        [userEmail, clientCredentialId],
       );
       if (rows.length < 1) {
         return null;
@@ -115,7 +116,7 @@ export class DbHelper {
     try {
       const r = await client.query(
         `UPDATE users SET token = $1 WHERE user_email = $2`,
-        [token, userEmail]
+        [token, userEmail],
       );
     } catch (error) {
       console.error("Error saving user token:", error);
@@ -129,13 +130,13 @@ export class DbHelper {
     userEmail: string,
     credentialID: string,
     credentialPublicKey: string,
-    counter: number
+    counter: number,
   ) {
     const client = await DbHelper._pool.connect();
     try {
       await client.query(
         `INSERT INTO credentials (credential_id, cred_public_key, counter, user_id) VALUES ($1, $2, $3, $4)`,
-        [credentialID, credentialPublicKey, counter, userEmail]
+        [credentialID, credentialPublicKey, counter, userEmail],
       );
     } catch (error) {
       console.error("Error saving credentials:", error);
@@ -151,7 +152,7 @@ export class DbHelper {
     try {
       const { rows } = await client.query(
         `SELECT webauthn_challenge, webauthn_challenge_created FROM users WHERE user_email = $1`,
-        [userEmail]
+        [userEmail],
       );
       if (rows.length < 1) {
         return null;
@@ -171,7 +172,7 @@ export class DbHelper {
     try {
       await client.query(
         `INSERT INTO users (user_email, spreadsheet_id) VALUES ($1, $2) RETURNING *`,
-        [userEmail, spreadsheetId]
+        [userEmail, spreadsheetId],
       );
     } catch (error) {
       console.error("Error inserting user:", error);
@@ -186,7 +187,7 @@ export class DbHelper {
     try {
       await client.query(
         `UPDATE users SET last_access = NOW() WHERE user_email = $1`,
-        [userEmail]
+        [userEmail],
       );
     } catch (error) {
       console.error("Error updating user last access:", error);
@@ -198,7 +199,7 @@ export class DbHelper {
 
   public static decryptToken(
     encryptedToken: string,
-    secretKey: string
+    secretKey: string,
   ): string {
     const bytes = CryptoJS.AES.decrypt(encryptedToken, secretKey);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
@@ -219,10 +220,10 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT id, user_email, google_sub, email_verified, 
+        `SELECT id, user_email, email_verified, 
                 credential_public_key, counter, created_at, last_access, spreadsheet_id 
          FROM users WHERE user_email = $1`,
-        [email]
+        [email],
       );
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -240,10 +241,10 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT id, user_email, google_sub, email_verified, 
+        `SELECT id, user_email, email_verified, 
                 credential_public_key, counter, created_at, last_access, spreadsheet_id 
          FROM users WHERE id = $1`,
-        [userId]
+        [userId],
       );
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
@@ -261,10 +262,10 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `INSERT INTO users (user_email, google_sub, email_verified, created_at, last_access) 
-         VALUES ($1, $2, $3, NOW(), NOW()) 
-         RETURNING id, user_email, google_sub, email_verified, created_at, last_access`,
-        [userData.email, userData.googleSub, userData.emailVerified]
+        `INSERT INTO users (user_email, email_verified, created_at, last_access) 
+         VALUES ($1, $2, NOW(), NOW()) 
+         RETURNING id, user_email, email_verified, created_at, last_access`,
+        [userData.email, userData.emailVerified],
       );
       return rows[0];
     } catch (error) {
@@ -278,7 +279,10 @@ export class DbHelper {
   /**
    * Update user information
    */
-  public static async updateUser(userEmail: string, userData: UpdateUserRequest) {
+  public static async updateUser(
+    userEmail: string,
+    userData: UpdateUserRequest,
+  ) {
     const client = await DbHelper._pool.connect();
     try {
       const updateFields: string[] = [];
@@ -289,10 +293,6 @@ export class DbHelper {
         updateFields.push(`email_verified = $${paramIndex++}`);
         values.push(userData.emailVerified);
       }
-      if (userData.googleSub !== undefined) {
-        updateFields.push(`google_sub = $${paramIndex++}`);
-        values.push(userData.googleSub);
-      }
       if (userData.spreadsheetId !== undefined) {
         updateFields.push(`spreadsheet_id = $${paramIndex++}`);
         values.push(userData.spreadsheetId);
@@ -302,8 +302,10 @@ export class DbHelper {
       values.push(userEmail);
 
       await client.query(
-        `UPDATE users SET ${updateFields.join(", ")} WHERE user_email = $${paramIndex}`,
-        values
+        `UPDATE users SET ${updateFields.join(
+          ", ",
+        )} WHERE user_email = $${paramIndex}`,
+        values,
       );
     } catch (error) {
       console.error("Error updating user:", error);
@@ -314,15 +316,33 @@ export class DbHelper {
   }
 
   /**
-   * Store encrypted Google refresh token
+   * Store encrypted Google refresh token on a session (by deviceId)
+   * This is the correct place - refresh tokens are per-session, not per-user
    */
-  public static async storeGoogleRefreshToken(userEmail: string, encryptedToken: string) {
+  public static async storeGoogleRefreshToken(
+    userEmail: string,
+    encryptedToken: string,
+    deviceType: "web" | "ios" | "android" = "web",
+    deviceId?: string,
+  ) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET google_refresh_token = $1 WHERE user_email = $2`,
-        [encryptedToken, userEmail]
-      );
+      if (deviceId) {
+        // Update specific session by deviceId
+        await client.query(
+          `UPDATE sessions SET google_refresh_token = $1, device_type = $2 
+           WHERE device_id = $3 AND user_email = $4`,
+          [encryptedToken, deviceType, deviceId, userEmail],
+        );
+      } else {
+        // Fallback: update latest session for this user and device type
+        await client.query(
+          `UPDATE sessions SET google_refresh_token = $1 
+           WHERE user_email = $2 AND device_type = $3 
+           AND created_at = (SELECT MAX(created_at) FROM sessions WHERE user_email = $2 AND device_type = $3)`,
+          [encryptedToken, userEmail, deviceType],
+        );
+      }
     } catch (error) {
       console.error("Error storing Google refresh token:", error);
       throw new Error("Error storing Google refresh token");
@@ -332,16 +352,41 @@ export class DbHelper {
   }
 
   /**
-   * Get encrypted Google refresh token
+   * Get encrypted Google refresh token from session
+   * Looks up by userEmail and optionally deviceType, returns most recent session's token
    */
-  public static async getGoogleRefreshToken(userEmail: string): Promise<string | null> {
+  public static async getGoogleRefreshToken(
+    userEmail: string,
+    deviceType?: "web" | "ios" | "android",
+  ): Promise<{ token: string; deviceType: "web" | "ios" | "android" } | null> {
     const client = await DbHelper._pool.connect();
     try {
-      const { rows } = await client.query(
-        `SELECT google_refresh_token FROM users WHERE user_email = $1`,
-        [userEmail]
-      );
-      return rows.length > 0 ? rows[0].google_refresh_token : null;
+      let query: string;
+      let params: any[];
+
+      if (deviceType) {
+        // Get token for specific device type
+        query = `SELECT google_refresh_token, device_type FROM sessions 
+                 WHERE user_email = $1 AND device_type = $2 AND google_refresh_token IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 1`;
+        params = [userEmail, deviceType];
+      } else {
+        // Get most recent token regardless of device type
+        query = `SELECT google_refresh_token, device_type FROM sessions 
+                 WHERE user_email = $1 AND google_refresh_token IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 1`;
+        params = [userEmail];
+      }
+
+      const { rows } = await client.query(query, params);
+
+      if (rows.length > 0 && rows[0].google_refresh_token) {
+        return {
+          token: rows[0].google_refresh_token,
+          deviceType: rows[0].device_type || "web",
+        };
+      }
+      return null;
     } catch (error) {
       console.error("Error getting Google refresh token:", error);
       throw new Error("Error getting Google refresh token");
@@ -353,15 +398,22 @@ export class DbHelper {
   /**
    * Create session
    */
-  public static async createSession(sessionData: CreateSessionRequest): Promise<string> {
+  public static async createSession(
+    sessionData: CreateSessionRequest,
+  ): Promise<string> {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `INSERT INTO sessions (user_email, device_id, refresh_token_hash, expires_at, scopes, created_at) 
-         VALUES ($1, $2, $3, $4, $5, NOW()) 
+        `INSERT INTO sessions (user_email, device_id, scopes, device_type, google_refresh_token, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
          RETURNING id`,
-        [sessionData.userEmail, sessionData.deviceId, sessionData.refreshTokenHash, 
-         sessionData.expiresAt, JSON.stringify(sessionData.scopes)]
+        [
+          sessionData.userEmail,
+          sessionData.deviceId,
+          JSON.stringify(sessionData.scopes),
+          sessionData.deviceType || "web",
+          sessionData.googleRefreshToken || null,
+        ],
       );
       return rows[0].id;
     } catch (error) {
@@ -379,17 +431,35 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT id, user_email, device_id, refresh_token_hash, expires_at, scopes, created_at 
-         FROM sessions WHERE device_id = $1 AND expires_at > NOW() 
+        `SELECT id, user_email, device_id, scopes, device_type, created_at
+         FROM sessions WHERE device_id = $1
          ORDER BY created_at DESC LIMIT 1`,
-        [deviceId]
+        [deviceId],
       );
-      
+
       if (rows.length > 0) {
         const row = rows[0];
+        // Parse scopes - handle both string and already-parsed array
+        let parsedScopes = [];
+        try {
+          if (typeof row.scopes === "string") {
+            parsedScopes = JSON.parse(row.scopes);
+          } else if (Array.isArray(row.scopes)) {
+            parsedScopes = row.scopes;
+          }
+        } catch (error) {
+          console.error(
+            "Error parsing scopes:",
+            error,
+            "Raw value:",
+            row.scopes,
+          );
+          parsedScopes = [];
+        }
+
         return {
           ...row,
-          scopes: JSON.parse(row.scopes || '[]')
+          scopes: parsedScopes,
         };
       }
       return null;
@@ -404,27 +474,36 @@ export class DbHelper {
   /**
    * Update session
    */
-  public static async updateSession(sessionId: string, updateData: UpdateSessionRequest) {
+  public static async updateSession(
+    sessionId: string,
+    updateData: UpdateSessionRequest,
+  ) {
     const client = await DbHelper._pool.connect();
     try {
       const updateFields: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
 
-      if (updateData.refreshTokenHash !== undefined) {
-        updateFields.push(`refresh_token_hash = $${paramIndex++}`);
-        values.push(updateData.refreshTokenHash);
+      if (updateData.scopes !== undefined) {
+        updateFields.push(`scopes = $${paramIndex++}`);
+        values.push(JSON.stringify(updateData.scopes));
       }
-      if (updateData.expiresAt !== undefined) {
-        updateFields.push(`expires_at = $${paramIndex++}`);
-        values.push(updateData.expiresAt);
+      if (updateData.deviceType !== undefined) {
+        updateFields.push(`device_type = $${paramIndex++}`);
+        values.push(updateData.deviceType);
+      }
+
+      if (updateFields.length === 0) {
+        return; // Nothing to update
       }
 
       values.push(sessionId);
 
       await client.query(
-        `UPDATE sessions SET ${updateFields.join(", ")} WHERE id = $${paramIndex}`,
-        values
+        `UPDATE sessions SET ${updateFields.join(
+          ", ",
+        )} WHERE id = $${paramIndex}`,
+        values,
       );
     } catch (error) {
       console.error("Error updating session:", error);
@@ -435,15 +514,14 @@ export class DbHelper {
   }
 
   /**
-   * Revoke session by device ID
+   * Revoke session by device ID (deletes the session)
    */
   public static async revokeSession(deviceId: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE sessions SET expires_at = NOW() WHERE device_id = $1`,
-        [deviceId]
-      );
+      await client.query(`DELETE FROM sessions WHERE device_id = $1`, [
+        deviceId,
+      ]);
     } catch (error) {
       console.error("Error revoking session:", error);
       throw new Error("Error revoking session");
@@ -455,12 +533,15 @@ export class DbHelper {
   /**
    * Update WebAuthn counter
    */
-  public static async updateWebAuthnCounter(userId: string, newCounter: number) {
+  public static async updateWebAuthnCounter(
+    userId: string,
+    newCounter: number,
+  ) {
     const client = await DbHelper._pool.connect();
     try {
       await client.query(
         `UPDATE users SET webauthn_counter = $1 WHERE id = $2`,
-        [newCounter, userId]
+        [newCounter, userId],
       );
     } catch (error) {
       console.error("Error updating WebAuthn counter:", error);
@@ -471,15 +552,17 @@ export class DbHelper {
   }
 
   /**
-   * Clean expired sessions
+   * Clean old sessions (older than 30 days)
    */
-  public static async cleanExpiredSessions() {
+  public static async cleanOldSessions() {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(`DELETE FROM sessions WHERE expires_at < NOW()`);
+      await client.query(
+        `DELETE FROM sessions WHERE created_at < NOW() - INTERVAL '30 days'`,
+      );
     } catch (error) {
-      console.error("Error cleaning expired sessions:", error);
-      throw new Error("Error cleaning expired sessions");
+      console.error("Error cleaning old sessions:", error);
+      throw new Error("Error cleaning old sessions");
     } finally {
       client.release();
     }

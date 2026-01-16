@@ -11,8 +11,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccountsHelper = void 0;
 const GoogleHelper_1 = require("../GoogleHelper");
+const TransactionsHelper_1 = require("./TransactionsHelper");
 const SHEET_NAME = "Accounts";
-const SHEET_RANGE = "Accounts!A:Z";
+const SHEET_RANGE = "Accounts!A2:Z";
 // Mappatura colonne del foglio "Accounts" (0-based)
 const COLS = {
     NAME: 0, // A: accountName
@@ -34,6 +35,10 @@ class AccountsHelper {
                 const rows = yield GoogleHelper_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
                 if (!rows || rows.length === 0)
                     return [];
+                // Recupera anche tutte le transazioni per calcolare i balance reali
+                console.log("📊 Fetching transactions to calculate account balances...");
+                const transactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(auth, spreadsheetId);
+                console.log(`📊 Found ${transactions.length} transactions`);
                 const accounts = [];
                 // Salta la prima riga se contiene headers
                 const startIndex = rows[0] && rows[0][COLS.NAME] === "accountName" ? 1 : 0;
@@ -43,9 +48,15 @@ class AccountsHelper {
                         continue;
                     const account = this.rowToAccount(row, i);
                     if (account && !account.name.startsWith("DELETED_")) {
+                        // Calcola il balance reale per questo account
+                        const calculatedBalance = this.calculateAccountBalance(account.name, transactions);
+                        // Sostituisci il balance del sheet con quello calcolato
+                        account.balance = this.formatBalance(calculatedBalance);
+                        console.log(`💰 Account "${account.name}": calculated balance = ${account.balance}`);
                         accounts.push(account);
                     }
                 }
+                console.log(`📊 Returning ${accounts.length} accounts with calculated balances`);
                 return accounts;
             }
             catch (error) {
@@ -254,6 +265,60 @@ class AccountsHelper {
     // UTILITY METHODS
     // =================
     /**
+     * Calcola il balance reale di un account sommando tutte le sue transazioni
+     */
+    static calculateAccountBalance(accountName, transactions) {
+        let totalBalance = 0;
+        for (const transaction of transactions) {
+            // Verifica se la transazione appartiene a questo account
+            // Il campo account dovrebbe essere nella colonna 5 (ACCOUNT)
+            if (transaction.account === accountName) {
+                // Converti l'amount da stringa a numero
+                const amount = this.parseAmount(transaction.amount);
+                totalBalance += amount;
+            }
+        }
+        console.log(`🧮 Final calculated balance for "${accountName}": ${totalBalance}`);
+        return totalBalance;
+    }
+    /**
+     * Converte un amount da stringa (formato italiano con €) a numero
+     */
+    static parseAmount(amountStr) {
+        if (typeof amountStr === "number")
+            return amountStr;
+        if (!amountStr)
+            return 0;
+        let raw = String(amountStr).trim();
+        // Rimuovi simboli valuta e spazi
+        raw = raw.replace(/[€\s]/g, "");
+        const hasComma = raw.includes(",");
+        const hasDot = raw.includes(".");
+        if (hasComma && hasDot) {
+            // Se ci sono entrambi, l'ultimo separatore visto è quello decimale
+            const lastComma = raw.lastIndexOf(",");
+            const lastDot = raw.lastIndexOf(".");
+            if (lastComma > lastDot) {
+                // Formato EU: "." migliaia, "," decimali
+                raw = raw.replace(/\./g, "").replace(/,/g, ".");
+            }
+            else {
+                // Formato US: "," migliaia, "." decimali
+                raw = raw.replace(/,/g, "");
+            }
+        }
+        else if (hasComma && !hasDot) {
+            // Solo virgola -> decimale
+            raw = raw.replace(/,/g, ".");
+        }
+        else if (hasDot && !hasComma) {
+            // Solo punto -> decimale, rimuovi eventuali spazi già tolti
+            // Nessuna azione necessaria
+        }
+        const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+        return isNaN(parsed) ? 0 : parsed;
+    }
+    /**
      * Converte una riga del foglio in un oggetto IAccount
      */
     static rowToAccount(row, rowIndex) {
@@ -283,16 +348,12 @@ class AccountsHelper {
      * Formatta il balance in formato valuta italiana
      */
     static formatBalance(balance) {
-        if (!balance)
-            return "0,00";
-        // Se è già una stringa con €, rimuovi solo spazi extra
-        if (typeof balance === "string" && balance.includes("€")) {
-            return balance.trim();
+        if (balance === null || balance === undefined || balance === "") {
+            return "€ 0,00";
         }
-        // Se è un numero o stringa numerica
-        const num = parseFloat(String(balance).replace(/[€\s]/g, "").replace(",", "."));
+        const num = this.parseAmount(balance);
         if (isNaN(num))
-            return "0,00";
+            return "€ 0,00";
         return `€ ${num.toFixed(2).replace(".", ",")}`;
     }
     static generateId() {

@@ -36,7 +36,7 @@ authRoutes.post(
   authRateLimit,
   AuthController.googleCallback
 );
-authRoutes.post("/refresh", authRateLimit, AuthController.refresh);
+authRoutes.post("/refresh", AuthController.refresh);
 authRoutes.post(
   "/passkey/login",
   strictAuthRateLimit,

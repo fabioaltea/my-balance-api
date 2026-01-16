@@ -1,4 +1,4 @@
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, OAuth2ClientOptions } from "google-auth-library";
 import { TokenPayload } from "google-auth-library";
 
 export interface GoogleTokens {
@@ -8,7 +8,6 @@ export interface GoogleTokens {
 }
 
 export interface GoogleIdentity {
-  googleSub: string;
   email: string;
   emailVerified: boolean;
   name?: string;
@@ -18,33 +17,74 @@ export interface GoogleIdentity {
 export interface ExchangeCodeParams {
   authorizationCode: string;
   codeVerifier?: string; // Optional for PKCE support
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
 }
 
 export class GoogleOAuthHelper {
-  private static client: OAuth2Client;
+  private client: OAuth2Client;
 
-  private static getClient(): OAuth2Client {
-    if (!this.client) {
-      this.client = new OAuth2Client(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.REDIRECT_URI
-      );
-    }
+  public getClient(): OAuth2Client {
     return this.client;
+  }
+
+  private loadWebClient(): void {
+    console.log("Loading web OAuth2 client with params:", {
+      clientId: process.env.CLIENT_ID_WEB,
+      clientSecret: process.env.CLIENT_SECRET,
+      redirectUri: process.env.REDIRECT_URI_WEB,
+    });
+    this.client = new OAuth2Client(
+      process.env.CLIENT_ID_WEB,
+      process.env.CLIENT_SECRET,
+      process.env.REDIRECT_URI_WEB
+    );
+  }
+
+  private loadIOSClient(): void {
+    console.log("Loading iOS OAuth2 client with params:", {
+      clientId: process.env.CLIENT_ID_IOS,
+      redirectUri: process.env.REDIRECT_URI_IOS,
+    });
+    this.client = new OAuth2Client({
+      client_id: process.env.CLIENT_ID_IOS,
+      redirectUri: process.env.REDIRECT_URI_IOS,
+    } as OAuth2ClientOptions);
+  }
+
+  private loadAndroidClient(): void {
+    console.log("Loading Android OAuth2 client with params:", {
+      clientId: process.env.CLIENT_ID_ANDROID,
+      redirectUri:
+        process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+    });
+    this.client = new OAuth2Client({
+      client_id: process.env.CLIENT_ID_ANDROID,
+      redirectUri:
+        process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+    } as OAuth2ClientOptions);
+  }
+
+  constructor(deviceType: "ios" | "android" | "web") {
+    console.log("Initializing GoogleOAuthHelper for device type:", deviceType);
+    switch (deviceType) {
+      case "ios":
+        this.loadIOSClient();
+        break;
+      case "android":
+        this.loadAndroidClient();
+        break;
+      case "web":
+      default:
+        this.loadWebClient();
+        break;
+    }
   }
 
   /**
    * Exchange authorization code for Google tokens
    */
-  public static async exchangeCodeForTokens(
+  public async exchangeCodeForTokens(
     params: ExchangeCodeParams
   ): Promise<GoogleTokens> {
-    const client = this.getClient();
-
     try {
       // Prepare token request - only include codeVerifier if provided (for PKCE)
       const tokenRequest: any = {
@@ -54,9 +94,13 @@ export class GoogleOAuthHelper {
       // Only add codeVerifier if it's provided and not empty
       if (params.codeVerifier && params.codeVerifier.trim()) {
         tokenRequest.codeVerifier = params.codeVerifier;
+        console.log(
+          "Using PKCE code verifier for token exchange:",
+          tokenRequest.codeVerifier
+        );
       }
 
-      const { tokens } = await client.getToken(tokenRequest);
+      const { tokens } = await this.client.getToken(tokenRequest);
 
       if (!tokens.id_token) {
         throw new Error("No ID token received from Google");
@@ -68,7 +112,10 @@ export class GoogleOAuthHelper {
         scopes: tokens.scope?.split(" ") || [],
       };
     } catch (error: any) {
-      console.error("Error exchanging authorization code:", error);
+      console.error(
+        "Error exchanging authorization code:",
+        error.response?.data?.error_description || error.message
+      );
       throw new Error(
         `Failed to exchange authorization code: ${error.message}`
       );
@@ -78,13 +125,17 @@ export class GoogleOAuthHelper {
   /**
    * Verify Google ID token and extract identity information
    */
-  public static async verifyIdToken(idToken: string): Promise<GoogleIdentity> {
-    const client = this.getClient();
-
+  public async verifyIdToken(idToken: string): Promise<GoogleIdentity> {
+    console.log(
+      "Verifying ID token:",
+      idToken,
+      "for client",
+      this.client._clientId
+    );
     try {
-      const ticket = await client.verifyIdToken({
+      const ticket = await this.client.verifyIdToken({
         idToken: idToken,
-        audience: process.env.CLIENT_ID,
+        audience: this.client._clientId,
       });
 
       const payload: TokenPayload | undefined = ticket.getPayload();
@@ -102,16 +153,15 @@ export class GoogleOAuthHelper {
       }
 
       // Verify audience
-      if (payload.aud !== process.env.CLIENT_ID) {
+      if (payload.aud !== this.client._clientId) {
         throw new Error("Invalid token audience");
       }
 
-      if (!payload.sub || !payload.email) {
+      if (!payload.email) {
         throw new Error("Missing required fields in ID token");
       }
 
       return {
-        googleSub: payload.sub,
         email: payload.email,
         emailVerified: payload.email_verified || false,
         name: payload.name,

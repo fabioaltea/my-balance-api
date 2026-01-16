@@ -19,7 +19,7 @@ export interface ICategoryData {
 }
 
 const SHEET_NAME = "Categories";
-const SHEET_RANGE = "Categories!A:Z";
+const SHEET_RANGE = "Categories!A2:Z";
 
 // Mappatura colonne del foglio "Categories" (0-based)
 const COLS = {
@@ -85,8 +85,8 @@ export class CategoriesHelper {
    */
   static async createCategory(
     spreadsheetId: string,
-    refreshToken: string,
-    categoryData: ICategoryData
+    categoryData: ICategoryData,
+    authClient: any
   ): Promise<ICategory> {
     try {
       // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -113,9 +113,9 @@ export class CategoriesHelper {
    */
   static async updateCategory(
     spreadsheetId: string,
-    refreshToken: string,
     categoryId: string,
-    updateData: Partial<ICategoryData>
+    updateData: Partial<ICategoryData>,
+    authClient:any
   ): Promise<ICategory> {
     try {
       // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -147,8 +147,8 @@ export class CategoriesHelper {
    */
   static async deleteCategory(
     spreadsheetId: string,
-    refreshToken: string,
-    categoryId: string
+    categoryId: string,
+    authClient:any
   ): Promise<void> {
     try {
       // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -166,8 +166,8 @@ export class CategoriesHelper {
    */
   static async createCategoriesBatch(
     spreadsheetId: string,
-    refreshToken: string,
-    categories: ICategoryData[]
+    categories: ICategoryData[],
+    authClient:any
   ): Promise<ICategory[]> {
     try {
       // TODO: Implementare chiamata diretta alle Google Sheets API

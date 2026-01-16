@@ -190,7 +190,7 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT id, user_email, google_sub, email_verified, 
+                const { rows } = yield client.query(`SELECT id, user_email, email_verified, 
                 credential_public_key, counter, created_at, last_access, spreadsheet_id 
          FROM users WHERE user_email = $1`, [email]);
                 return rows.length > 0 ? rows[0] : null;
@@ -211,7 +211,7 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT id, user_email, google_sub, email_verified, 
+                const { rows } = yield client.query(`SELECT id, user_email, email_verified, 
                 credential_public_key, counter, created_at, last_access, spreadsheet_id 
          FROM users WHERE id = $1`, [userId]);
                 return rows.length > 0 ? rows[0] : null;
@@ -232,9 +232,9 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`INSERT INTO users (user_email, google_sub, email_verified, created_at, last_access) 
-         VALUES ($1, $2, $3, NOW(), NOW()) 
-         RETURNING id, user_email, google_sub, email_verified, created_at, last_access`, [userData.email, userData.googleSub, userData.emailVerified]);
+                const { rows } = yield client.query(`INSERT INTO users (user_email, email_verified, created_at, last_access) 
+         VALUES ($1, $2, NOW(), NOW()) 
+         RETURNING id, user_email, email_verified, created_at, last_access`, [userData.email, userData.emailVerified]);
                 return rows[0];
             }
             catch (error) {
@@ -260,10 +260,6 @@ class DbHelper {
                     updateFields.push(`email_verified = $${paramIndex++}`);
                     values.push(userData.emailVerified);
                 }
-                if (userData.googleSub !== undefined) {
-                    updateFields.push(`google_sub = $${paramIndex++}`);
-                    values.push(userData.googleSub);
-                }
                 if (userData.spreadsheetId !== undefined) {
                     updateFields.push(`spreadsheet_id = $${paramIndex++}`);
                     values.push(userData.spreadsheetId);
@@ -282,13 +278,24 @@ class DbHelper {
         });
     }
     /**
-     * Store encrypted Google refresh token
+     * Store encrypted Google refresh token on a session (by deviceId)
+     * This is the correct place - refresh tokens are per-session, not per-user
      */
-    static storeGoogleRefreshToken(userEmail, encryptedToken) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static storeGoogleRefreshToken(userEmail_1, encryptedToken_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, encryptedToken, deviceType = "web", deviceId) {
             const client = yield DbHelper._pool.connect();
             try {
-                yield client.query(`UPDATE users SET google_refresh_token = $1 WHERE user_email = $2`, [encryptedToken, userEmail]);
+                if (deviceId) {
+                    // Update specific session by deviceId
+                    yield client.query(`UPDATE sessions SET google_refresh_token = $1, device_type = $2 
+           WHERE device_id = $3 AND user_email = $4`, [encryptedToken, deviceType, deviceId, userEmail]);
+                }
+                else {
+                    // Fallback: update latest session for this user and device type
+                    yield client.query(`UPDATE sessions SET google_refresh_token = $1 
+           WHERE user_email = $2 AND device_type = $3 
+           AND created_at = (SELECT MAX(created_at) FROM sessions WHERE user_email = $2 AND device_type = $3)`, [encryptedToken, userEmail, deviceType]);
+                }
             }
             catch (error) {
                 console.error("Error storing Google refresh token:", error);
@@ -300,14 +307,37 @@ class DbHelper {
         });
     }
     /**
-     * Get encrypted Google refresh token
+     * Get encrypted Google refresh token from session
+     * Looks up by userEmail and optionally deviceType, returns most recent session's token
      */
-    static getGoogleRefreshToken(userEmail) {
+    static getGoogleRefreshToken(userEmail, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT google_refresh_token FROM users WHERE user_email = $1`, [userEmail]);
-                return rows.length > 0 ? rows[0].google_refresh_token : null;
+                let query;
+                let params;
+                if (deviceType) {
+                    // Get token for specific device type
+                    query = `SELECT google_refresh_token, device_type FROM sessions 
+                 WHERE user_email = $1 AND device_type = $2 AND google_refresh_token IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 1`;
+                    params = [userEmail, deviceType];
+                }
+                else {
+                    // Get most recent token regardless of device type
+                    query = `SELECT google_refresh_token, device_type FROM sessions 
+                 WHERE user_email = $1 AND google_refresh_token IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 1`;
+                    params = [userEmail];
+                }
+                const { rows } = yield client.query(query, params);
+                if (rows.length > 0 && rows[0].google_refresh_token) {
+                    return {
+                        token: rows[0].google_refresh_token,
+                        deviceType: rows[0].device_type || "web",
+                    };
+                }
+                return null;
             }
             catch (error) {
                 console.error("Error getting Google refresh token:", error);
@@ -325,10 +355,15 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`INSERT INTO sessions (user_email, device_id, refresh_token_hash, expires_at, scopes, created_at) 
-         VALUES ($1, $2, $3, $4, $5, NOW()) 
-         RETURNING id`, [sessionData.userEmail, sessionData.deviceId, sessionData.refreshTokenHash,
-                    sessionData.expiresAt, JSON.stringify(sessionData.scopes)]);
+                const { rows } = yield client.query(`INSERT INTO sessions (user_email, device_id, scopes, device_type, google_refresh_token, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING id`, [
+                    sessionData.userEmail,
+                    sessionData.deviceId,
+                    JSON.stringify(sessionData.scopes),
+                    sessionData.deviceType || "web",
+                    sessionData.googleRefreshToken || null,
+                ]);
                 return rows[0].id;
             }
             catch (error) {
@@ -347,12 +382,26 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`SELECT id, user_email, device_id, refresh_token_hash, expires_at, scopes, created_at 
-         FROM sessions WHERE device_id = $1 AND expires_at > NOW() 
+                const { rows } = yield client.query(`SELECT id, user_email, device_id, scopes, device_type, created_at
+         FROM sessions WHERE device_id = $1
          ORDER BY created_at DESC LIMIT 1`, [deviceId]);
                 if (rows.length > 0) {
                     const row = rows[0];
-                    return Object.assign(Object.assign({}, row), { scopes: JSON.parse(row.scopes || '[]') });
+                    // Parse scopes - handle both string and already-parsed array
+                    let parsedScopes = [];
+                    try {
+                        if (typeof row.scopes === "string") {
+                            parsedScopes = JSON.parse(row.scopes);
+                        }
+                        else if (Array.isArray(row.scopes)) {
+                            parsedScopes = row.scopes;
+                        }
+                    }
+                    catch (error) {
+                        console.error("Error parsing scopes:", error, "Raw value:", row.scopes);
+                        parsedScopes = [];
+                    }
+                    return Object.assign(Object.assign({}, row), { scopes: parsedScopes });
                 }
                 return null;
             }
@@ -375,13 +424,16 @@ class DbHelper {
                 const updateFields = [];
                 const values = [];
                 let paramIndex = 1;
-                if (updateData.refreshTokenHash !== undefined) {
-                    updateFields.push(`refresh_token_hash = $${paramIndex++}`);
-                    values.push(updateData.refreshTokenHash);
+                if (updateData.scopes !== undefined) {
+                    updateFields.push(`scopes = $${paramIndex++}`);
+                    values.push(JSON.stringify(updateData.scopes));
                 }
-                if (updateData.expiresAt !== undefined) {
-                    updateFields.push(`expires_at = $${paramIndex++}`);
-                    values.push(updateData.expiresAt);
+                if (updateData.deviceType !== undefined) {
+                    updateFields.push(`device_type = $${paramIndex++}`);
+                    values.push(updateData.deviceType);
+                }
+                if (updateFields.length === 0) {
+                    return; // Nothing to update
                 }
                 values.push(sessionId);
                 yield client.query(`UPDATE sessions SET ${updateFields.join(", ")} WHERE id = $${paramIndex}`, values);
@@ -396,13 +448,15 @@ class DbHelper {
         });
     }
     /**
-     * Revoke session by device ID
+     * Revoke session by device ID (deletes the session)
      */
     static revokeSession(deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                yield client.query(`UPDATE sessions SET expires_at = NOW() WHERE device_id = $1`, [deviceId]);
+                yield client.query(`DELETE FROM sessions WHERE device_id = $1`, [
+                    deviceId,
+                ]);
             }
             catch (error) {
                 console.error("Error revoking session:", error);
@@ -432,17 +486,17 @@ class DbHelper {
         });
     }
     /**
-     * Clean expired sessions
+     * Clean old sessions (older than 30 days)
      */
-    static cleanExpiredSessions() {
+    static cleanOldSessions() {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                yield client.query(`DELETE FROM sessions WHERE expires_at < NOW()`);
+                yield client.query(`DELETE FROM sessions WHERE created_at < NOW() - INTERVAL '30 days'`);
             }
             catch (error) {
-                console.error("Error cleaning expired sessions:", error);
-                throw new Error("Error cleaning expired sessions");
+                console.error("Error cleaning old sessions:", error);
+                throw new Error("Error cleaning old sessions");
             }
             finally {
                 client.release();
