@@ -18,11 +18,15 @@ export class RequireAuthMiddleware {
   ): void {
     console.log("🔐 === AUTH MIDDLEWARE START ===");
     try {
-      const authHeader = req.headers.authorization;
+      const authHeader = req.headers.authorization || req.headers['x-authorization'] as string;
       const token = JwtHelper.extractTokenFromHeader(authHeader);
       console.log(
         "🔐 Authorization header:",
-        authHeader ? "present" : "missing"
+        req.headers.authorization ? "present" : "missing"
+      );
+      console.log(
+        "🔐 X-Authorization header:",
+        req.headers['x-authorization'] ? "present" : "missing"
       );
       console.log("🔐 Extracted token:", token ? "present" : "missing");
 
@@ -118,7 +122,7 @@ export class RequireAuthMiddleware {
     next: NextFunction
   ): void {
     try {
-      const authHeader = req.headers.authorization;
+      const authHeader = req.headers.authorization || req.headers['x-authorization'] as string;
       const token = JwtHelper.extractTokenFromHeader(authHeader);
 
       if (token) {
