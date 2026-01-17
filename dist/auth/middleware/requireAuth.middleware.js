@@ -9,9 +9,10 @@ class RequireAuthMiddleware {
     static verify(req, res, next) {
         console.log("🔐 === AUTH MIDDLEWARE START ===");
         try {
-            const authHeader = req.headers.authorization;
+            const authHeader = req.headers.authorization || req.headers['x-authorization'];
             const token = jwt_helper_1.JwtHelper.extractTokenFromHeader(authHeader);
-            console.log("🔐 Authorization header:", authHeader ? "present" : "missing");
+            console.log("🔐 Authorization header:", req.headers.authorization ? "present" : "missing");
+            console.log("🔐 X-Authorization header:", req.headers['x-authorization'] ? "present" : "missing");
             console.log("🔐 Extracted token:", token ? "present" : "missing");
             if (!token) {
                 console.log("❌ No token found, returning 401");
@@ -85,7 +86,7 @@ class RequireAuthMiddleware {
      */
     static optional(req, res, next) {
         try {
-            const authHeader = req.headers.authorization;
+            const authHeader = req.headers.authorization || req.headers['x-authorization'];
             const token = jwt_helper_1.JwtHelper.extractTokenFromHeader(authHeader);
             if (token) {
                 const payload = jwt_helper_1.JwtHelper.verifyAccessToken(token);
