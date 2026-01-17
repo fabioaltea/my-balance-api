@@ -12,19 +12,58 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleOAuthHelper = void 0;
 const google_auth_library_1 = require("google-auth-library");
 class GoogleOAuthHelper {
-    static getClient() {
-        if (!this.client) {
-            this.client = new google_auth_library_1.OAuth2Client(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI);
-        }
+    getClient() {
         return this.client;
+    }
+    loadWebClient() {
+        console.log("Loading web OAuth2 client with params:", {
+            clientId: process.env.CLIENT_ID_WEB,
+            clientSecret: process.env.CLIENT_SECRET,
+            redirectUri: process.env.REDIRECT_URI_WEB,
+        });
+        this.client = new google_auth_library_1.OAuth2Client(process.env.CLIENT_ID_WEB, process.env.CLIENT_SECRET, process.env.REDIRECT_URI_WEB);
+    }
+    loadIOSClient() {
+        console.log("Loading iOS OAuth2 client with params:", {
+            clientId: process.env.CLIENT_ID_IOS,
+            redirectUri: process.env.REDIRECT_URI_IOS,
+        });
+        this.client = new google_auth_library_1.OAuth2Client({
+            client_id: process.env.CLIENT_ID_IOS,
+            redirectUri: process.env.REDIRECT_URI_IOS,
+        });
+    }
+    loadAndroidClient() {
+        console.log("Loading Android OAuth2 client with params:", {
+            clientId: process.env.CLIENT_ID_ANDROID,
+            redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+        });
+        this.client = new google_auth_library_1.OAuth2Client({
+            client_id: process.env.CLIENT_ID_ANDROID,
+            redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+        });
+    }
+    constructor(deviceType) {
+        console.log("Initializing GoogleOAuthHelper for device type:", deviceType);
+        switch (deviceType) {
+            case "ios":
+                this.loadIOSClient();
+                break;
+            case "android":
+                this.loadAndroidClient();
+                break;
+            case "web":
+            default:
+                this.loadWebClient();
+                break;
+        }
     }
     /**
      * Exchange authorization code for Google tokens
      */
-    static exchangeCodeForTokens(params) {
+    exchangeCodeForTokens(params) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const client = this.getClient();
+            var _a, _b, _c;
             try {
                 // Prepare token request - only include codeVerifier if provided (for PKCE)
                 const tokenRequest = {
@@ -33,8 +72,9 @@ class GoogleOAuthHelper {
                 // Only add codeVerifier if it's provided and not empty
                 if (params.codeVerifier && params.codeVerifier.trim()) {
                     tokenRequest.codeVerifier = params.codeVerifier;
+                    console.log("Using PKCE code verifier for token exchange:", tokenRequest.codeVerifier);
                 }
-                const { tokens } = yield client.getToken(tokenRequest);
+                const { tokens } = yield this.client.getToken(tokenRequest);
                 if (!tokens.id_token) {
                     throw new Error("No ID token received from Google");
                 }
@@ -45,7 +85,7 @@ class GoogleOAuthHelper {
                 };
             }
             catch (error) {
-                console.error("Error exchanging authorization code:", error);
+                console.error("Error exchanging authorization code:", ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.error_description) || error.message);
                 throw new Error(`Failed to exchange authorization code: ${error.message}`);
             }
         });
@@ -53,13 +93,13 @@ class GoogleOAuthHelper {
     /**
      * Verify Google ID token and extract identity information
      */
-    static verifyIdToken(idToken) {
+    verifyIdToken(idToken) {
         return __awaiter(this, void 0, void 0, function* () {
-            const client = this.getClient();
+            console.log("Verifying ID token:", idToken, "for client", this.client._clientId);
             try {
-                const ticket = yield client.verifyIdToken({
+                const ticket = yield this.client.verifyIdToken({
                     idToken: idToken,
-                    audience: process.env.CLIENT_ID,
+                    audience: this.client._clientId,
                 });
                 const payload = ticket.getPayload();
                 if (!payload) {
@@ -71,14 +111,13 @@ class GoogleOAuthHelper {
                     throw new Error("Invalid token issuer");
                 }
                 // Verify audience
-                if (payload.aud !== process.env.CLIENT_ID) {
+                if (payload.aud !== this.client._clientId) {
                     throw new Error("Invalid token audience");
                 }
-                if (!payload.sub || !payload.email) {
+                if (!payload.email) {
                     throw new Error("Missing required fields in ID token");
                 }
                 return {
-                    googleSub: payload.sub,
                     email: payload.email,
                     emailVerified: payload.email_verified || false,
                     name: payload.name,

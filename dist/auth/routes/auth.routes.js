@@ -35,7 +35,7 @@ const strictAuthRateLimit = (0, express_rate_limit_1.default)({
 });
 // Public routes (with rate limiting)
 authRoutes.post("/google/callback", authRateLimit, auth_controller_1.AuthController.googleCallback);
-authRoutes.post("/refresh", authRateLimit, auth_controller_1.AuthController.refresh);
+authRoutes.post("/refresh", auth_controller_1.AuthController.refresh);
 authRoutes.post("/passkey/login", strictAuthRateLimit, auth_controller_1.AuthController.passkeyLogin);
 authRoutes.post("/logout", auth_controller_1.AuthController.logout);
 // Protected routes (require authentication)

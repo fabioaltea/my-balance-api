@@ -45,7 +45,7 @@ const COLS = {
 } as const;
 
 // Range base usato per operazioni
-const SHEET_RANGE = "AllTransactions!A:Z";
+const SHEET_RANGE = "AllTransactions!A2:Z";
 const SHEET_NAME = "AllTransactions";
 
 export class TransactionsHelper {
@@ -174,22 +174,34 @@ export class TransactionsHelper {
   private static parseAmountToNumber(amount: any): number {
     if (amount === null || amount === undefined) return NaN;
     let raw = String(amount).trim();
-    raw = raw.replace(/[^0-9\-.,]/g, ""); // lascia cifre, segno meno, punto e virgola
-    // Se ci sono più virgole o punti teniamo l'ultimo come separatore decimale
-    const lastComma = raw.lastIndexOf(",");
-    const lastDot = raw.lastIndexOf(".");
-    let sepIndex = Math.max(lastComma, lastDot);
-    if (sepIndex > -1) {
-      // rimuovi tutti i punti/virgole e reinserisci un punto al separatore decimale
-      const digits = raw.replace(/[.,]/g, "");
-      const intPart = digits.substring(0, sepIndex);
-      const decPart = digits.substring(sepIndex);
-      raw = intPart + "." + decPart;
-    } else {
-      raw = raw.replace(/[.,]/g, "");
+    // Rimuovi simboli di valuta e spazi
+    raw = raw.replace(/[€\s]/g, "");
+
+    const hasComma = raw.includes(",");
+    const hasDot = raw.includes(".");
+
+    if (hasComma && hasDot) {
+      // Determina il separatore decimale come l'ultimo tra , e .
+      const lastComma = raw.lastIndexOf(",");
+      const lastDot = raw.lastIndexOf(".");
+      if (lastComma > lastDot) {
+        // EU: . migliaia, , decimali
+        raw = raw.replace(/\./g, "").replace(/,/g, ".");
+      } else {
+        // US: , migliaia, . decimali
+        raw = raw.replace(/,/g, "");
+      }
+    } else if (hasComma && !hasDot) {
+      // Solo la virgola come decimale
+      raw = raw.replace(/,/g, ".");
+    } else if (hasDot && !hasComma) {
+      // Solo il punto come decimale
+      // Nessuna trasformazione necessaria
     }
-    const num = Number(raw);
-    return num;
+
+    raw = raw.replace(/[^0-9.\-]/g, "");
+    const num = parseFloat(raw);
+    return isNaN(num) ? NaN : num;
   }
 
   private static formatAmount(amount: any): string {
@@ -280,7 +292,7 @@ export class TransactionsHelper {
 
   // APPEND transactions (da richiesta movement)
   public static async appendMovement(
-    auth: any,
+    authClient: any,
     spreadsheetId: string,
     movementRequest: IMovementRequest
   ): Promise<any> {
@@ -288,8 +300,8 @@ export class TransactionsHelper {
     const movementId = movementRequest.movementId || this.generateMovementId();
 
     // Crea transactions dal movimento
-    const transactions: ITransaction[] = movementRequest.transactions.map(
-      (treq) => ({
+    const transactions: ITransaction[] = movementRequest.transactions?.map(
+      (treq:any) => ({
         transactionId: treq.transactionId || this.generateTransactionId(),
         movementId: movementId,
         description: treq.description || movementRequest.description,
@@ -313,16 +325,21 @@ export class TransactionsHelper {
     // Converte in righe e appende
     const values = transactions.map((t) => this.transactionToRowValidated(t));
     const body = { values };
-    return await GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body);
+    return await GoogleHelper.append(
+      authClient,
+      spreadsheetId,
+      SHEET_RANGE,
+      body
+    );
   }
 
   // LIST movements (raggruppa transactions per movementId)
   public static async listMovements(
-    auth: any,
+    authClient: any,
     spreadsheetId: string
   ): Promise<IMovement[]> {
     const transactions: ITransaction[] = await this.listTransactions(
-      auth,
+      authClient,
       spreadsheetId
     );
 
@@ -331,11 +348,11 @@ export class TransactionsHelper {
   }
 
   public static async listTransactions(
-    auth: any,
+    authClient: any,
     spreadsheetId: string
   ): Promise<ITransaction[]> {
     const rows: any[][] = await GoogleHelper.get(
-      auth,
+      authClient,
       spreadsheetId,
       SHEET_RANGE
     );
@@ -356,12 +373,12 @@ export class TransactionsHelper {
 
   // GET movimento per movementId
   public static async getMovement(
-    auth: any,
+    authClient: any,
     spreadsheetId: string,
     movementId: string
   ): Promise<IMovement | null> {
     const rows: any[][] = await GoogleHelper.get(
-      auth,
+      authClient,
       spreadsheetId,
       SHEET_RANGE
     );
@@ -387,7 +404,7 @@ export class TransactionsHelper {
 
   // UPDATE movimento completo (gestisce create/update/delete di transactions)
   public static async updateMovement(
-    auth: any,
+    authClientClient: any,
     spreadsheetId: string,
     movementRequest: IMovementRequest
   ): Promise<any> {
@@ -395,7 +412,7 @@ export class TransactionsHelper {
     if (!movementId) throw new Error("MovementId richiesto per update");
 
     const rows: any[][] = await GoogleHelper.get(
-      auth,
+      authClientClient,
       spreadsheetId,
       SHEET_RANGE
     );
@@ -429,7 +446,8 @@ export class TransactionsHelper {
       row[COLS.DATE_DELETED] = this.normalizeMetaDate(new Date());
       row[COLS.DATE_MODIFIED] = this.normalizeMetaDate(new Date());
 
-      const rowNumber = existing.index + 1; // 1-based
+      // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+      const rowNumber = existing.index + 2;
       const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
       updateData.push({
         majorDimension: "ROWS",
@@ -465,7 +483,9 @@ export class TransactionsHelper {
     // Esegui updates
     const results: any[] = [];
     if (updateData.length > 0) {
-      results.push(await GoogleHelper.update(auth, spreadsheetId, updateData));
+      results.push(
+        await GoogleHelper.update(authClientClient, spreadsheetId, updateData)
+      );
     }
 
     // Appendi nuove transactions
@@ -475,7 +495,12 @@ export class TransactionsHelper {
       );
       const body = { values };
       results.push(
-        await GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body)
+        await GoogleHelper.append(
+          authClientClient,
+          spreadsheetId,
+          SHEET_RANGE,
+          body
+        )
       );
     }
 
@@ -484,12 +509,12 @@ export class TransactionsHelper {
 
   // DELETE (soft delete: status = DELETED + dateDeleted per tutte le transactions)
   public static async deleteMovement(
-    auth: any,
+    authClient: any,
     spreadsheetId: string,
     movementId: string
   ): Promise<any> {
     const rows: any[][] = await GoogleHelper.get(
-      auth,
+      authClient,
       spreadsheetId,
       SHEET_RANGE
     );
@@ -506,7 +531,8 @@ export class TransactionsHelper {
         row[COLS.DATE_DELETED] = now;
         row[COLS.DATE_MODIFIED] = now;
 
-        const rowNumber = i + 1; // 1-based
+        // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+        const rowNumber = i + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
         updateData.push({
           majorDimension: "ROWS",
@@ -520,7 +546,7 @@ export class TransactionsHelper {
       throw new Error("Movement non trovato o già eliminato");
     }
 
-    return await GoogleHelper.update(auth, spreadsheetId, updateData);
+    return await GoogleHelper.update(authClient, spreadsheetId, updateData);
   }
 
   // Utility: genera un movementId univoco

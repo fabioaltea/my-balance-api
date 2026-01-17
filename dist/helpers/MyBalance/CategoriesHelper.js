@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoriesHelper = void 0;
 const GoogleHelper_1 = require("../GoogleHelper");
 const SHEET_NAME = "Categories";
-const SHEET_RANGE = "Categories!A:Z";
+const SHEET_RANGE = "Categories!A2:Z";
 // Mappatura colonne del foglio "Categories" (0-based)
 const COLS = {
     NAME: 0, // A: categoryName
@@ -62,7 +62,7 @@ class CategoriesHelper {
     /**
      * Crea nuova categoria
      */
-    static createCategory(spreadsheetId, refreshToken, categoryData) {
+    static createCategory(spreadsheetId, categoryData, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -87,7 +87,7 @@ class CategoriesHelper {
     /**
      * Aggiorna categoria esistente
      */
-    static updateCategory(spreadsheetId, refreshToken, categoryId, updateData) {
+    static updateCategory(spreadsheetId, categoryId, updateData, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -111,7 +111,7 @@ class CategoriesHelper {
     /**
      * Elimina categoria (soft delete)
      */
-    static deleteCategory(spreadsheetId, refreshToken, categoryId) {
+    static deleteCategory(spreadsheetId, categoryId, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // TODO: Implementare chiamata diretta alle Google Sheets API
@@ -127,7 +127,7 @@ class CategoriesHelper {
     /**
      * Crea multiple categorie in batch
      */
-    static createCategoriesBatch(spreadsheetId, refreshToken, categories) {
+    static createCategoriesBatch(spreadsheetId, categories, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // TODO: Implementare chiamata diretta alle Google Sheets API

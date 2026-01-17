@@ -5,28 +5,45 @@ export interface JwtPayload extends BaseJwtPayload {
   userId: string;
   scopes: string[];
   type: "access" | "refresh";
+  deviceType?: "web" | "ios" | "android";
 }
 
 export interface AccessTokenPayload {
   userId: string;
   scopes: string[];
+  deviceType?: "web" | "ios" | "android";
 }
 
 export class JwtHelper {
   private static readonly ACCESS_TOKEN_TTL = "10m"; // 10 minutes
   private static readonly REFRESH_TOKEN_TTL = "30d"; // 30 days
 
+  // Cache for generated keys (only used if env vars are not set)
+  private static _cachedKeys: { privateKey: string; publicKey: string } | null = null;
+
   /**
    * Generate RSA key pair for JWT signing (in production, these should be pre-generated)
    */
   private static getKeys() {
     // In production, these should come from environment variables or key management service
-    const privateKey =
-      process.env.JWT_PRIVATE_KEY || this.generateKeyPair().privateKey;
-    const publicKey =
-      process.env.JWT_PUBLIC_KEY || this.generateKeyPair().publicKey;
+    const envPrivateKey = process.env.JWT_PRIVATE_KEY;
+    const envPublicKey = process.env.JWT_PUBLIC_KEY;
 
-    return { privateKey, publicKey };
+    if (envPrivateKey && envPublicKey) {
+      // Parse escaped newlines from .env file
+      return {
+        privateKey: envPrivateKey.replace(/\\n/g, '\n'),
+        publicKey: envPublicKey.replace(/\\n/g, '\n'),
+      };
+    }
+
+    // Fallback: generate keys once and cache them (for development only)
+    if (!this._cachedKeys) {
+      console.warn('⚠️ JWT keys not found in environment, generating temporary keys. This is NOT recommended for production!');
+      this._cachedKeys = this.generateKeyPair();
+    }
+
+    return this._cachedKeys;
   }
 
   /**
@@ -112,8 +129,9 @@ export class JwtHelper {
 
   /**
    * Verify refresh token
+   * Returns null if token is invalid or expired
    */
-  public static verifyRefreshToken(token: string): JwtPayload {
+  public static verifyRefreshToken(token: string): JwtPayload | null {
     const { publicKey } = this.getKeys();
 
     try {
@@ -124,13 +142,14 @@ export class JwtHelper {
       }) as JwtPayload;
 
       if (decoded.type !== "refresh") {
-        throw new Error("Invalid token type");
+        console.error("JWT verification failed: Invalid token type");
+        return null;
       }
 
       return decoded;
     } catch (error: any) {
       console.error("JWT verification failed:", error.message);
-      throw new Error("Invalid or expired refresh token");
+      return null;
     }
   }
 

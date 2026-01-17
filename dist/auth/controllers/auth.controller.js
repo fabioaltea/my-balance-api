@@ -10,9 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
-const googleOAuth_helper_1 = require("../helpers/googleOAuth.helper");
+const GoogleAuthHelper_1 = require("../../helpers/GoogleAuthHelper");
 const jwt_helper_1 = require("../helpers/jwt.helper");
-const refreshToken_helper_1 = require("../helpers/refreshToken.helper");
 const crypto_helper_1 = require("../helpers/crypto.helper");
 const DbHelper_1 = require("../../helpers/DbHelper");
 class AuthController {
@@ -23,27 +22,25 @@ class AuthController {
     static googleCallback(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { authorizationCode, codeVerifier, deviceId } = req.body;
+                const { authorizationCode, codeVerifier, deviceId, deviceType } = req.body;
                 if (!authorizationCode || !deviceId) {
                     res.status(400).json({
                         success: false,
                         error: "Missing required fields",
                         required: ["authorizationCode", "deviceId"],
-                        optional: ["codeVerifier"],
+                        optional: ["codeVerifier", "deviceType"],
                     });
                     return;
                 }
+                const googleOAuthHelper = new GoogleAuthHelper_1.GoogleAuthHelper(deviceType !== null && deviceType !== void 0 ? deviceType : "web");
                 // Exchange code for Google tokens
                 // Note: codeVerifier is optional - if not provided, PKCE is not used
-                const googleTokens = yield googleOAuth_helper_1.GoogleOAuthHelper.exchangeCodeForTokens({
+                const googleTokens = yield googleOAuthHelper.exchangeCodeForTokens({
                     authorizationCode,
                     codeVerifier: codeVerifier || undefined, // Pass undefined if empty string
-                    clientId: process.env.CLIENT_ID,
-                    clientSecret: process.env.CLIENT_SECRET,
-                    redirectUri: process.env.REDIRECT_URI,
                 });
                 // Verify ID token and get user identity
-                const identity = yield googleOAuth_helper_1.GoogleOAuthHelper.verifyIdToken(googleTokens.idToken);
+                const identity = yield googleOAuthHelper.verifyIdToken(googleTokens.idToken);
                 // Find or create user in database
                 let user = yield DbHelper_1.DbHelper.getUserByEmail(identity.email);
                 console.log("User response:", user);
@@ -51,7 +48,6 @@ class AuthController {
                     // Create new user
                     user = yield DbHelper_1.DbHelper.createUser({
                         email: identity.email,
-                        googleSub: identity.googleSub,
                         name: identity.name || "",
                         picture: identity.picture || "",
                         emailVerified: identity.emailVerified,
@@ -63,37 +59,34 @@ class AuthController {
                         name: identity.name || user.user_name,
                         picture: identity.picture || user.user_picture,
                         emailVerified: identity.emailVerified,
-                        googleSub: identity.googleSub,
                     });
-                }
-                // Store encrypted Google refresh token if provided
-                if (googleTokens.refreshToken) {
-                    const encryptedRefreshToken = crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken);
-                    yield DbHelper_1.DbHelper.storeGoogleRefreshToken(user.user_email, encryptedRefreshToken);
                 }
                 // Update user's last access
                 yield DbHelper_1.DbHelper.updateUserLastAccess(user.user_email);
-                // Generate internal refresh token
-                const internalRefreshToken = refreshToken_helper_1.RefreshTokenHelper.generateRefreshToken();
-                // Create session
-                const sessionId = yield DbHelper_1.DbHelper.createSession({
-                    userEmail: user.user_email,
-                    deviceId,
-                    refreshTokenHash: internalRefreshToken.hash,
-                    expiresAt: internalRefreshToken.expiresAt,
-                    scopes: googleTokens.scopes,
-                });
                 // Generate JWT tokens
                 const tokenPayload = {
                     userId: user.user_email, // Using email as userId for consistency
                     scopes: googleTokens.scopes,
+                    deviceType: deviceType || "web", // Include device type in JWT
                 };
                 const accessToken = jwt_helper_1.JwtHelper.signAccessToken(tokenPayload);
                 const refreshToken = jwt_helper_1.JwtHelper.signRefreshToken(tokenPayload);
+                // Create session with Google refresh token (for API calls like Sheets)
+                // The Google refresh token is stored per-session, not per-user
+                const encryptedGoogleRefreshToken = googleTokens.refreshToken
+                    ? crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken)
+                    : undefined;
+                const sessionId = yield DbHelper_1.DbHelper.createSession({
+                    userEmail: user.user_email,
+                    deviceId,
+                    scopes: googleTokens.scopes,
+                    deviceType: deviceType || "web",
+                    googleRefreshToken: encryptedGoogleRefreshToken,
+                });
                 res.json({
                     success: true,
                     accessToken,
-                    refreshToken, // Use JWT refresh token instead of Google internal token
+                    refreshToken, // JWT refresh token
                     user: {
                         id: user.id,
                         email: user.user_email,
@@ -119,40 +112,53 @@ class AuthController {
     static refresh(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                console.log("🔄 Token refresh request received");
                 const { refreshToken, deviceId } = req.body;
+                console.log("🔄 Device ID:", deviceId);
+                console.log("🔄 Refresh token (first 50 chars):", refreshToken === null || refreshToken === void 0 ? void 0 : refreshToken.substring(0, 50));
                 if (!refreshToken || !deviceId) {
+                    console.log("❌ Missing refresh token or device ID");
                     res.status(400).json({
                         success: false,
                         error: "Missing refresh token or device ID",
                     });
                     return;
                 }
-                // Get session from database
-                const session = yield DbHelper_1.DbHelper.getSessionByDeviceId(deviceId);
-                if (!session || refreshToken_helper_1.RefreshTokenHelper.isTokenExpired(session.expires_at)) {
+                // Verify JWT refresh token
+                console.log("🔄 Verifying JWT refresh token...");
+                const decoded = jwt_helper_1.JwtHelper.verifyRefreshToken(refreshToken);
+                if (!decoded) {
+                    console.log("❌ JWT verification failed - token invalid or expired");
                     res.status(401).json({
                         success: false,
-                        error: "Invalid or expired session",
-                        code: "SESSION_EXPIRED",
-                    });
-                    return;
-                }
-                // Verify refresh token hash
-                if (!refreshToken_helper_1.RefreshTokenHelper.verifyRefreshToken(refreshToken, session.refresh_token_hash)) {
-                    res.status(401).json({
-                        success: false,
-                        error: "Invalid refresh token",
+                        error: "Invalid or expired refresh token",
                         code: "INVALID_REFRESH_TOKEN",
                     });
                     return;
                 }
-                // Generate new refresh token (rotation)
-                const newRefreshToken = refreshToken_helper_1.RefreshTokenHelper.generateRefreshToken();
-                // Update session with new refresh token
-                yield DbHelper_1.DbHelper.updateSession(session.id, {
-                    refreshTokenHash: newRefreshToken.hash,
-                    expiresAt: newRefreshToken.expiresAt,
-                });
+                console.log("✅ JWT verified, userId:", decoded.userId);
+                // Check if session exists (for revocation support)
+                console.log("🔄 Looking up session for device:", deviceId);
+                const session = yield DbHelper_1.DbHelper.getSessionByDeviceId(deviceId);
+                if (!session) {
+                    console.log("❌ Session not found or expired for device:", deviceId);
+                    res.status(401).json({
+                        success: false,
+                        error: "Session not found or revoked",
+                        code: "SESSION_REVOKED",
+                    });
+                    return;
+                }
+                console.log("✅ Session found for user:", session.user_email);
+                // Verify the token belongs to the session user
+                if (decoded.userId !== session.user_email) {
+                    res.status(401).json({
+                        success: false,
+                        error: "Token does not match session",
+                        code: "TOKEN_MISMATCH",
+                    });
+                    return;
+                }
                 // Get user info
                 const user = yield DbHelper_1.DbHelper.getUserByEmail(session.user_email);
                 if (!user) {
@@ -162,16 +168,17 @@ class AuthController {
                     });
                     return;
                 }
-                // Generate new access token
+                // Generate new access token (keep same refresh token - JWT is self-validating)
                 const tokenPayload = {
-                    userId: user.user_email, // Using email as userId for consistency
-                    scopes: session.scopes || [],
+                    userId: user.user_email,
+                    scopes: decoded.scopes || session.scopes || [],
+                    deviceType: decoded.deviceType || session.device_type || "web",
                 };
                 const accessToken = jwt_helper_1.JwtHelper.signAccessToken(tokenPayload);
                 res.json({
                     success: true,
                     accessToken,
-                    refreshToken: newRefreshToken.raw,
+                    refreshToken, // Return same refresh token (JWT doesn't need rotation)
                 });
             }
             catch (error) {
@@ -248,13 +255,18 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const userEmail = req.userId; // Set by auth middleware (now contains email)
-                const user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
+                let user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
                 if (!user) {
                     res.status(404).json({
                         success: false,
                         error: "User not found",
                     });
                     return;
+                }
+                // If user doesn't have a spreadsheet ID, they'll need to create one
+                // For now, we return the profile without spreadsheetId and let the frontend handle it
+                if (!user.spreadsheet_id) {
+                    console.log(`⚠️ User ${userEmail} has no spreadsheet configured - will use quickstart mode`);
                 }
                 res.json({
                     success: true,
@@ -264,7 +276,7 @@ class AuthController {
                         name: user.user_name,
                         picture: user.user_picture,
                         emailVerified: user.email_verified,
-                        spreadsheetId: user.spreadsheet_id,
+                        spreadsheetId: user.spreadsheet_id || null, // Can be null for new users
                         lastAccess: user.last_access,
                     },
                 });

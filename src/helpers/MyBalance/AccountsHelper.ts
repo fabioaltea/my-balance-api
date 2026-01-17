@@ -1,4 +1,6 @@
 import { GoogleHelper } from "../GoogleHelper";
+import { TransactionsHelper } from "./TransactionsHelper";
+import { ITransaction } from "../interfaces";
 
 export interface IAccount {
   accountId: string;
@@ -21,7 +23,7 @@ export interface IAccountData {
 }
 
 const SHEET_NAME = "Accounts";
-const SHEET_RANGE = "Accounts!A:Z";
+const SHEET_RANGE = "Accounts!A2:Z";
 
 // Mappatura colonne del foglio "Accounts" (0-based)
 const COLS = {
@@ -52,6 +54,14 @@ export class AccountsHelper {
 
       if (!rows || rows.length === 0) return [];
 
+      // Recupera anche tutte le transazioni per calcolare i balance reali
+      console.log("📊 Fetching transactions to calculate account balances...");
+      const transactions = await TransactionsHelper.listTransactions(
+        auth,
+        spreadsheetId
+      );
+      console.log(`📊 Found ${transactions.length} transactions`);
+
       const accounts: IAccount[] = [];
 
       // Salta la prima riga se contiene headers
@@ -64,10 +74,26 @@ export class AccountsHelper {
 
         const account = this.rowToAccount(row, i);
         if (account && !account.name.startsWith("DELETED_")) {
+          // Calcola il balance reale per questo account
+          const calculatedBalance = this.calculateAccountBalance(
+            account.name,
+            transactions
+          );
+
+          // Sostituisci il balance del sheet con quello calcolato
+          account.balance = this.formatBalance(calculatedBalance);
+
+          console.log(
+            `💰 Account "${account.name}": calculated balance = ${account.balance}`
+          );
+
           accounts.push(account);
         }
       }
 
+      console.log(
+        `📊 Returning ${accounts.length} accounts with calculated balances`
+      );
       return accounts;
     } catch (error) {
       console.error("Error getting accounts:", error);
@@ -344,6 +370,68 @@ export class AccountsHelper {
   // =================
 
   /**
+   * Calcola il balance reale di un account sommando tutte le sue transazioni
+   */
+  private static calculateAccountBalance(
+    accountName: string,
+    transactions: ITransaction[]
+  ): number {
+    let totalBalance = 0;
+
+    for (const transaction of transactions) {
+      // Verifica se la transazione appartiene a questo account
+      // Il campo account dovrebbe essere nella colonna 5 (ACCOUNT)
+      if (transaction.account === accountName) {
+        // Converti l'amount da stringa a numero
+        const amount = this.parseAmount(transaction.amount);
+        totalBalance += amount;
+      }
+    }
+
+    console.log(
+      `🧮 Final calculated balance for "${accountName}": ${totalBalance}`
+    );
+    return totalBalance;
+  }
+
+  /**
+   * Converte un amount da stringa (formato italiano con €) a numero
+   */
+  private static parseAmount(amountStr: string | number): number {
+    if (typeof amountStr === "number") return amountStr;
+    if (!amountStr) return 0;
+
+    let raw = String(amountStr).trim();
+    // Rimuovi simboli valuta e spazi
+    raw = raw.replace(/[€\s]/g, "");
+
+    const hasComma = raw.includes(",");
+    const hasDot = raw.includes(".");
+
+    if (hasComma && hasDot) {
+      // Se ci sono entrambi, l'ultimo separatore visto è quello decimale
+      const lastComma = raw.lastIndexOf(",");
+      const lastDot = raw.lastIndexOf(".");
+      if (lastComma > lastDot) {
+        // Formato EU: "." migliaia, "," decimali
+        raw = raw.replace(/\./g, "").replace(/,/g, ".");
+      } else {
+        // Formato US: "," migliaia, "." decimali
+        raw = raw.replace(/,/g, "");
+      }
+    } else if (hasComma && !hasDot) {
+      // Solo virgola -> decimale
+      raw = raw.replace(/,/g, ".");
+    } else if (hasDot && !hasComma) {
+      // Solo punto -> decimale, rimuovi eventuali spazi già tolti
+      // Nessuna azione necessaria
+    }
+
+    const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  /**
    * Converte una riga del foglio in un oggetto IAccount
    */
   private static rowToAccount(row: any[], rowIndex: number): IAccount | null {
@@ -375,19 +463,12 @@ export class AccountsHelper {
    * Formatta il balance in formato valuta italiana
    */
   private static formatBalance(balance: any): string {
-    if (!balance) return "0,00";
-
-    // Se è già una stringa con €, rimuovi solo spazi extra
-    if (typeof balance === "string" && balance.includes("€")) {
-      return balance.trim();
+    if (balance === null || balance === undefined || balance === "") {
+      return "€ 0,00";
     }
 
-    // Se è un numero o stringa numerica
-    const num = parseFloat(
-      String(balance).replace(/[€\s]/g, "").replace(",", ".")
-    );
-    if (isNaN(num)) return "0,00";
-
+    const num = this.parseAmount(balance);
+    if (isNaN(num)) return "€ 0,00";
     return `€ ${num.toFixed(2).replace(".", ",")}`;
   }
 

@@ -47,7 +47,7 @@ const COLS = {
     STATUS: 14,
 };
 // Range base usato per operazioni
-const SHEET_RANGE = "AllTransactions!A:Z";
+const SHEET_RANGE = "AllTransactions!A2:Z";
 const SHEET_NAME = "AllTransactions";
 class TransactionsHelper {
     static pad(n) {
@@ -162,23 +162,34 @@ class TransactionsHelper {
         if (amount === null || amount === undefined)
             return NaN;
         let raw = String(amount).trim();
-        raw = raw.replace(/[^0-9\-.,]/g, ""); // lascia cifre, segno meno, punto e virgola
-        // Se ci sono più virgole o punti teniamo l'ultimo come separatore decimale
-        const lastComma = raw.lastIndexOf(",");
-        const lastDot = raw.lastIndexOf(".");
-        let sepIndex = Math.max(lastComma, lastDot);
-        if (sepIndex > -1) {
-            // rimuovi tutti i punti/virgole e reinserisci un punto al separatore decimale
-            const digits = raw.replace(/[.,]/g, "");
-            const intPart = digits.substring(0, sepIndex);
-            const decPart = digits.substring(sepIndex);
-            raw = intPart + "." + decPart;
+        // Rimuovi simboli di valuta e spazi
+        raw = raw.replace(/[€\s]/g, "");
+        const hasComma = raw.includes(",");
+        const hasDot = raw.includes(".");
+        if (hasComma && hasDot) {
+            // Determina il separatore decimale come l'ultimo tra , e .
+            const lastComma = raw.lastIndexOf(",");
+            const lastDot = raw.lastIndexOf(".");
+            if (lastComma > lastDot) {
+                // EU: . migliaia, , decimali
+                raw = raw.replace(/\./g, "").replace(/,/g, ".");
+            }
+            else {
+                // US: , migliaia, . decimali
+                raw = raw.replace(/,/g, "");
+            }
         }
-        else {
-            raw = raw.replace(/[.,]/g, "");
+        else if (hasComma && !hasDot) {
+            // Solo la virgola come decimale
+            raw = raw.replace(/,/g, ".");
         }
-        const num = Number(raw);
-        return num;
+        else if (hasDot && !hasComma) {
+            // Solo il punto come decimale
+            // Nessuna trasformazione necessaria
+        }
+        raw = raw.replace(/[^0-9.\-]/g, "");
+        const num = parseFloat(raw);
+        return isNaN(num) ? NaN : num;
     }
     static formatAmount(amount) {
         const num = this.parseAmountToNumber(amount);
@@ -253,12 +264,13 @@ class TransactionsHelper {
         });
     }
     // APPEND transactions (da richiesta movement)
-    static appendMovement(auth, spreadsheetId, movementRequest) {
+    static appendMovement(authClient, spreadsheetId, movementRequest) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             // Genera movementId se non presente
             const movementId = movementRequest.movementId || this.generateMovementId();
             // Crea transactions dal movimento
-            const transactions = movementRequest.transactions.map((treq) => ({
+            const transactions = (_a = movementRequest.transactions) === null || _a === void 0 ? void 0 : _a.map((treq) => ({
                 transactionId: treq.transactionId || this.generateTransactionId(),
                 movementId: movementId,
                 description: treq.description || movementRequest.description,
@@ -279,20 +291,20 @@ class TransactionsHelper {
             // Converte in righe e appende
             const values = transactions.map((t) => this.transactionToRowValidated(t));
             const body = { values };
-            return yield GoogleHelper_1.GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body);
+            return yield GoogleHelper_1.GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
         });
     }
     // LIST movements (raggruppa transactions per movementId)
-    static listMovements(auth, spreadsheetId) {
+    static listMovements(authClient, spreadsheetId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const transactions = yield this.listTransactions(auth, spreadsheetId);
+            const transactions = yield this.listTransactions(authClient, spreadsheetId);
             // Raggruppa per movementId
             return this.groupTransactionsByMovement(transactions);
         });
     }
-    static listTransactions(auth, spreadsheetId) {
+    static listTransactions(authClient, spreadsheetId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const rows = yield GoogleHelper_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+            const rows = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
             if (!rows || rows.length === 0)
                 return [];
             // Converte tutte le righe in transactions
@@ -308,9 +320,9 @@ class TransactionsHelper {
         });
     }
     // GET movimento per movementId
-    static getMovement(auth, spreadsheetId, movementId) {
+    static getMovement(authClient, spreadsheetId, movementId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const rows = yield GoogleHelper_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+            const rows = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
                 return null;
             // Trova tutte le transactions con questo movementId
@@ -331,12 +343,12 @@ class TransactionsHelper {
         });
     }
     // UPDATE movimento completo (gestisce create/update/delete di transactions)
-    static updateMovement(auth, spreadsheetId, movementRequest) {
+    static updateMovement(authClientClient, spreadsheetId, movementRequest) {
         return __awaiter(this, void 0, void 0, function* () {
             const movementId = movementRequest.movementId;
             if (!movementId)
                 throw new Error("MovementId richiesto per update");
-            const rows = yield GoogleHelper_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+            const rows = yield GoogleHelper_1.GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
                 throw new Error("Foglio vuoto");
             // Trova tutte le transactions esistenti per questo movimento
@@ -359,7 +371,8 @@ class TransactionsHelper {
                 row[COLS.STATUS] = "DELETED";
                 row[COLS.DATE_DELETED] = this.normalizeMetaDate(new Date());
                 row[COLS.DATE_MODIFIED] = this.normalizeMetaDate(new Date());
-                const rowNumber = existing.index + 1; // 1-based
+                // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+                const rowNumber = existing.index + 2;
                 const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                 updateData.push({
                     majorDimension: "ROWS",
@@ -392,21 +405,21 @@ class TransactionsHelper {
             // Esegui updates
             const results = [];
             if (updateData.length > 0) {
-                results.push(yield GoogleHelper_1.GoogleHelper.update(auth, spreadsheetId, updateData));
+                results.push(yield GoogleHelper_1.GoogleHelper.update(authClientClient, spreadsheetId, updateData));
             }
             // Appendi nuove transactions
             if (newTransactions.length > 0) {
                 const values = newTransactions.map((t) => this.transactionToRowValidated(t));
                 const body = { values };
-                results.push(yield GoogleHelper_1.GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body));
+                results.push(yield GoogleHelper_1.GoogleHelper.append(authClientClient, spreadsheetId, SHEET_RANGE, body));
             }
             return results;
         });
     }
     // DELETE (soft delete: status = DELETED + dateDeleted per tutte le transactions)
-    static deleteMovement(auth, spreadsheetId, movementId) {
+    static deleteMovement(authClient, spreadsheetId, movementId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const rows = yield GoogleHelper_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+            const rows = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
                 throw new Error("Foglio vuoto");
             const updateData = [];
@@ -418,7 +431,8 @@ class TransactionsHelper {
                     row[COLS.STATUS] = "DELETED";
                     row[COLS.DATE_DELETED] = now;
                     row[COLS.DATE_MODIFIED] = now;
-                    const rowNumber = i + 1; // 1-based
+                    // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+                    const rowNumber = i + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                     updateData.push({
                         majorDimension: "ROWS",
@@ -430,7 +444,7 @@ class TransactionsHelper {
             if (updateData.length === 0) {
                 throw new Error("Movement non trovato o già eliminato");
             }
-            return yield GoogleHelper_1.GoogleHelper.update(auth, spreadsheetId, updateData);
+            return yield GoogleHelper_1.GoogleHelper.update(authClient, spreadsheetId, updateData);
         });
     }
     // Utility: genera un movementId univoco

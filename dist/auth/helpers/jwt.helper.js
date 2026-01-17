@@ -12,9 +12,21 @@ class JwtHelper {
      */
     static getKeys() {
         // In production, these should come from environment variables or key management service
-        const privateKey = process.env.JWT_PRIVATE_KEY || this.generateKeyPair().privateKey;
-        const publicKey = process.env.JWT_PUBLIC_KEY || this.generateKeyPair().publicKey;
-        return { privateKey, publicKey };
+        const envPrivateKey = process.env.JWT_PRIVATE_KEY;
+        const envPublicKey = process.env.JWT_PUBLIC_KEY;
+        if (envPrivateKey && envPublicKey) {
+            // Parse escaped newlines from .env file
+            return {
+                privateKey: envPrivateKey.replace(/\\n/g, '\n'),
+                publicKey: envPublicKey.replace(/\\n/g, '\n'),
+            };
+        }
+        // Fallback: generate keys once and cache them (for development only)
+        if (!this._cachedKeys) {
+            console.warn('⚠️ JWT keys not found in environment, generating temporary keys. This is NOT recommended for production!');
+            this._cachedKeys = this.generateKeyPair();
+        }
+        return this._cachedKeys;
     }
     /**
      * Generate RSA key pair (for development only)
@@ -82,6 +94,7 @@ class JwtHelper {
     }
     /**
      * Verify refresh token
+     * Returns null if token is invalid or expired
      */
     static verifyRefreshToken(token) {
         const { publicKey } = this.getKeys();
@@ -92,13 +105,14 @@ class JwtHelper {
                 audience: "mybalance-client",
             });
             if (decoded.type !== "refresh") {
-                throw new Error("Invalid token type");
+                console.error("JWT verification failed: Invalid token type");
+                return null;
             }
             return decoded;
         }
         catch (error) {
             console.error("JWT verification failed:", error.message);
-            throw new Error("Invalid or expired refresh token");
+            return null;
         }
     }
     /**
@@ -114,4 +128,6 @@ class JwtHelper {
 exports.JwtHelper = JwtHelper;
 JwtHelper.ACCESS_TOKEN_TTL = "10m"; // 10 minutes
 JwtHelper.REFRESH_TOKEN_TTL = "30d"; // 30 days
+// Cache for generated keys (only used if env vars are not set)
+JwtHelper._cachedKeys = null;
 //# sourceMappingURL=jwt.helper.js.map

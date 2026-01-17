@@ -7,10 +7,14 @@ class RequireAuthMiddleware {
      * Middleware to verify JWT access token
      */
     static verify(req, res, next) {
+        console.log("🔐 === AUTH MIDDLEWARE START ===");
         try {
             const authHeader = req.headers.authorization;
             const token = jwt_helper_1.JwtHelper.extractTokenFromHeader(authHeader);
+            console.log("🔐 Authorization header:", authHeader ? "present" : "missing");
+            console.log("🔐 Extracted token:", token ? "present" : "missing");
             if (!token) {
+                console.log("❌ No token found, returning 401");
                 res.status(401).json({
                     success: false,
                     error: "Missing authorization token",
@@ -18,26 +22,36 @@ class RequireAuthMiddleware {
                 });
                 return;
             }
+            console.log("🔐 Verifying access token...");
             const payload = jwt_helper_1.JwtHelper.verifyAccessToken(token);
+            console.log("✅ Token verified successfully. Payload:", {
+                userId: payload.userId,
+                scopes: payload.scopes,
+                deviceType: payload.deviceType,
+            });
             // Attach user info to request
             req.userId = payload.userId;
             req.scopes = payload.scopes;
+            req.deviceType = payload.deviceType || "web"; // Default to web if not specified
+            console.log("🔐 Auth middleware completed successfully, calling next()");
             next();
         }
         catch (error) {
-            console.error("Authentication middleware error:", error);
+            console.error("❌ Authentication middleware error:", error);
             let errorCode = "INVALID_TOKEN";
             let message = "Invalid or expired access token";
             if (error.message.includes("expired")) {
                 errorCode = "TOKEN_EXPIRED";
                 message = "Access token has expired";
             }
+            console.log("❌ Returning auth error:", { errorCode, message });
             res.status(401).json({
                 success: false,
                 error: message,
                 code: errorCode,
             });
         }
+        console.log("🔐 === AUTH MIDDLEWARE END ===");
     }
     /**
      * Middleware to verify specific scopes
