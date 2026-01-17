@@ -51,6 +51,7 @@ const corsOptions = {
     ],
     credentials: true,
 };
+app.set("trust proxy", 1); // Se dietro un reverse proxy
 // Very first middleware - should catch ALL requests
 app.use("*", (req, res, next) => {
     console.log(`🚨 === RAW REQUEST RECEIVED ===`);
