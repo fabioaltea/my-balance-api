@@ -6,12 +6,14 @@ export interface JwtPayload extends BaseJwtPayload {
   scopes: string[];
   type: "access" | "refresh";
   deviceType?: "web" | "ios" | "android";
+  deviceId?: string;
 }
 
 export interface AccessTokenPayload {
   userId: string;
   scopes: string[];
   deviceType?: "web" | "ios" | "android";
+  deviceId?: string;
 }
 
 export class JwtHelper {

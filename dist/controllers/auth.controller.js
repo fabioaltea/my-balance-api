@@ -68,20 +68,22 @@ class AuthController {
                     userId: user.user_email, // Using email as userId for consistency
                     scopes: googleTokens.scopes,
                     deviceType: deviceType || "web", // Include device type in JWT
+                    deviceId, // Include device ID for session verification
                 };
                 const accessToken = jwt_helper_1.JwtHelper.signAccessToken(tokenPayload);
                 const refreshToken = jwt_helper_1.JwtHelper.signRefreshToken(tokenPayload);
-                // Create session with Google refresh token (for API calls like Sheets)
-                // The Google refresh token is stored per-session, not per-user
-                const encryptedGoogleRefreshToken = googleTokens.refreshToken
-                    ? crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken)
-                    : undefined;
+                // Store Google refresh token in user_google_tokens table (UPSERT)
+                // One token per user+device_type combination
+                if (googleTokens.refreshToken) {
+                    const encryptedGoogleRefreshToken = crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken);
+                    yield DbHelper_1.DbHelper.storeGoogleRefreshToken(user.user_email, encryptedGoogleRefreshToken, deviceType || "web");
+                }
+                // Create session for JWT/device tracking (without Google token)
                 const sessionId = yield DbHelper_1.DbHelper.createSession({
                     userEmail: user.user_email,
                     deviceId,
                     scopes: googleTokens.scopes,
                     deviceType: deviceType || "web",
-                    googleRefreshToken: encryptedGoogleRefreshToken,
                 });
                 res.json({
                     success: true,
@@ -173,6 +175,7 @@ class AuthController {
                     userId: user.user_email,
                     scopes: decoded.scopes || session.scopes || [],
                     deviceType: decoded.deviceType || session.device_type || "web",
+                    deviceId, // Include device ID for session verification
                 };
                 const accessToken = jwt_helper_1.JwtHelper.signAccessToken(tokenPayload);
                 res.json({

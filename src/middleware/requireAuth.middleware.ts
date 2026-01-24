@@ -1,21 +1,23 @@
 import { Request, Response, NextFunction } from "express";
 import { JwtHelper } from "../helpers/jwt.helper";
+import { DbHelper } from "../helpers/DbHelper";
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   scopes?: string[];
   deviceType?: "web" | "ios" | "android";
+  deviceId?: string;
 }
 
 export class RequireAuthMiddleware {
   /**
-   * Middleware to verify JWT access token
+   * Middleware to verify JWT access token and session
    */
-  public static verify(
+  public static async verify(
     req: AuthenticatedRequest,
     res: Response,
     next: NextFunction,
-  ): void {
+  ): Promise<void> {
     console.log("🔐 === AUTH MIDDLEWARE START ===");
     try {
       const authHeader =
@@ -47,12 +49,29 @@ export class RequireAuthMiddleware {
         userId: payload.userId,
         scopes: payload.scopes,
         deviceType: payload.deviceType,
+        deviceId: payload.deviceId,
       });
+
+      // Verify session exists for this deviceId
+      if (payload.deviceId) {
+        const session = await DbHelper.getSessionByDeviceId(payload.deviceId);
+        if (!session) {
+          console.log("❌ Session not found for deviceId:", payload.deviceId);
+          res.status(401).json({
+            success: false,
+            error: "Session not found or revoked",
+            code: "SESSION_REVOKED",
+          });
+          return;
+        }
+        console.log("✅ Session verified for deviceId:", payload.deviceId);
+      }
 
       // Attach user info to request
       req.userId = payload.userId;
       req.scopes = payload.scopes;
       req.deviceType = payload.deviceType || "web"; // Default to web if not specified
+      req.deviceId = payload.deviceId;
 
       console.log("🔐 Auth middleware completed successfully, calling next()");
       next();
