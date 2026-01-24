@@ -25,6 +25,7 @@ import { accountsRoutes } from "./auth/routes/accounts.routes";
 import { categoriesRoutes } from "./auth/routes/categories.routes";
 import { transactionsRoutes } from "./auth/routes/transactions.routes";
 import { movementsRoutes } from "./auth/routes/movements.routes";
+import { shortcutRoutes } from "./auth/routes/shortcut.routes";
 import { RequireAuthMiddleware } from "./auth/middleware/requireAuth.middleware";
 import { CryptoHelper } from "./auth/helpers/crypto.helper";
 import { GoogleAuthHelper } from "./helpers/GoogleAuthHelper";
@@ -42,6 +43,7 @@ const corsOptions = {
     "access_token",
     "refresh_token",
     "spreadsheet_id",
+    "x-shortcutkey",
   ],
   exposedHeaders: [
     "Access-Control-Allow-Origin",
@@ -50,16 +52,13 @@ const corsOptions = {
   credentials: true,
 };
 
- app.set("trust proxy", 1); // Se dietro un reverse proxy
+app.set("trust proxy", 1); // Se dietro un reverse proxy
 // Very first middleware - should catch ALL requests
 app.use("*", (req, res, next) => {
   console.log(`🚨 === RAW REQUEST RECEIVED ===`);
   console.log(`🚨 Timestamp: ${new Date().toISOString()}`);
   console.log(`🚨 Method: ${req.method}`);
   console.log(`🚨 Original URL: ${req.originalUrl}`);
-  console.log(`🚨 Headers:`, req.headers);
-  console.log(`🚨 User-Agent: ${req.headers["user-agent"]}`);
-  console.log(`🚨 Origin: ${req.headers.origin}`);
   next();
 });
 
@@ -72,16 +71,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.raw());
 
-app.use((req, res, next) => {
-  console.log("=== INCOMING REQUEST ===");
-  console.log("Method:", req.method);
-  console.log("URL:", req.url);
-  console.log("Headers:", JSON.stringify(req.headers, null, 2));
-  console.log("Body:", req.body);
-  console.log("========================");
-  next();
-});
-
 // NEW AUTHENTICATION ROUTES
 app.use("/auth", authRoutes);
 
@@ -90,6 +79,7 @@ app.use("/accounts", accountsRoutes);
 app.use("/categories", categoriesRoutes);
 app.use("/transactions", transactionsRoutes);
 app.use("/movements", movementsRoutes);
+app.use("/shortcut", shortcutRoutes);
 
 // User data endpoints (protected)
 app.get(
@@ -127,7 +117,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.post(
@@ -151,7 +141,7 @@ app.post(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 // Helper endpoint to get user's decrypted Google token (for server-side Google API calls)
@@ -200,7 +190,7 @@ app.get("/get", RequireAuthMiddleware.verify, async (req: any, res: any) => {
     // Get user's Google auth client
     const authClient = await GoogleAuthHelper.getAuthClientForUser(
       userEmail,
-      deviceType
+      deviceType,
     );
 
     // Get spreadsheet ID - either from header or user's default
@@ -220,7 +210,7 @@ app.get("/get", RequireAuthMiddleware.verify, async (req: any, res: any) => {
     const items = await GoogleHelper.get(
       authClient,
       spreadsheetId,
-      req.query.range
+      req.query.range,
     );
     res.json({ success: true, data: items });
   } catch (error: any) {
@@ -244,15 +234,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from header or user's default
       let spreadsheetId = req.headers.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -274,7 +263,7 @@ app.post(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.post(
@@ -288,15 +277,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from header or user's default
       let spreadsheetId = req.headers.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -332,14 +320,14 @@ app.post(
         await TransactionsHelper.appendMovement(
           authClient,
           spreadsheetId,
-          movementRequest
+          movementRequest,
         );
       } else {
         // Nuovo formato
         await TransactionsHelper.appendMovement(
           authClient,
           spreadsheetId,
-          body
+          body,
         );
       }
 
@@ -352,7 +340,7 @@ app.post(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.post(
@@ -366,15 +354,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from header or user's default
       let spreadsheetId = req.headers.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -390,7 +377,7 @@ app.post(
         authClient,
         spreadsheetId,
         req.query.range,
-        body
+        body,
       );
       res.json({ success: true, data: items });
     } catch (error: any) {
@@ -401,7 +388,7 @@ app.post(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 // New RESTful movements endpoints
@@ -424,15 +411,14 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -445,7 +431,7 @@ app.get(
 
       const movements = await TransactionsHelper.listMovements(
         authClient,
-        spreadsheetId
+        spreadsheetId,
       );
       res.json({ success: true, data: movements });
     } catch (error: any) {
@@ -456,7 +442,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.get(
@@ -470,7 +456,7 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       const { movementId } = req.params;
@@ -478,9 +464,8 @@ app.get(
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -494,7 +479,7 @@ app.get(
       const movement = await TransactionsHelper.getMovement(
         authClient,
         spreadsheetId,
-        movementId
+        movementId,
       );
 
       if (!movement) {
@@ -513,7 +498,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.post(
@@ -527,15 +512,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -560,7 +544,7 @@ app.post(
       await TransactionsHelper.appendMovement(
         authClient,
         spreadsheetId,
-        movementRequest
+        movementRequest,
       );
       res
         .status(201)
@@ -573,7 +557,7 @@ app.post(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.put(
@@ -587,15 +571,14 @@ app.put(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -612,7 +595,7 @@ app.put(
       const existing = await TransactionsHelper.getMovement(
         authClient,
         spreadsheetId,
-        movementId
+        movementId,
       );
 
       if (!existing) {
@@ -638,7 +621,7 @@ app.put(
       await TransactionsHelper.updateMovement(
         authClient,
         spreadsheetId,
-        movementRequest
+        movementRequest,
       );
       res.json({ success: true, data: "Movement updated successfully" });
     } catch (error: any) {
@@ -649,7 +632,7 @@ app.put(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 app.delete(
@@ -663,15 +646,14 @@ app.delete(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -686,7 +668,7 @@ app.delete(
       await TransactionsHelper.deleteMovement(
         authClient,
         spreadsheetId,
-        movementId
+        movementId,
       );
       res.json({ success: true, data: "Movement deleted successfully" });
     } catch (error: any) {
@@ -697,7 +679,7 @@ app.delete(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 // #region TRANSACTIONS ENDPOINTS
@@ -724,7 +706,6 @@ app.get(
       console.log("🔄 User ID:", req.userId);
       console.log("🔄 Device Type:", req.deviceType);
       console.log("🔄 Query params:", req.query);
-      console.log("🔄 Headers:", req.headers);
       console.log("🔄 =============");
 
       const userEmail = req.userId; // From auth middleware (now contains email)
@@ -733,15 +714,14 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -757,12 +737,12 @@ app.get(
       // Ottieni tutti i movements e poi estrai le singole transazioni
       const allTransactions = await TransactionsHelper.listTransactions(
         authClient,
-        spreadsheetId
+        spreadsheetId,
       );
 
       console.log(
         "🔄 Transactions loaded successfully:",
-        allTransactions.length
+        allTransactions.length,
       );
 
       res.json({ success: true, data: allTransactions });
@@ -774,7 +754,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -785,7 +765,7 @@ app.get(
   "/transactions/:spreadsheetId",
   (req, res, next) => {
     console.log(
-      "🔧 GET /transactions/:spreadsheetId route hit - before auth middleware"
+      "🔧 GET /transactions/:spreadsheetId route hit - before auth middleware",
     );
     console.log("🔧 Spreadsheet ID from path:", req.params.spreadsheetId);
     next();
@@ -806,7 +786,7 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Use spreadsheet ID from path
@@ -824,19 +804,19 @@ app.get(
       // Get all transactions using TransactionsHelper
       const allTransactions = await TransactionsHelper.listTransactions(
         authClient,
-        spreadsheetId
+        spreadsheetId,
       );
 
       console.log(
         "🔄 Transactions loaded successfully:",
-        allTransactions.length
+        allTransactions.length,
       );
 
       res.json({ success: true, data: allTransactions });
     } catch (error: any) {
       console.error(
         "❌ Error fetching transactions with spreadsheet ID:",
-        error
+        error,
       );
       res.status(500).json({
         success: false,
@@ -844,7 +824,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1098,28 +1078,28 @@ app.post("/verify-registration", async (req: any, res: any) => {
       const clientDataDecoded = JSON.parse(
         Buffer.from(
           attestationResponse.response.clientDataJSON,
-          "base64"
-        ).toString()
+          "base64",
+        ).toString(),
       );
       console.log("Registration client data decoded:", clientDataDecoded);
       console.log("Registration expected challenge:", webauthn_challenge);
       console.log(
         "Registration received challenge:",
-        clientDataDecoded.challenge
+        clientDataDecoded.challenge,
       );
       console.log(
         "Registration challenge match:",
-        clientDataDecoded.challenge === webauthn_challenge
+        clientDataDecoded.challenge === webauthn_challenge,
       );
       console.log(
         "Registration expected origin:",
-        process.env.RP_ORIGIN || "http://localhost:8100"
+        process.env.RP_ORIGIN || "http://localhost:8100",
       );
       console.log("Registration received origin:", clientDataDecoded.origin);
       console.log(
         "Registration origin match:",
         clientDataDecoded.origin ===
-          (process.env.RP_ORIGIN || "http://localhost:8100")
+          (process.env.RP_ORIGIN || "http://localhost:8100"),
       );
     } catch (e) {
       console.log("Error decoding registration clientDataJSON:", e);
@@ -1144,7 +1124,7 @@ app.post("/verify-registration", async (req: any, res: any) => {
             console.log(
               "Verification success for user:",
               userEmail,
-              "Saving auth challenge as null"
+              "Saving auth challenge as null",
             );
             DbHelper.saveAuthChallenge(userEmail, null);
             console.log("Saving user credentials for user:", userEmail);
@@ -1164,12 +1144,12 @@ app.post("/verify-registration", async (req: any, res: any) => {
               userEmail,
               credentialId,
               base64url.encode(Buffer.from(publicKeyBuffer)),
-              counter
+              counter,
             )
               .then(() => {
                 console.log(
                   "User credentials saved successfully for user:",
-                  userEmail
+                  userEmail,
                 );
                 res.json({ verified: true });
               })
@@ -1182,7 +1162,7 @@ app.post("/verify-registration", async (req: any, res: any) => {
               "Registration verification failed for user:",
               userEmail,
               "verification:",
-              verification
+              verification,
             );
             res
               .status(400)
@@ -1193,7 +1173,7 @@ app.post("/verify-registration", async (req: any, res: any) => {
           console.error(
             "Error verifying registration for user:",
             userEmail,
-            error
+            error,
           );
           res
             .status(500)
@@ -1203,12 +1183,12 @@ app.post("/verify-registration", async (req: any, res: any) => {
       console.error(
         "Synchronous error in verifyRegistrationResponse for user:",
         userEmail,
-        error
+        error,
       );
       res
         .status(500)
         .send(
-          `Synchronous error in verifyRegistrationResponse: ${error.message}`
+          `Synchronous error in verifyRegistrationResponse: ${error.message}`,
         );
     }
   });
@@ -1218,7 +1198,7 @@ app.post("/generate-auth-options", (req: any, res: any) => {
   console.log("generate-auth-options");
   res.setHeader(
     "Access-Control-Allow-Origin",
-    process.env.ORIGIN_URL || "http://localhost:8100"
+    process.env.ORIGIN_URL || "http://localhost:8100",
   );
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -1246,7 +1226,7 @@ app.post("/verify-authentication", async (req, res) => {
   const { assertionResponse, challenge } = req.body;
   const userEmail = Buffer.from(
     assertionResponse.response.userHandle,
-    "base64url"
+    "base64url",
   ).toString();
   const clientCredentialId = assertionResponse.id;
   console.log("verify-authentication for user:", userEmail);
@@ -1255,7 +1235,7 @@ app.post("/verify-authentication", async (req, res) => {
       if (!credentials || credentials.length === 0) {
         console.warn(
           `Credential ${clientCredentialId} not found for user`,
-          userEmail
+          userEmail,
         );
         return res.status(400).send("No credentials found for user");
       }
@@ -1265,7 +1245,7 @@ app.post("/verify-authentication", async (req, res) => {
       ) {
         console.warn(
           "Missing credentialPublicKey or counter for user:",
-          userEmail
+          userEmail,
         );
         return res.status(400).send("Invalid credential data for user");
       }
@@ -1275,7 +1255,7 @@ app.post("/verify-authentication", async (req, res) => {
         ? base64url(credentials[0].credentialID)
         : credentials[0].credentialID;
       const credentialPublicKeyBuffer = Buffer.isBuffer(
-        credentials[0].credentialPublicKey
+        credentials[0].credentialPublicKey,
       )
         ? credentials[0].credentialPublicKey
         : Buffer.from(credentials[0].credentialPublicKey, "base64url");
@@ -1285,8 +1265,8 @@ app.post("/verify-authentication", async (req, res) => {
         const clientDataDecoded = JSON.parse(
           Buffer.from(
             assertionResponse.response.clientDataJSON,
-            "base64"
-          ).toString()
+            "base64",
+          ).toString(),
         );
       } catch (e) {
         console.log("Error decoding clientDataJSON:", e);
@@ -1313,7 +1293,7 @@ app.post("/verify-authentication", async (req, res) => {
               console.log(
                 "Error updating last access for user:",
                 userEmail,
-                error
+                error,
               );
             });
 
@@ -1322,7 +1302,7 @@ app.post("/verify-authentication", async (req, res) => {
             if (!user) {
               console.error(
                 "User not found after successful authentication:",
-                userEmail
+                userEmail,
               );
               res
                 .status(500)
@@ -1357,7 +1337,7 @@ app.post("/verify-authentication", async (req, res) => {
               "Authentication failed for user:",
               userEmail,
               "verification details:",
-              verification
+              verification,
             );
             res.status(400).json({ verified: false });
           }
@@ -1366,13 +1346,13 @@ app.post("/verify-authentication", async (req, res) => {
           console.log(
             "Error verifying authentication for user:",
             userEmail,
-            error
+            error,
           );
           res
             .status(500)
             .send(`Error verifying authentication: ${error.message}`);
         });
-    }
+    },
   );
 });
 //#endregion
@@ -1406,15 +1386,14 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1427,7 +1406,7 @@ app.get(
 
       const accounts = await AccountsHelper.getAccounts(
         spreadsheetId,
-        authClient
+        authClient,
       );
       res.json({ success: true, data: accounts });
     } catch (error: any) {
@@ -1437,7 +1416,7 @@ app.get(
         details: error?.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1460,15 +1439,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1492,7 +1470,7 @@ app.post(
           balance: balance || "0,00",
           color: color || "#808080",
           textColor: textColor || "#ffffff",
-        }
+        },
       );
 
       res.json({ success: true, data: account });
@@ -1503,7 +1481,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1522,15 +1500,14 @@ app.put(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1545,7 +1522,7 @@ app.put(
         spreadsheetId,
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         accountId,
-        updateData
+        updateData,
       );
 
       res.json({ success: true, data: updatedAccount });
@@ -1556,7 +1533,7 @@ app.put(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1574,15 +1551,14 @@ app.delete(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1602,7 +1578,7 @@ app.delete(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1620,15 +1596,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1646,7 +1621,7 @@ app.post(
       const createdAccounts = await AccountsHelper.createAccountsBatch(
         spreadsheetId,
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
-        accounts
+        accounts,
       );
 
       res.json({ success: true, data: createdAccounts });
@@ -1657,7 +1632,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 //#endregion
@@ -1678,15 +1653,14 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1699,7 +1673,7 @@ app.get(
 
       const categories = await CategoriesHelper.getCategories(
         spreadsheetId,
-        authClient
+        authClient,
       );
       res.json({ success: true, data: categories });
     } catch (error) {
@@ -1709,7 +1683,7 @@ app.get(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1727,15 +1701,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1758,7 +1731,7 @@ app.post(
           description: description || "",
           color: color || "#808080",
           icon: icon || "",
-        }
+        },
       );
 
       res.json({ success: true, data: category });
@@ -1769,7 +1742,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1788,15 +1761,14 @@ app.put(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1811,7 +1783,7 @@ app.put(
         spreadsheetId,
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         categoryId,
-        updateData
+        updateData,
       );
 
       res.json({ success: true, data: updatedCategory });
@@ -1822,7 +1794,7 @@ app.put(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1840,15 +1812,14 @@ app.delete(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1862,7 +1833,7 @@ app.delete(
       await CategoriesHelper.deleteCategory(
         spreadsheetId,
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
-        categoryId
+        categoryId,
       );
       res.json({ success: true, message: "Category deleted successfully" });
     } catch (error) {
@@ -1872,7 +1843,7 @@ app.delete(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1890,15 +1861,14 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -1916,7 +1886,7 @@ app.post(
       const createdCategories = await CategoriesHelper.createCategoriesBatch(
         spreadsheetId,
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
-        categories
+        categories,
       );
 
       res.json({ success: true, data: createdCategories });
@@ -1927,7 +1897,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -1971,13 +1941,13 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       const spreadsheetId = await SpreadsheetsHelper.createSpreadsheet(
         userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         title,
-        userEmail
+        userEmail,
       );
 
       res.json({ success: true, data: { spreadsheetId } });
@@ -1988,7 +1958,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -2012,7 +1982,7 @@ app.post(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
@@ -2027,7 +1997,7 @@ app.post(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -2044,15 +2014,14 @@ app.get(
       const deviceType = req.deviceType || "web"; // From auth middleware
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
-        deviceType
+        deviceType,
       );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -2065,7 +2034,7 @@ app.get(
 
       const validation = await SpreadsheetsHelper.validateSpreadsheetStructure(
         spreadsheetId,
-        userEmail // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
       );
 
       res.json({ success: true, data: validation });
@@ -2076,7 +2045,7 @@ app.get(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 /**
@@ -2117,6 +2086,6 @@ app.listen(port, () => {
 });
 console.log(`🚀 Environment: ${process.env.NODE_ENV || "development"}`);
 console.log(
-  `🚀 CORS Origin: ${process.env.ORIGIN_URL || "http://localhost:8100"}`
+  `🚀 CORS Origin: ${process.env.ORIGIN_URL || "http://localhost:8100"}`,
 );
 console.log("🚀 =================================");

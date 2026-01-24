@@ -194,10 +194,15 @@ export class MovementsController {
       }
 
       // Update movement using TransactionsHelper
+      // Ensure movementId from URL is included in the request
+      const movementRequest = {
+        ...updateData,
+        movementId: movementId,
+      };
       const updatedMovement = await TransactionsHelper.updateMovement(
         authClient,
         spreadsheetId,
-        updateData
+        movementRequest
       );
 
       res.json({ success: true, data: updatedMovement });

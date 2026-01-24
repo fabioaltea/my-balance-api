@@ -24,10 +24,6 @@ class GoogleOAuthHelper {
         this.client = new google_auth_library_1.OAuth2Client(process.env.CLIENT_ID_WEB, process.env.CLIENT_SECRET, process.env.REDIRECT_URI_WEB);
     }
     loadIOSClient() {
-        console.log("Loading iOS OAuth2 client with params:", {
-            clientId: process.env.CLIENT_ID_IOS,
-            redirectUri: process.env.REDIRECT_URI_IOS,
-        });
         this.client = new google_auth_library_1.OAuth2Client({
             client_id: process.env.CLIENT_ID_IOS,
             redirectUri: process.env.REDIRECT_URI_IOS,

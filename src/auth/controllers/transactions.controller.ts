@@ -13,7 +13,6 @@ export class TransactionsController {
       console.log("🔄 User ID:", req.userId);
       console.log("🔄 Device Type:", req.deviceType);
       console.log("🔄 Query params:", req.query);
-      console.log("🔄 Headers:", req.headers);
       console.log("🔄 =============");
 
       const userEmail = req.userId;

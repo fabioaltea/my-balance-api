@@ -45,6 +45,7 @@ const COLS = {
     DATE_MODIFIED: 12, // M (index 12)
     DATE_DELETED: 13, // N (index 13)
     STATUS: 14,
+    RECURRENCE_PATTERN: 15, // P (index 15) - ISO 8601 duration format
 };
 // Range base usato per operazioni
 const SHEET_RANGE = "AllTransactions!A2:Z";
@@ -218,6 +219,7 @@ class TransactionsHelper {
                 notes: this.cleanString(row[COLS.NOTES]) || "",
                 location: this.cleanString(row[COLS.LOCATION]) || "",
                 recurrenceId: this.cleanString(row[COLS.RECURRENCE_ID]) || "",
+                recurrencePattern: this.cleanString(row[COLS.RECURRENCE_PATTERN]) || "",
                 dateAdded: this.normalizeMetaDate(row[COLS.DATE_ADDED]),
                 dateModified: this.normalizeMetaDate(row[COLS.DATE_MODIFIED]),
                 dateDeleted: this.normalizeMetaDate(row[COLS.DATE_DELETED]),
@@ -257,6 +259,7 @@ class TransactionsHelper {
                 location: firstTx.location,
                 notes: firstTx.notes,
                 recurrenceId: firstTx.recurrenceId,
+                recurrencePattern: firstTx.recurrencePattern,
                 status: firstTx.status,
                 transactions: txns,
                 transactionsSum,
@@ -284,9 +287,10 @@ class TransactionsHelper {
                 notes: treq.notes || movementRequest.notes || "",
                 location: treq.location || movementRequest.location || "",
                 recurrenceId: movementRequest.recurrenceId || "",
+                recurrencePattern: movementRequest.recurrencePattern || "",
                 dateAdded: this.normalizeMetaDate(new Date()),
                 dateModified: this.normalizeMetaDate(new Date()),
-                status: "Confirmed",
+                status: movementRequest.status || "Confirmed",
             }));
             // Converte in righe e appende
             const values = transactions.map((t) => this.transactionToRowValidated(t));
@@ -396,9 +400,10 @@ class TransactionsHelper {
                     notes: treq.notes || movementRequest.notes || "",
                     location: treq.location || movementRequest.location || "",
                     recurrenceId: movementRequest.recurrenceId || "",
+                    recurrencePattern: movementRequest.recurrencePattern || "",
                     dateAdded: this.normalizeMetaDate(new Date()),
                     dateModified: this.normalizeMetaDate(new Date()),
-                    status: "Confirmed",
+                    status: movementRequest.status || "Confirmed",
                 };
                 newTransactions.push(transaction);
             }
@@ -458,7 +463,7 @@ class TransactionsHelper {
     // Helper interno che converte dati già normalizzati in riga
     static transactionToRowValidated(t) {
         // Build row based on COLS mapping
-        const row = new Array(15).fill(""); // 15 colonne
+        const row = new Array(16).fill(""); // 16 colonne
         row[COLS.DESCRIPTION] = t.description;
         row[COLS.CATEGORY] = t.category;
         row[COLS.AMOUNT] = t.amount; // Il frontend invia già la stringa con il segno corretto
@@ -474,11 +479,45 @@ class TransactionsHelper {
         row[COLS.DATE_MODIFIED] = t.dateModified;
         row[COLS.DATE_DELETED] = t.dateDeleted || "";
         row[COLS.STATUS] = t.status;
+        row[COLS.RECURRENCE_PATTERN] = t.recurrencePattern || "";
         return row;
     }
     // =================
     // UTILITY METHODS
     // =================
+    /**
+     * Aggiorna il nome dell'account in tutte le transazioni che lo contengono
+     */
+    static updateTransactionsAccountName(authClient, spreadsheetId, oldAccountName, newAccountName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const rows = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
+            if (!rows || rows.length === 0)
+                return 0;
+            const updateData = [];
+            const now = this.normalizeMetaDate(new Date());
+            // Trova tutte le transazioni con il vecchio nome account
+            rows.forEach((r, i) => {
+                if (r[COLS.ACCOUNT] === oldAccountName && r[COLS.STATUS] !== "DELETED") {
+                    const row = [...r];
+                    row[COLS.ACCOUNT] = newAccountName;
+                    row[COLS.DATE_MODIFIED] = now;
+                    // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+                    const rowNumber = i + 2;
+                    const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                    updateData.push({
+                        majorDimension: "ROWS",
+                        range: range,
+                        values: [row],
+                    });
+                }
+            });
+            if (updateData.length === 0) {
+                return 0;
+            }
+            yield GoogleHelper_1.GoogleHelper.update(authClient, spreadsheetId, updateData);
+            return updateData.length;
+        });
+    }
     /**
      * Estrae il numero di riga da un range di Google Sheets
      */

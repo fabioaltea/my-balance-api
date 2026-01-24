@@ -30,6 +30,7 @@ const accounts_routes_1 = require("./auth/routes/accounts.routes");
 const categories_routes_1 = require("./auth/routes/categories.routes");
 const transactions_routes_1 = require("./auth/routes/transactions.routes");
 const movements_routes_1 = require("./auth/routes/movements.routes");
+const shortcut_routes_1 = require("./auth/routes/shortcut.routes");
 const requireAuth_middleware_1 = require("./auth/middleware/requireAuth.middleware");
 const GoogleAuthHelper_1 = require("./helpers/GoogleAuthHelper");
 const jwt_helper_1 = require("./auth/helpers/jwt.helper");
@@ -44,6 +45,7 @@ const corsOptions = {
         "access_token",
         "refresh_token",
         "spreadsheet_id",
+        "x-shortcutkey",
     ],
     exposedHeaders: [
         "Access-Control-Allow-Origin",
@@ -58,9 +60,6 @@ app.use("*", (req, res, next) => {
     console.log(`🚨 Timestamp: ${new Date().toISOString()}`);
     console.log(`🚨 Method: ${req.method}`);
     console.log(`🚨 Original URL: ${req.originalUrl}`);
-    console.log(`🚨 Headers:`, req.headers);
-    console.log(`🚨 User-Agent: ${req.headers["user-agent"]}`);
-    console.log(`🚨 Origin: ${req.headers.origin}`);
     next();
 });
 app.use((0, cors_1.default)(corsOptions));
@@ -69,15 +68,6 @@ app.use(express_1.default.json());
 app.use(body_parser_1.default.urlencoded({ extended: true }));
 app.use(body_parser_1.default.json());
 app.use(body_parser_1.default.raw());
-app.use((req, res, next) => {
-    console.log("=== INCOMING REQUEST ===");
-    console.log("Method:", req.method);
-    console.log("URL:", req.url);
-    console.log("Headers:", JSON.stringify(req.headers, null, 2));
-    console.log("Body:", req.body);
-    console.log("========================");
-    next();
-});
 // NEW AUTHENTICATION ROUTES
 app.use("/auth", auth_routes_1.authRoutes);
 // NEW ORGANIZED API ROUTES
@@ -85,6 +75,7 @@ app.use("/accounts", accounts_routes_1.accountsRoutes);
 app.use("/categories", categories_routes_1.categoriesRoutes);
 app.use("/transactions", transactions_routes_1.transactionsRoutes);
 app.use("/movements", movements_routes_1.movementsRoutes);
+app.use("/shortcut", shortcut_routes_1.shortcutRoutes);
 // User data endpoints (protected)
 app.get("/user/spreadsheet", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -205,7 +196,8 @@ app.post("/update", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -235,7 +227,8 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -290,7 +283,8 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -327,7 +321,8 @@ app.get("/movements", (req, res, next) => {
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -357,7 +352,8 @@ app.get("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -392,7 +388,8 @@ app.post("/movements", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -431,7 +428,8 @@ app.put("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -478,7 +476,8 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -517,7 +516,6 @@ app.get("/transactions", (req, res, next) => {
         console.log("🔄 User ID:", req.userId);
         console.log("🔄 Device Type:", req.deviceType);
         console.log("🔄 Query params:", req.query);
-        console.log("🔄 Headers:", req.headers);
         console.log("🔄 =============");
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
@@ -526,7 +524,8 @@ app.get("/transactions", (req, res, next) => {
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1021,7 +1020,8 @@ app.get("/accounts", (req, res, next) => {
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1057,7 +1057,8 @@ app.post("/accounts", (req, res, next) => {
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1100,7 +1101,8 @@ app.put("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddleware.v
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1133,7 +1135,8 @@ app.delete("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddlewar
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1165,7 +1168,8 @@ app.post("/accounts/batch", requireAuth_middleware_1.RequireAuthMiddleware.verif
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1202,7 +1206,8 @@ app.get("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1234,7 +1239,8 @@ app.post("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1276,7 +1282,8 @@ app.put("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddlewar
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1309,7 +1316,8 @@ app.delete("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddle
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1342,7 +1350,8 @@ app.post("/categories/batch", requireAuth_middleware_1.RequireAuthMiddleware.ver
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1451,7 +1460,8 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId =
+                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1459,8 +1469,7 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const validation = yield SpreadsheetsHelper_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail // Pass userEmail as refreshToken parameter (will need Helper refactor)
-        );
+        const validation = yield SpreadsheetsHelper_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail);
         res.json({ success: true, data: validation });
     }
     catch (error) {
