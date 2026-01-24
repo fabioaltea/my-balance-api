@@ -191,7 +191,8 @@ class DbHelper {
             const client = yield DbHelper._pool.connect();
             try {
                 const { rows } = yield client.query(`SELECT id, user_email, email_verified, 
-                credential_public_key, counter, created_at, last_access, spreadsheet_id 
+                credential_public_key, counter, created_at, last_access, 
+                spreadsheet_id, shortcut_key 
          FROM users WHERE user_email = $1`, [email]);
                 return rows.length > 0 ? rows[0] : null;
             }
@@ -497,6 +498,46 @@ class DbHelper {
             catch (error) {
                 console.error("Error cleaning old sessions:", error);
                 throw new Error("Error cleaning old sessions");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    // === SHORTCUT KEY METHODS ===
+    /**
+     * Update shortcut key for user
+     */
+    static updateShortcutKey(email, shortcutKey) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET shortcut_key = $1 WHERE user_email = $2`, [shortcutKey, email]);
+            }
+            catch (error) {
+                console.error("Error updating shortcut key:", error);
+                throw new Error("Error updating shortcut key");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Get user by shortcut key
+     */
+    static getUserByShortcutKey(shortcutKey) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT id, user_email as email, email_verified, 
+                spreadsheet_id, shortcut_key, created_at, last_access 
+         FROM users WHERE shortcut_key = $1`, [shortcutKey]);
+                return rows.length > 0 ? rows[0] : null;
+            }
+            catch (error) {
+                console.error("Error getting user by shortcut key:", error);
+                throw new Error("Error getting user by shortcut key");
             }
             finally {
                 client.release();

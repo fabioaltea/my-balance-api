@@ -44,7 +44,6 @@ export class GoogleAuthHelper {
 
   constructor(deviceType: DeviceType = "web") {
     this.deviceType = deviceType;
-    console.log("Initializing GoogleAuthHelper for device type:", deviceType);
     this.initializeClient(deviceType);
   }
 
@@ -77,10 +76,7 @@ export class GoogleAuthHelper {
   }
 
   private loadIOSClient(): void {
-    console.log("Loading iOS OAuth2 client with params:", {
-      clientId: process.env.CLIENT_ID_IOS,
-      redirectUri: process.env.REDIRECT_URI_IOS,
-    });
+  
     // iOS is a "public client" - no client secret
     this.client = new OAuth2Client({
       clientId: process.env.CLIENT_ID_IOS,

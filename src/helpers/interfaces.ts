@@ -41,10 +41,11 @@ export interface ITransaction {
   notes?: string; // Note libere
   location?: string; // Luogo / wallet
   recurrenceId?: string; // Id per transazioni ricorrenti
+  recurrencePattern?: string; // ISO 8601 duration format (e.g., P1W, P1M)
   dateAdded: string; // Data di inserimento (dd-MM-yyyy hh:mm)
   dateModified?: string; // Ultima modifica (dd-MM-yyyy hh:mm)
   dateDeleted?: string; // Data cancellazione (dd-MM-yyyy hh:mm) se DELETED
-  status?: string; // Stato (ACTIVE | DELETED ...)
+  status?: string; // Stato (ACTIVE | DELETED | recurrent ...)
 }
 
 // Rappresenta un movimento logico (insieme di transactions con stesso movementId)
@@ -57,6 +58,7 @@ export interface IMovement {
   location?: string; // Location (da prima transaction)
   notes?: string; // Note (da prima transaction)
   recurrenceId?: string; // Ricorrenza (da prima transaction)
+  recurrencePattern?: string; // ISO 8601 duration format (e.g., P1W, P1M)
   status?: string; // Status (da prima transaction)
   transactions: ITransaction[]; // Array delle transactions che compongono il movimento
   transactionsSum: number; // Somma degli importi delle transactions
@@ -90,6 +92,8 @@ export interface IMovementRequest {
   location?: string;
   notes?: string;
   recurrenceId?: string;
+  recurrencePattern?: string; // ISO 8601 duration format (e.g., P1W, P1M)
+  status?: string; // Status (recurrent for recurring templates)
   transactions: ITransactionRequest[]; // Le transactions da creare/aggiornare
 }
 

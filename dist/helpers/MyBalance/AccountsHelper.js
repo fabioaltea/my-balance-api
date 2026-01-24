@@ -268,8 +268,14 @@ class AccountsHelper {
      * Calcola il balance reale di un account sommando tutte le sue transazioni
      */
     static calculateAccountBalance(accountName, transactions) {
+        var _a;
         let totalBalance = 0;
         for (const transaction of transactions) {
+            // Skip transazioni con status "recurrent" (template) o "unconfirmed" (non ancora confermate)
+            const status = (_a = transaction.status) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+            if (status === "recurrent" || status === "unconfirmed") {
+                continue;
+            }
             // Verifica se la transazione appartiene a questo account
             // Il campo account dovrebbe essere nella colonna 5 (ACCOUNT)
             if (transaction.account === accountName) {

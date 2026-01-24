@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { AccountsHelper } from "../../helpers/MyBalance/AccountsHelper";
 import { GoogleAuthHelper } from "../../helpers/GoogleAuthHelper";
+import { TransactionsHelper } from "../../helpers/MyBalance/TransactionsHelper";
 
 export class AccountsController {
   /**
@@ -23,7 +24,6 @@ export class AccountsController {
         userEmail,
         deviceType,
       );
-      console.log("GoogleAuthHelper initialized for device type:", deviceType);
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -129,11 +129,18 @@ export class AccountsController {
    */
   public static async updateAccount(req: any, res: Response): Promise<void> {
     try {
+      console.log("💰 =============");
+      console.log("💰 PUT /accounts/:accountId endpoint hit!");
+      console.log("💰 User ID:", req.userId);
+      console.log("💰 Device Type:", req.deviceType);
+      console.log("💰 Account ID:", req.params.accountId);
+      console.log("💰 =============");
+
       const userEmail = req.userId;
       const { accountId } = req.params;
       const updateData = req.body;
 
-      // Get user's Google auth client
+      // Get user's Google auth client with proper credentials
       const deviceType = req.deviceType || "web";
       const authClient = await GoogleAuthHelper.getAuthClientForUser(
         userEmail,
@@ -156,6 +163,8 @@ export class AccountsController {
         return;
       }
 
+      console.log("📊 Updating account in spreadsheet:", spreadsheetId);
+
       // Get refresh token from auth client
       const refreshToken = (authClient as any).credentials.refresh_token;
       if (!refreshToken) {
@@ -166,6 +175,22 @@ export class AccountsController {
         return;
       }
 
+      // Se è prevista la modifica del nome, recupera prima l'account corrente
+      let oldAccountName: string | null = null;
+      if (updateData.name) {
+        const accounts = await AccountsHelper.getAccounts(
+          spreadsheetId,
+          authClient,
+        );
+        const currentAccount = accounts.find((acc) => acc.accountId === accountId);
+        if (currentAccount && currentAccount.name !== updateData.name) {
+          oldAccountName = currentAccount.name;
+          console.log(
+            `📊 Account name change detected: "${oldAccountName}" -> "${updateData.name}"`,
+          );
+        }
+      }
+
       // Update account using AccountsHelper
       const updatedAccount = await AccountsHelper.updateAccount(
         spreadsheetId,
@@ -174,6 +199,22 @@ export class AccountsController {
         updateData,
       );
 
+      // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
+      if (oldAccountName && updateData.name) {
+        console.log(
+          `📊 Updating transactions from account "${oldAccountName}" to "${updateData.name}"`,
+        );
+        const updatedCount =
+          await TransactionsHelper.updateTransactionsAccountName(
+            authClient,
+            spreadsheetId,
+            oldAccountName,
+            updateData.name,
+          );
+        console.log(`📊 Updated ${updatedCount} transactions with new account name`);
+      }
+
+      console.log("💰 Account updated successfully:", updatedAccount.name);
       res.json({ success: true, data: updatedAccount });
     } catch (error) {
       console.error("Error updating account:", error);

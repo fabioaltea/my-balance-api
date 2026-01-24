@@ -40,10 +40,7 @@ export class GoogleOAuthHelper {
   }
 
   private loadIOSClient(): void {
-    console.log("Loading iOS OAuth2 client with params:", {
-      clientId: process.env.CLIENT_ID_IOS,
-      redirectUri: process.env.REDIRECT_URI_IOS,
-    });
+    
     this.client = new OAuth2Client({
       client_id: process.env.CLIENT_ID_IOS,
       redirectUri: process.env.REDIRECT_URI_IOS,

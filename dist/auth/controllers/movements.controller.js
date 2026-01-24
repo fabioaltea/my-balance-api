@@ -156,7 +156,9 @@ class MovementsController {
                     return;
                 }
                 // Update movement using TransactionsHelper
-                const updatedMovement = yield TransactionsHelper_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, updateData);
+                // Ensure movementId from URL is included in the request
+                const movementRequest = Object.assign(Object.assign({}, updateData), { movementId: movementId });
+                const updatedMovement = yield TransactionsHelper_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, movementRequest);
                 res.json({ success: true, data: updatedMovement });
             }
             catch (error) {
