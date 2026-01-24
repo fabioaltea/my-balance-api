@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleOAuthHelper = exports.GoogleAuthHelper = void 0;
 const google_auth_library_1 = require("google-auth-library");
-const crypto_helper_1 = require("../auth/helpers/crypto.helper");
+const crypto_helper_1 = require("./crypto.helper");
 const DbHelper_1 = require("./DbHelper");
 // ============================================================================
 // GOOGLE AUTH HELPER - Unified helper for all Google OAuth operations

@@ -3,7 +3,7 @@ import {
   OAuth2ClientOptions,
   TokenPayload,
 } from "google-auth-library";
-import { CryptoHelper } from "../auth/helpers/crypto.helper";
+import { CryptoHelper } from "./crypto.helper";
 import { DbHelper } from "./DbHelper";
 
 // ============================================================================
@@ -76,7 +76,6 @@ export class GoogleAuthHelper {
   }
 
   private loadIOSClient(): void {
-  
     // iOS is a "public client" - no client secret
     this.client = new OAuth2Client({
       clientId: process.env.CLIENT_ID_IOS,
@@ -190,7 +189,7 @@ export class GoogleAuthHelper {
         throw new Error("Invalid token audience");
       }
 
-      if ( !payload.email) {
+      if (!payload.email) {
         throw new Error("Missing required fields in ID token");
       }
 
@@ -278,6 +277,8 @@ export class GoogleAuthHelper {
 
       // Refresh access token to ensure it's valid
       await helper.refreshAccessToken();
+
+      
 
       return helper.getClient();
     } catch (error: any) {
