@@ -20,16 +20,16 @@ import {
 import base64url from "base64url/dist/base64url";
 
 // NEW AUTHENTICATION IMPORTS
-import { authRoutes } from "./auth/routes/auth.routes";
-import { accountsRoutes } from "./auth/routes/accounts.routes";
-import { categoriesRoutes } from "./auth/routes/categories.routes";
-import { transactionsRoutes } from "./auth/routes/transactions.routes";
-import { movementsRoutes } from "./auth/routes/movements.routes";
-import { shortcutRoutes } from "./auth/routes/shortcut.routes";
-import { RequireAuthMiddleware } from "./auth/middleware/requireAuth.middleware";
-import { CryptoHelper } from "./auth/helpers/crypto.helper";
+import { authRoutes } from "./routes/auth.routes";
+import { accountsRoutes } from "./routes/accounts.routes";
+import { categoriesRoutes } from "./routes/categories.routes";
+import { transactionsRoutes } from "./routes/transactions.routes";
+import { movementsRoutes } from "./routes/movements.routes";
+import { shortcutRoutes } from "./routes/shortcut.routes";
+import { RequireAuthMiddleware } from "./middleware/requireAuth.middleware";
+import { CryptoHelper } from "./helpers/crypto.helper";
 import { GoogleAuthHelper } from "./helpers/GoogleAuthHelper";
-import { JwtHelper } from "./auth/helpers/jwt.helper";
+import { JwtHelper } from "./helpers/jwt.helper";
 
 const app = express();
 const port = process.env.PORT || 8080;

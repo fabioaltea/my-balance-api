@@ -3,7 +3,7 @@ import {
   OAuth2ClientOptions,
   TokenPayload,
 } from "google-auth-library";
-import { CryptoHelper } from "../auth/helpers/crypto.helper";
+import { CryptoHelper } from "./crypto.helper";
 import { DbHelper } from "./DbHelper";
 
 // ============================================================================
@@ -76,7 +76,6 @@ export class GoogleAuthHelper {
   }
 
   private loadIOSClient(): void {
-  
     // iOS is a "public client" - no client secret
     this.client = new OAuth2Client({
       clientId: process.env.CLIENT_ID_IOS,
@@ -190,7 +189,7 @@ export class GoogleAuthHelper {
         throw new Error("Invalid token audience");
       }
 
-      if ( !payload.email) {
+      if (!payload.email) {
         throw new Error("Missing required fields in ID token");
       }
 
@@ -245,33 +244,23 @@ export class GoogleAuthHelper {
     deviceType: DeviceType = "web",
   ): Promise<OAuth2Client> {
     try {
-      // Get encrypted refresh token from session (passing deviceType to get correct session)
-      const tokenInfo = await DbHelper.getGoogleRefreshToken(
+      // Get encrypted refresh token from user_google_tokens table
+      const encryptedToken = await DbHelper.getGoogleRefreshToken(
         userEmail,
         deviceType,
       );
 
-      if (!tokenInfo || !tokenInfo.token) {
+      if (!encryptedToken) {
         throw new Error(
           `No Google refresh token found for user ${userEmail} with device type ${deviceType}`,
         );
       }
 
       // Decrypt the refresh token
-      const refreshToken = CryptoHelper.decrypt(tokenInfo.token);
+      const refreshToken = CryptoHelper.decrypt(encryptedToken);
 
-      // Use the device type from the stored session
-      const effectiveDeviceType = tokenInfo.deviceType || deviceType;
-
-      console.log(`Creating authenticated client for ${effectiveDeviceType}:`, {
-        userEmail,
-        storedDeviceType: tokenInfo.deviceType,
-        requestedDeviceType: deviceType,
-        effectiveDeviceType,
-      });
-
-      // Create helper with the correct device type - this ensures correct client configuration
-      const helper = new GoogleAuthHelper(effectiveDeviceType);
+      // Create helper with the correct device type
+      const helper = new GoogleAuthHelper(deviceType);
 
       // Set the refresh token credentials
       helper.setCredentials(refreshToken);

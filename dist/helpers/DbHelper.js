@@ -279,24 +279,17 @@ class DbHelper {
         });
     }
     /**
-     * Store encrypted Google refresh token on a session (by deviceId)
-     * This is the correct place - refresh tokens are per-session, not per-user
+     * Store encrypted Google refresh token in user_google_tokens table
+     * Uses UPSERT to ensure only one token per user+device_type
      */
     static storeGoogleRefreshToken(userEmail_1, encryptedToken_1) {
-        return __awaiter(this, arguments, void 0, function* (userEmail, encryptedToken, deviceType = "web", deviceId) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, encryptedToken, deviceType = "web") {
             const client = yield DbHelper._pool.connect();
             try {
-                if (deviceId) {
-                    // Update specific session by deviceId
-                    yield client.query(`UPDATE sessions SET google_refresh_token = $1, device_type = $2 
-           WHERE device_id = $3 AND user_email = $4`, [encryptedToken, deviceType, deviceId, userEmail]);
-                }
-                else {
-                    // Fallback: update latest session for this user and device type
-                    yield client.query(`UPDATE sessions SET google_refresh_token = $1 
-           WHERE user_email = $2 AND device_type = $3 
-           AND created_at = (SELECT MAX(created_at) FROM sessions WHERE user_email = $2 AND device_type = $3)`, [encryptedToken, userEmail, deviceType]);
-                }
+                yield client.query(`INSERT INTO user_google_tokens (user_email, device_type, google_refresh_token, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_email, device_type)
+         DO UPDATE SET google_refresh_token = $3, updated_at = NOW()`, [userEmail, deviceType, encryptedToken]);
             }
             catch (error) {
                 console.error("Error storing Google refresh token:", error);
@@ -308,37 +301,16 @@ class DbHelper {
         });
     }
     /**
-     * Get encrypted Google refresh token from session
-     * Looks up by userEmail and optionally deviceType, returns most recent session's token
+     * Get encrypted Google refresh token from user_google_tokens table
      */
-    static getGoogleRefreshToken(userEmail, deviceType) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static getGoogleRefreshToken(userEmail_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = "web") {
+            var _a;
             const client = yield DbHelper._pool.connect();
             try {
-                let query;
-                let params;
-                if (deviceType) {
-                    // Get token for specific device type
-                    query = `SELECT google_refresh_token, device_type FROM sessions 
-                 WHERE user_email = $1 AND device_type = $2 AND google_refresh_token IS NOT NULL
-                 ORDER BY created_at DESC LIMIT 1`;
-                    params = [userEmail, deviceType];
-                }
-                else {
-                    // Get most recent token regardless of device type
-                    query = `SELECT google_refresh_token, device_type FROM sessions 
-                 WHERE user_email = $1 AND google_refresh_token IS NOT NULL
-                 ORDER BY created_at DESC LIMIT 1`;
-                    params = [userEmail];
-                }
-                const { rows } = yield client.query(query, params);
-                if (rows.length > 0 && rows[0].google_refresh_token) {
-                    return {
-                        token: rows[0].google_refresh_token,
-                        deviceType: rows[0].device_type || "web",
-                    };
-                }
-                return null;
+                const { rows } = yield client.query(`SELECT google_refresh_token FROM user_google_tokens
+         WHERE user_email = $1 AND device_type = $2`, [userEmail, deviceType]);
+                return ((_a = rows[0]) === null || _a === void 0 ? void 0 : _a.google_refresh_token) || null;
             }
             catch (error) {
                 console.error("Error getting Google refresh token:", error);
@@ -356,14 +328,13 @@ class DbHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
             try {
-                const { rows } = yield client.query(`INSERT INTO sessions (user_email, device_id, scopes, device_type, google_refresh_token, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
+                const { rows } = yield client.query(`INSERT INTO sessions (user_email, device_id, scopes, device_type, created_at)
+         VALUES ($1, $2, $3, $4, NOW())
          RETURNING id`, [
                     sessionData.userEmail,
                     sessionData.deviceId,
                     JSON.stringify(sessionData.scopes),
                     sessionData.deviceType || "web",
-                    sessionData.googleRefreshToken || null,
                 ]);
                 return rows[0].id;
             }
