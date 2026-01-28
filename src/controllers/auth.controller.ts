@@ -1,34 +1,18 @@
 import { Request, Response } from "express";
-import { GoogleAuthHelper as GoogleOAuthHelper } from "../helpers/GoogleAuthHelper";
+import { GoogleAuthHelper as GoogleOAuthHelper } from "../helpers/google";
 import { JwtHelper } from "../helpers/jwt.helper";
 import { CryptoHelper } from "../helpers/crypto.helper";
-import { DbHelper } from "../helpers/DbHelper";
+import { DbHelper } from "../helpers/db.helper";
 import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
-
-export interface GoogleCallbackRequest {
-  authorizationCode: string;
-  codeVerifier?: string; // Optional for PKCE support
-  deviceId: string;
-  deviceType?: "ios" | "android" | "web"; // Default to web
-}
-
-export interface RefreshRequest {
-  refreshToken: string;
-  deviceId: string;
-}
-
-export interface PasskeyLoginRequest {
-  passkeyAssertion: any; // WebAuthn assertion response
-  deviceId: string;
-}
-
-export interface LogoutRequest {
-  refreshToken?: string;
-  deviceId: string;
-}
+import {
+  GoogleCallbackRequest,
+  RefreshRequest,
+  PasskeyLoginRequest,
+  LogoutRequest,
+} from "../models";
 
 export class AuthController {
   /**
@@ -329,6 +313,7 @@ export class AuthController {
           emailVerified: user.email_verified,
           spreadsheetId: user.spreadsheet_id || null, // Can be null for new users
           lastAccess: user.last_access,
+          pushNotificationsEnabled: !!user.push_token,
         },
       });
     } catch (error: any) {
@@ -336,6 +321,63 @@ export class AuthController {
       res.status(500).json({
         success: false,
         error: "Failed to get profile",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Save push notification token
+   * POST /auth/push-token
+   */
+  public static async savePushToken(req: any, res: Response): Promise<void> {
+    try {
+      const userEmail = req.userId;
+      const { pushToken } = req.body;
+
+      if (!pushToken) {
+        res.status(400).json({
+          success: false,
+          error: "Missing push token",
+        });
+        return;
+      }
+
+      await DbHelper.savePushToken(userEmail, pushToken);
+
+      res.json({
+        success: true,
+        message: "Push token saved successfully",
+      });
+    } catch (error: any) {
+      console.error("Save push token error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to save push token",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Remove push notification token
+   * DELETE /auth/push-token
+   */
+  public static async removePushToken(req: any, res: Response): Promise<void> {
+    try {
+      const userEmail = req.userId;
+
+      await DbHelper.removePushToken(userEmail);
+
+      res.json({
+        success: true,
+        message: "Push token removed successfully",
+      });
+    } catch (error: any) {
+      console.error("Remove push token error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to remove push token",
         details: error.message,
       });
     }

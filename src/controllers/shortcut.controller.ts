@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { DbHelper } from "../helpers/DbHelper";
-import { TransactionsHelper } from "../helpers/MyBalance/TransactionsHelper";
-import { AccountsHelper, IAccount } from "../helpers/MyBalance/AccountsHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
+import { DbHelper } from "../helpers/db.helper";
+import { TransactionsHelper, AccountsHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper } from "../helpers/google";
+import { IAccount } from "../models";
 import crypto from "crypto";
 
 /**
@@ -164,6 +164,27 @@ export class ShortcutController {
         spreadsheetId,
         movement,
       );
+
+      // Send push notification if user has a push token
+      if (user.push_token) {
+        try {
+          await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: user.push_token,
+              title: "MyBalance",
+              body: "Nuovo movimento da confermare",
+              sound: "default",
+            }),
+          });
+        } catch (pushError) {
+          console.error("Error sending push notification:", pushError);
+          // Don't fail the request if push notification fails
+        }
+      }
 
       res.json({
         success: true,

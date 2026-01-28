@@ -1,16 +1,18 @@
 import express from "express";
 import bodyParser from "body-parser";
 import process from "process";
-import { GoogleHelper } from "./helpers/GoogleHelper";
+import { GoogleHelper, GoogleAuthHelper } from "./helpers/google";
 import { google } from "googleapis/build/src";
 import cors from "cors";
 import { URLSearchParams } from "url";
-import { TransactionsHelper } from "./helpers/MyBalance/TransactionsHelper";
-import { AccountsHelper } from "./helpers/MyBalance/AccountsHelper";
-import { CategoriesHelper } from "./helpers/MyBalance/CategoriesHelper";
-import { SpreadsheetsHelper } from "./helpers/MyBalance/SpreadsheetsHelper";
+import {
+  TransactionsHelper,
+  AccountsHelper,
+  CategoriesHelper,
+  SpreadsheetsHelper,
+} from "./helpers/mybalance";
 import { inject } from "@vercel/analytics";
-import { DbHelper } from "./helpers/DbHelper";
+import { DbHelper } from "./helpers/db.helper";
 import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
@@ -19,7 +21,7 @@ import {
 } from "@simplewebauthn/server";
 import base64url from "base64url/dist/base64url";
 
-// NEW AUTHENTICATION IMPORTS
+// AUTHENTICATION IMPORTS
 import { authRoutes } from "./routes/auth.routes";
 import { accountsRoutes } from "./routes/accounts.routes";
 import { categoriesRoutes } from "./routes/categories.routes";
@@ -28,7 +30,6 @@ import { movementsRoutes } from "./routes/movements.routes";
 import { shortcutRoutes } from "./routes/shortcut.routes";
 import { RequireAuthMiddleware } from "./middleware/requireAuth.middleware";
 import { CryptoHelper } from "./helpers/crypto.helper";
-import { GoogleAuthHelper } from "./helpers/GoogleAuthHelper";
 import { JwtHelper } from "./helpers/jwt.helper";
 
 const app = express();

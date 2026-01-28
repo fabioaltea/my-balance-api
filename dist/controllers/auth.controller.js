@@ -10,10 +10,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
-const GoogleAuthHelper_1 = require("../helpers/GoogleAuthHelper");
+const google_1 = require("../helpers/google");
 const jwt_helper_1 = require("../helpers/jwt.helper");
 const crypto_helper_1 = require("../helpers/crypto.helper");
-const DbHelper_1 = require("../helpers/DbHelper");
+const db_helper_1 = require("../helpers/db.helper");
 class AuthController {
     /**
      * Handle Google OAuth callback
@@ -32,7 +32,7 @@ class AuthController {
                     });
                     return;
                 }
-                const googleOAuthHelper = new GoogleAuthHelper_1.GoogleAuthHelper(deviceType !== null && deviceType !== void 0 ? deviceType : "web");
+                const googleOAuthHelper = new google_1.GoogleAuthHelper(deviceType !== null && deviceType !== void 0 ? deviceType : "web");
                 // Exchange code for Google tokens
                 // Note: codeVerifier is optional - if not provided, PKCE is not used
                 const googleTokens = yield googleOAuthHelper.exchangeCodeForTokens({
@@ -42,11 +42,11 @@ class AuthController {
                 // Verify ID token and get user identity
                 const identity = yield googleOAuthHelper.verifyIdToken(googleTokens.idToken);
                 // Find or create user in database
-                let user = yield DbHelper_1.DbHelper.getUserByEmail(identity.email);
+                let user = yield db_helper_1.DbHelper.getUserByEmail(identity.email);
                 console.log("User response:", user);
                 if (!user) {
                     // Create new user
-                    user = yield DbHelper_1.DbHelper.createUser({
+                    user = yield db_helper_1.DbHelper.createUser({
                         email: identity.email,
                         name: identity.name || "",
                         picture: identity.picture || "",
@@ -55,14 +55,14 @@ class AuthController {
                 }
                 else {
                     // Update existing user with latest info
-                    yield DbHelper_1.DbHelper.updateUser(user.user_email, {
+                    yield db_helper_1.DbHelper.updateUser(user.user_email, {
                         name: identity.name || user.user_name,
                         picture: identity.picture || user.user_picture,
                         emailVerified: identity.emailVerified,
                     });
                 }
                 // Update user's last access
-                yield DbHelper_1.DbHelper.updateUserLastAccess(user.user_email);
+                yield db_helper_1.DbHelper.updateUserLastAccess(user.user_email);
                 // Generate JWT tokens
                 const tokenPayload = {
                     userId: user.user_email, // Using email as userId for consistency
@@ -76,10 +76,10 @@ class AuthController {
                 // One token per user+device_type combination
                 if (googleTokens.refreshToken) {
                     const encryptedGoogleRefreshToken = crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken);
-                    yield DbHelper_1.DbHelper.storeGoogleRefreshToken(user.user_email, encryptedGoogleRefreshToken, deviceType || "web");
+                    yield db_helper_1.DbHelper.storeGoogleRefreshToken(user.user_email, encryptedGoogleRefreshToken, deviceType || "web");
                 }
                 // Create session for JWT/device tracking (without Google token)
-                const sessionId = yield DbHelper_1.DbHelper.createSession({
+                const sessionId = yield db_helper_1.DbHelper.createSession({
                     userEmail: user.user_email,
                     deviceId,
                     scopes: googleTokens.scopes,
@@ -141,7 +141,7 @@ class AuthController {
                 console.log("✅ JWT verified, userId:", decoded.userId);
                 // Check if session exists (for revocation support)
                 console.log("🔄 Looking up session for device:", deviceId);
-                const session = yield DbHelper_1.DbHelper.getSessionByDeviceId(deviceId);
+                const session = yield db_helper_1.DbHelper.getSessionByDeviceId(deviceId);
                 if (!session) {
                     console.log("❌ Session not found or expired for device:", deviceId);
                     res.status(401).json({
@@ -162,7 +162,7 @@ class AuthController {
                     return;
                 }
                 // Get user info
-                const user = yield DbHelper_1.DbHelper.getUserByEmail(session.user_email);
+                const user = yield db_helper_1.DbHelper.getUserByEmail(session.user_email);
                 if (!user) {
                     res.status(404).json({
                         success: false,
@@ -234,7 +234,7 @@ class AuthController {
                     return;
                 }
                 // Revoke session
-                yield DbHelper_1.DbHelper.revokeSession(deviceId);
+                yield db_helper_1.DbHelper.revokeSession(deviceId);
                 res.json({
                     success: true,
                     message: "Logged out successfully",
@@ -258,7 +258,7 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const userEmail = req.userId; // Set by auth middleware (now contains email)
-                let user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
+                let user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
                 if (!user) {
                     res.status(404).json({
                         success: false,
@@ -281,6 +281,7 @@ class AuthController {
                         emailVerified: user.email_verified,
                         spreadsheetId: user.spreadsheet_id || null, // Can be null for new users
                         lastAccess: user.last_access,
+                        pushNotificationsEnabled: !!user.push_token,
                     },
                 });
             }
@@ -289,6 +290,62 @@ class AuthController {
                 res.status(500).json({
                     success: false,
                     error: "Failed to get profile",
+                    details: error.message,
+                });
+            }
+        });
+    }
+    /**
+     * Save push notification token
+     * POST /auth/push-token
+     */
+    static savePushToken(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const userEmail = req.userId;
+                const { pushToken } = req.body;
+                if (!pushToken) {
+                    res.status(400).json({
+                        success: false,
+                        error: "Missing push token",
+                    });
+                    return;
+                }
+                yield db_helper_1.DbHelper.savePushToken(userEmail, pushToken);
+                res.json({
+                    success: true,
+                    message: "Push token saved successfully",
+                });
+            }
+            catch (error) {
+                console.error("Save push token error:", error);
+                res.status(500).json({
+                    success: false,
+                    error: "Failed to save push token",
+                    details: error.message,
+                });
+            }
+        });
+    }
+    /**
+     * Remove push notification token
+     * DELETE /auth/push-token
+     */
+    static removePushToken(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const userEmail = req.userId;
+                yield db_helper_1.DbHelper.removePushToken(userEmail);
+                res.json({
+                    success: true,
+                    message: "Push token removed successfully",
+                });
+            }
+            catch (error) {
+                console.error("Remove push token error:", error);
+                res.status(500).json({
+                    success: false,
+                    error: "Failed to remove push token",
                     details: error.message,
                 });
             }

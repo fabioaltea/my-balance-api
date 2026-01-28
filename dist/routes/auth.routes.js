@@ -40,6 +40,9 @@ authRoutes.post("/passkey/login", strictAuthRateLimit, auth_controller_1.AuthCon
 authRoutes.post("/logout", auth_controller_1.AuthController.logout);
 // Protected routes (require authentication)
 authRoutes.get("/profile", requireAuth_middleware_1.RequireAuthMiddleware.verify, auth_controller_1.AuthController.getProfile);
+// Push notifications
+authRoutes.post("/push-token", requireAuth_middleware_1.RequireAuthMiddleware.verify, auth_controller_1.AuthController.savePushToken);
+authRoutes.delete("/push-token", requireAuth_middleware_1.RequireAuthMiddleware.verify, auth_controller_1.AuthController.removePushToken);
 // Health check endpoint
 authRoutes.get("/health", (req, res) => {
     res.json({

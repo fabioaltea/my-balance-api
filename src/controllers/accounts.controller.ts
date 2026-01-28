@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import { AccountsHelper } from "../helpers/MyBalance/AccountsHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
-import { TransactionsHelper } from "../helpers/MyBalance/TransactionsHelper";
+import { AccountsHelper, TransactionsHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper } from "../helpers/google";
 
 export class AccountsController {
   /**

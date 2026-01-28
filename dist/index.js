@@ -15,16 +15,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const process_1 = __importDefault(require("process"));
-const GoogleHelper_1 = require("./helpers/GoogleHelper");
+const google_1 = require("./helpers/google");
 const cors_1 = __importDefault(require("cors"));
-const TransactionsHelper_1 = require("./helpers/MyBalance/TransactionsHelper");
-const AccountsHelper_1 = require("./helpers/MyBalance/AccountsHelper");
-const CategoriesHelper_1 = require("./helpers/MyBalance/CategoriesHelper");
-const SpreadsheetsHelper_1 = require("./helpers/MyBalance/SpreadsheetsHelper");
-const DbHelper_1 = require("./helpers/DbHelper");
+const mybalance_1 = require("./helpers/mybalance");
+const db_helper_1 = require("./helpers/db.helper");
 const server_1 = require("@simplewebauthn/server");
 const base64url_1 = __importDefault(require("base64url/dist/base64url"));
-// NEW AUTHENTICATION IMPORTS
+// AUTHENTICATION IMPORTS
 const auth_routes_1 = require("./routes/auth.routes");
 const accounts_routes_1 = require("./routes/accounts.routes");
 const categories_routes_1 = require("./routes/categories.routes");
@@ -32,7 +29,6 @@ const transactions_routes_1 = require("./routes/transactions.routes");
 const movements_routes_1 = require("./routes/movements.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
-const GoogleAuthHelper_1 = require("./helpers/GoogleAuthHelper");
 const jwt_helper_1 = require("./helpers/jwt.helper");
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
@@ -80,7 +76,7 @@ app.use("/shortcut", shortcut_routes_1.shortcutRoutes);
 app.get("/user/spreadsheet", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userEmail = req.userId; // From auth middleware
-        const user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
+        const user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -112,7 +108,7 @@ app.get("/user/spreadsheet", requireAuth_middleware_1.RequireAuthMiddleware.veri
 app.post("/user/last-access", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userEmail = req.userId; // From auth middleware
-        const result = yield DbHelper_1.DbHelper.updateUserLastAccess(userEmail);
+        const result = yield db_helper_1.DbHelper.updateUserLastAccess(userEmail);
         res.json({
             success: true,
             data: result,
@@ -163,11 +159,11 @@ app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res
         const userEmail = req.userId; // From auth middleware (now contains email)
         const deviceType = req.deviceType || "web"; // From auth middleware
         // Get user's Google auth client
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
-            spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+            spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -175,7 +171,7 @@ app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res
                 error: "Missing spreadsheet_id in headers and no default spreadsheet configured",
             });
         }
-        const items = yield GoogleHelper_1.GoogleHelper.get(authClient, spreadsheetId, req.query.range);
+        const items = yield google_1.GoogleHelper.get(authClient, spreadsheetId, req.query.range);
         res.json({ success: true, data: items });
     }
     catch (error) {
@@ -192,12 +188,12 @@ app.post("/update", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -206,7 +202,7 @@ app.post("/update", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
             });
         }
         const body = req.body;
-        const items = yield GoogleHelper_1.GoogleHelper.update(authClient, spreadsheetId, body);
+        const items = yield google_1.GoogleHelper.update(authClient, spreadsheetId, body);
         res.json({ success: true, data: items });
     }
     catch (error) {
@@ -223,12 +219,12 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -257,11 +253,11 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
                     },
                 ],
             };
-            yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
+            yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
         }
         else {
             // Nuovo formato
-            yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, body);
+            yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, body);
         }
         res.json({ success: true, data: "Movement added successfully" });
     }
@@ -279,12 +275,12 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from header or user's default
         let spreadsheetId = req.headers.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -293,7 +289,7 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
             });
         }
         const body = req.body;
-        const items = yield GoogleHelper_1.GoogleHelper.append(authClient, spreadsheetId, req.query.range, body);
+        const items = yield google_1.GoogleHelper.append(authClient, spreadsheetId, req.query.range, body);
         res.json({ success: true, data: items });
     }
     catch (error) {
@@ -317,12 +313,12 @@ app.get("/movements", (req, res, next) => {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -330,7 +326,7 @@ app.get("/movements", (req, res, next) => {
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const movements = yield TransactionsHelper_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
+        const movements = yield mybalance_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
         res.json({ success: true, data: movements });
     }
     catch (error) {
@@ -347,13 +343,13 @@ app.get("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         const { movementId } = req.params;
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -361,7 +357,7 @@ app.get("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const movement = yield TransactionsHelper_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
+        const movement = yield mybalance_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
         if (!movement) {
             return res.status(404).json({
                 success: false,
@@ -384,12 +380,12 @@ app.post("/movements", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -405,7 +401,7 @@ app.post("/movements", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
                 error: "Missing or invalid transactions array",
             });
         }
-        yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
+        yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementRequest);
         res
             .status(201)
             .json({ success: true, data: "Movement created successfully" });
@@ -424,12 +420,12 @@ app.put("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -439,7 +435,7 @@ app.put("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
         }
         const { movementId } = req.params;
         // Verifica che il movimento esista
-        const existing = yield TransactionsHelper_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
+        const existing = yield mybalance_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
         if (!existing) {
             return res.status(404).json({
                 success: false,
@@ -455,7 +451,7 @@ app.put("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
                 error: "Missing or invalid transactions array",
             });
         }
-        yield TransactionsHelper_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, movementRequest);
+        yield mybalance_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, movementRequest);
         res.json({ success: true, data: "Movement updated successfully" });
     }
     catch (error) {
@@ -472,12 +468,12 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -486,7 +482,7 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
             });
         }
         const { movementId } = req.params;
-        yield TransactionsHelper_1.TransactionsHelper.deleteMovement(authClient, spreadsheetId, movementId);
+        yield mybalance_1.TransactionsHelper.deleteMovement(authClient, spreadsheetId, movementId);
         res.json({ success: true, data: "Movement deleted successfully" });
     }
     catch (error) {
@@ -520,12 +516,12 @@ app.get("/transactions", (req, res, next) => {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -535,7 +531,7 @@ app.get("/transactions", (req, res, next) => {
         }
         console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
         // Ottieni tutti i movements e poi estrai le singole transazioni
-        const allTransactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
+        const allTransactions = yield mybalance_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
         console.log("🔄 Transactions loaded successfully:", allTransactions.length);
         res.json({ success: true, data: allTransactions });
     }
@@ -567,7 +563,7 @@ app.get("/transactions/:spreadsheetId", (req, res, next) => {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Use spreadsheet ID from path
         const spreadsheetId = req.params.spreadsheetId;
         if (!spreadsheetId) {
@@ -578,7 +574,7 @@ app.get("/transactions/:spreadsheetId", (req, res, next) => {
         }
         console.log("📊 Reading transactions from spreadsheet:", spreadsheetId);
         // Get all transactions using TransactionsHelper
-        const allTransactions = yield TransactionsHelper_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
+        const allTransactions = yield mybalance_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
         console.log("🔄 Transactions loaded successfully:", allTransactions.length);
         res.json({ success: true, data: allTransactions });
     }
@@ -778,7 +774,7 @@ app.post("/generate-registration-options", (req, res) => {
     }).then((options) => {
         console.log("Generated registration options:", options);
         console.log("Saving challenge for user:", userEmail);
-        DbHelper_1.DbHelper.saveAuthChallenge(userEmail, options.challenge)
+        db_helper_1.DbHelper.saveAuthChallenge(userEmail, options.challenge)
             .then(() => {
             res.json(options);
         })
@@ -793,7 +789,7 @@ app.post("/verify-registration", (req, res) => __awaiter(void 0, void 0, void 0,
     const { userEmail, attestationResponse } = req.body;
     console.log("Getting auth challenge for user:", userEmail);
     // Recupera utente e challenge
-    DbHelper_1.DbHelper.getAuthChallenge(userEmail).then((row) => {
+    db_helper_1.DbHelper.getAuthChallenge(userEmail).then((row) => {
         if (!row)
             return res.status(400).send("User not found");
         const { webauthn_challenge, webauthn_challenge_created_at } = row;
@@ -840,7 +836,7 @@ app.post("/verify-registration", (req, res) => __awaiter(void 0, void 0, void 0,
                 console.log("Registration verification result:", verification);
                 if (verification.verified && verification.registrationInfo) {
                     console.log("Verification success for user:", userEmail, "Saving auth challenge as null");
-                    DbHelper_1.DbHelper.saveAuthChallenge(userEmail, null);
+                    db_helper_1.DbHelper.saveAuthChallenge(userEmail, null);
                     console.log("Saving user credentials for user:", userEmail);
                     const credentialId = verification.registrationInfo.credential.id;
                     const publicKeyBuffer = verification.registrationInfo.credential.publicKey;
@@ -850,7 +846,7 @@ app.post("/verify-registration", (req, res) => __awaiter(void 0, void 0, void 0,
                         publicKeyLength: publicKeyBuffer === null || publicKeyBuffer === void 0 ? void 0 : publicKeyBuffer.length,
                         counter: counter,
                     });
-                    DbHelper_1.DbHelper.saveUserCredentials(userEmail, credentialId, base64url_1.default.encode(Buffer.from(publicKeyBuffer)), counter)
+                    db_helper_1.DbHelper.saveUserCredentials(userEmail, credentialId, base64url_1.default.encode(Buffer.from(publicKeyBuffer)), counter)
                         .then(() => {
                         console.log("User credentials saved successfully for user:", userEmail);
                         res.json({ verified: true });
@@ -909,7 +905,7 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
     const userEmail = Buffer.from(assertionResponse.response.userHandle, "base64url").toString();
     const clientCredentialId = assertionResponse.id;
     console.log("verify-authentication for user:", userEmail);
-    DbHelper_1.DbHelper.getUserCredentials(userEmail, clientCredentialId).then((credentials) => {
+    db_helper_1.DbHelper.getUserCredentials(userEmail, clientCredentialId).then((credentials) => {
         if (!credentials || credentials.length === 0) {
             console.warn(`Credential ${clientCredentialId} not found for user`, userEmail);
             return res.status(400).send("No credentials found for user");
@@ -950,11 +946,11 @@ app.post("/verify-authentication", (req, res) => __awaiter(void 0, void 0, void 
                 // Aggiorna counter in DB
                 //await updateCounter(userId, verification.authenticationInfo.newCounter);
                 // Login riuscito → genera JWT tokens
-                DbHelper_1.DbHelper.updateUserLastAccess(userEmail).catch((error) => {
+                db_helper_1.DbHelper.updateUserLastAccess(userEmail).catch((error) => {
                     console.log("Error updating last access for user:", userEmail, error);
                 });
                 // Get user info for JWT payload
-                const user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
+                const user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
                 if (!user) {
                     console.error("User not found after successful authentication:", userEmail);
                     res
@@ -1016,12 +1012,12 @@ app.get("/accounts", (req, res, next) => {
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1029,7 +1025,7 @@ app.get("/accounts", (req, res, next) => {
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const accounts = yield AccountsHelper_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+        const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
         res.json({ success: true, data: accounts });
     }
     catch (error) {
@@ -1053,12 +1049,12 @@ app.post("/accounts", (req, res, next) => {
         const { name, description, balance, color, textColor } = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1069,7 +1065,7 @@ app.post("/accounts", (req, res, next) => {
         if (!name) {
             return res.status(400).json({ error: "Account name is required" });
         }
-        const account = yield AccountsHelper_1.AccountsHelper.createAccount(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const account = yield mybalance_1.AccountsHelper.createAccount(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         {
             name,
             description: description || "",
@@ -1097,12 +1093,12 @@ app.put("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddleware.v
         const updateData = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1110,7 +1106,7 @@ app.put("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddleware.v
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const updatedAccount = yield AccountsHelper_1.AccountsHelper.updateAccount(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const updatedAccount = yield mybalance_1.AccountsHelper.updateAccount(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         accountId, updateData);
         res.json({ success: true, data: updatedAccount });
     }
@@ -1131,12 +1127,12 @@ app.delete("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddlewar
         const { accountId } = req.params;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1144,7 +1140,7 @@ app.delete("/accounts/:accountId", requireAuth_middleware_1.RequireAuthMiddlewar
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        yield AccountsHelper_1.AccountsHelper.deleteAccount(spreadsheetId, userEmail, accountId);
+        yield mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, userEmail, accountId);
         res.json({ success: true, message: "Account deleted successfully" });
     }
     catch (error) {
@@ -1164,12 +1160,12 @@ app.post("/accounts/batch", requireAuth_middleware_1.RequireAuthMiddleware.verif
         const { accounts } = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1180,7 +1176,7 @@ app.post("/accounts/batch", requireAuth_middleware_1.RequireAuthMiddleware.verif
         if (!Array.isArray(accounts) || accounts.length === 0) {
             return res.status(400).json({ error: "Accounts array is required" });
         }
-        const createdAccounts = yield AccountsHelper_1.AccountsHelper.createAccountsBatch(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const createdAccounts = yield mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         accounts);
         res.json({ success: true, data: createdAccounts });
     }
@@ -1202,12 +1198,12 @@ app.get("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1215,7 +1211,7 @@ app.get("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const categories = yield CategoriesHelper_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
+        const categories = yield mybalance_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
         res.json({ success: true, data: categories });
     }
     catch (error) {
@@ -1235,12 +1231,12 @@ app.post("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (
         const { name, description, color, icon } = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1251,7 +1247,7 @@ app.post("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (
         if (!name) {
             return res.status(400).json({ error: "Category name is required" });
         }
-        const category = yield CategoriesHelper_1.CategoriesHelper.createCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const category = yield mybalance_1.CategoriesHelper.createCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         {
             name,
             description: description || "",
@@ -1278,12 +1274,12 @@ app.put("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddlewar
         const updateData = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1291,7 +1287,7 @@ app.put("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddlewar
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const updatedCategory = yield CategoriesHelper_1.CategoriesHelper.updateCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const updatedCategory = yield mybalance_1.CategoriesHelper.updateCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         categoryId, updateData);
         res.json({ success: true, data: updatedCategory });
     }
@@ -1312,12 +1308,12 @@ app.delete("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddle
         const { categoryId } = req.params;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1325,7 +1321,7 @@ app.delete("/categories/:categoryId", requireAuth_middleware_1.RequireAuthMiddle
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        yield CategoriesHelper_1.CategoriesHelper.deleteCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        yield mybalance_1.CategoriesHelper.deleteCategory(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         categoryId);
         res.json({ success: true, message: "Category deleted successfully" });
     }
@@ -1346,12 +1342,12 @@ app.post("/categories/batch", requireAuth_middleware_1.RequireAuthMiddleware.ver
         const { categories } = req.body;
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1362,7 +1358,7 @@ app.post("/categories/batch", requireAuth_middleware_1.RequireAuthMiddleware.ver
         if (!Array.isArray(categories) || categories.length === 0) {
             return res.status(400).json({ error: "Categories array is required" });
         }
-        const createdCategories = yield CategoriesHelper_1.CategoriesHelper.createCategoriesBatch(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const createdCategories = yield mybalance_1.CategoriesHelper.createCategoriesBatch(spreadsheetId, userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         categories);
         res.json({ success: true, data: createdCategories });
     }
@@ -1379,7 +1375,7 @@ app.post("/categories/batch", requireAuth_middleware_1.RequireAuthMiddleware.ver
  */
 app.get("/categories/default", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const defaultCategories = CategoriesHelper_1.CategoriesHelper.getDefaultCategories();
+        const defaultCategories = mybalance_1.CategoriesHelper.getDefaultCategories();
         res.json({ success: true, data: defaultCategories });
     }
     catch (error) {
@@ -1406,8 +1402,8 @@ app.post("/spreadsheet/create", requireAuth_middleware_1.RequireAuthMiddleware.v
         }
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
-        const spreadsheetId = yield SpreadsheetsHelper_1.SpreadsheetsHelper.createSpreadsheet(userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const spreadsheetId = yield mybalance_1.SpreadsheetsHelper.createSpreadsheet(userEmail, // Pass userEmail as refreshToken parameter (will need Helper refactor)
         title, userEmail);
         res.json({ success: true, data: { spreadsheetId } });
     }
@@ -1433,8 +1429,8 @@ app.post("/spreadsheet/initialize", requireAuth_middleware_1.RequireAuthMiddlewa
         }
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
-        yield SpreadsheetsHelper_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        yield mybalance_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
         res.json({
             success: true,
             message: "Spreadsheet initialized successfully",
@@ -1456,12 +1452,12 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
         const userEmail = req.userId; // From auth middleware (now contains email)
         // Get user's Google auth client
         const deviceType = req.deviceType || "web"; // From auth middleware
-        const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
         // Get spreadsheet ID - either from query or user's default
         let spreadsheetId = req.query.spreadsheet_id;
         if (!spreadsheetId) {
             spreadsheetId =
-                yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
         }
         if (!spreadsheetId) {
             return res.status(400).json({
@@ -1469,7 +1465,7 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const validation = yield SpreadsheetsHelper_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail);
+        const validation = yield mybalance_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail);
         res.json({ success: true, data: validation });
     }
     catch (error) {
@@ -1485,7 +1481,7 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
  */
 app.get("/spreadsheet/template", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const templateData = SpreadsheetsHelper_1.SpreadsheetsHelper.getTemplateData();
+        const templateData = mybalance_1.SpreadsheetsHelper.getTemplateData();
         res.json({ success: true, data: templateData });
     }
     catch (error) {

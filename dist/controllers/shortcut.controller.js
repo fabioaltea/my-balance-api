@@ -13,10 +13,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShortcutController = void 0;
-const DbHelper_1 = require("../helpers/DbHelper");
-const TransactionsHelper_1 = require("../helpers/MyBalance/TransactionsHelper");
-const AccountsHelper_1 = require("../helpers/MyBalance/AccountsHelper");
-const GoogleAuthHelper_1 = require("../helpers/GoogleAuthHelper");
+const db_helper_1 = require("../helpers/db.helper");
+const mybalance_1 = require("../helpers/mybalance");
+const google_1 = require("../helpers/google");
 const crypto_1 = __importDefault(require("crypto"));
 /**
  * ShortcutController
@@ -34,7 +33,7 @@ class ShortcutController {
                 // Generate a secure random key (32 bytes = 64 hex chars)
                 const shortcutKey = crypto_1.default.randomBytes(32).toString("hex");
                 // Save to database
-                yield DbHelper_1.DbHelper.updateShortcutKey(userEmail, shortcutKey);
+                yield db_helper_1.DbHelper.updateShortcutKey(userEmail, shortcutKey);
                 res.json({
                     success: true,
                     data: {
@@ -58,7 +57,7 @@ class ShortcutController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const userEmail = req.userId; // From auth middleware
-                const user = yield DbHelper_1.DbHelper.getUserByEmail(userEmail);
+                const user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
                 if (!user) {
                     res.status(404).json({
                         success: false,
@@ -98,7 +97,7 @@ class ShortcutController {
                     return;
                 }
                 // Find user by shortcut key
-                const user = yield DbHelper_1.DbHelper.getUserByShortcutKey(shortcutKey);
+                const user = yield db_helper_1.DbHelper.getUserByShortcutKey(shortcutKey);
                 if (!user) {
                     res.status(401).json({
                         success: false,
@@ -125,9 +124,9 @@ class ShortcutController {
                     return;
                 }
                 // Get session for this user to retrieve Google tokens
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(user.email, "ios");
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(user.email, "ios");
                 // Get user's accounts and find the best matching account
-                const accounts = yield AccountsHelper_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
                 const matchedAccount = ShortcutController.findBestAccountMatch(account, accounts);
                 console.log(`🔍 Account matching: input="${account}" -> matched="${matchedAccount}"`);
                 // Create movement with "unconfirmed" status
@@ -150,7 +149,28 @@ class ShortcutController {
                     ],
                 };
                 // Save movement to Google Sheets using TransactionsHelper
-                const result = yield TransactionsHelper_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movement);
+                const result = yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movement);
+                // Send push notification if user has a push token
+                if (user.push_token) {
+                    try {
+                        yield fetch("https://exp.host/--/api/v2/push/send", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                to: user.push_token,
+                                title: "MyBalance",
+                                body: "Nuovo movimento da confermare",
+                                sound: "default",
+                            }),
+                        });
+                    }
+                    catch (pushError) {
+                        console.error("Error sending push notification:", pushError);
+                        // Don't fail the request if push notification fails
+                    }
+                }
                 res.json({
                     success: true,
                     data: result,

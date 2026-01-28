@@ -1,20 +1,6 @@
-import jwt, { JwtPayload as BaseJwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import crypto from "crypto";
-
-export interface JwtPayload extends BaseJwtPayload {
-  userId: string;
-  scopes: string[];
-  type: "access" | "refresh";
-  deviceType?: "web" | "ios" | "android";
-  deviceId?: string;
-}
-
-export interface AccessTokenPayload {
-  userId: string;
-  scopes: string[];
-  deviceType?: "web" | "ios" | "android";
-  deviceId?: string;
-}
+import { JwtPayload, AccessTokenPayload } from "../models";
 
 export class JwtHelper {
   private static readonly ACCESS_TOKEN_TTL = "10m"; // 10 minutes

@@ -1,13 +1,7 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import { JwtHelper } from "../helpers/jwt.helper";
-import { DbHelper } from "../helpers/DbHelper";
-
-export interface AuthenticatedRequest extends Request {
-  userId?: string;
-  scopes?: string[];
-  deviceType?: "web" | "ios" | "android";
-  deviceId?: string;
-}
+import { DbHelper } from "../helpers/db.helper";
+import { AuthenticatedRequest } from "../models";
 
 export class RequireAuthMiddleware {
   /**

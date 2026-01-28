@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { CategoriesHelper } from "../helpers/MyBalance/CategoriesHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
+import { CategoriesHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper } from "../helpers/google";
 
 export class CategoriesController {
   /**
