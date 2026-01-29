@@ -8,12 +8,16 @@ import {
   UpdateSessionRequest,
 } from "../models";
 
+// Enable SSL only for production databases (Neon, etc.)
+const useSSL =
+  process.env.DATABASE_URL?.includes("neon.tech") ||
+  process.env.DATABASE_URL?.includes("sslmode=require") ||
+  process.env.NODE_ENV === "production";
+
 export class DbHelper {
   private static _pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    ssl: useSSL ? { rejectUnauthorized: false } : false,
   });
 
   public static async getData() {
@@ -598,6 +602,52 @@ export class DbHelper {
     } catch (error) {
       console.error("Error removing push token:", error);
       throw new Error("Error removing push token");
+    } finally {
+      client.release();
+    }
+  }
+
+  // === WAITLIST METHODS ===
+
+  /**
+   * Add email to waitlist
+   */
+  public static async addToWaitlist(
+    email: string,
+    source: string = "landing",
+  ): Promise<{ id: string; email: string; created_at: Date }> {
+    const client = await DbHelper._pool.connect();
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO waitlist (email, source)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO UPDATE SET source = $2
+         RETURNING id, email, created_at`,
+        [email, source],
+      );
+      return rows[0];
+    } catch (error) {
+      console.error("Error adding to waitlist:", error);
+      throw new Error("Error adding to waitlist");
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Check if email is already in waitlist
+   */
+  public static async isEmailInWaitlist(email: string): Promise<boolean> {
+    const client = await DbHelper._pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT id FROM waitlist WHERE email = $1`,
+        [email],
+      );
+      return rows.length > 0;
+    } catch (error) {
+      console.error("Error checking waitlist:", error);
+      throw new Error("Error checking waitlist");
     } finally {
       client.release();
     }

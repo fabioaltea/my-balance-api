@@ -1,3 +1,6 @@
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
 import express from "express";
 import bodyParser from "body-parser";
 import process from "process";
@@ -35,8 +38,30 @@ import { JwtHelper } from "./helpers/jwt.helper";
 const app = express();
 const port = process.env.PORT || 8080;
 
+// Parse allowed origins from env (comma-separated) or use defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
+  : [
+      process.env.ORIGIN_URL || "http://localhost:8100",
+      "http://localhost:5173", // Vite dev server (landing)
+      "http://localhost:3000",
+    ];
+
 const corsOptions = {
-  origin: process.env.ORIGIN_URL || "http://localhost:8100",
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`CORS blocked request from origin: ${origin}`);
+    return callback(new Error("Not allowed by CORS"), false);
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -177,6 +202,46 @@ app.post(
 
 app.get("/", (req: any, res: any) => {
   res.send("API Working");
+});
+
+// === WAITLIST ENDPOINT (Public) ===
+app.post("/waitlist", async (req: any, res: any) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required",
+      });
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid email format",
+      });
+    }
+
+    const result = await DbHelper.addToWaitlist(email.toLowerCase().trim());
+
+    res.status(201).json({
+      success: true,
+      message: "Successfully added to waitlist",
+      data: {
+        email: result.email,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error adding to waitlist:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to add to waitlist",
+      details: error?.message,
+    });
+  }
 });
 
 //#region Google Sheets (Protected Endpoints)
@@ -2086,7 +2151,5 @@ app.listen(port, () => {
   console.log("🚀 =================================");
 });
 console.log(`🚀 Environment: ${process.env.NODE_ENV || "development"}`);
-console.log(
-  `🚀 CORS Origin: ${process.env.ORIGIN_URL || "http://localhost:8100"}`,
-);
+console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(", ")}`);
 console.log("🚀 =================================");

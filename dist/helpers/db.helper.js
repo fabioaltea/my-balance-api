@@ -11,11 +11,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DbHelper = void 0;
 const pg_1 = require("pg");
 const crypto_js_1 = __importDefault(require("crypto-js"));
 const base64url_1 = __importDefault(require("base64url/dist/base64url"));
+// Enable SSL only for production databases (Neon, etc.)
+const useSSL = ((_a = process.env.DATABASE_URL) === null || _a === void 0 ? void 0 : _a.includes("neon.tech")) ||
+    ((_b = process.env.DATABASE_URL) === null || _b === void 0 ? void 0 : _b.includes("sslmode=require")) ||
+    process.env.NODE_ENV === "production";
 class DbHelper {
     static getData() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -560,12 +565,52 @@ class DbHelper {
             }
         });
     }
+    // === WAITLIST METHODS ===
+    /**
+     * Add email to waitlist
+     */
+    static addToWaitlist(email_1) {
+        return __awaiter(this, arguments, void 0, function* (email, source = "landing") {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`INSERT INTO waitlist (email, source)
+         VALUES ($1, $2)
+         ON CONFLICT (email) DO UPDATE SET source = $2
+         RETURNING id, email, created_at`, [email, source]);
+                return rows[0];
+            }
+            catch (error) {
+                console.error("Error adding to waitlist:", error);
+                throw new Error("Error adding to waitlist");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Check if email is already in waitlist
+     */
+    static isEmailInWaitlist(email) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT id FROM waitlist WHERE email = $1`, [email]);
+                return rows.length > 0;
+            }
+            catch (error) {
+                console.error("Error checking waitlist:", error);
+                throw new Error("Error checking waitlist");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
 }
 exports.DbHelper = DbHelper;
 DbHelper._pool = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false,
-    },
+    ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 //# sourceMappingURL=db.helper.js.map

@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -12,6 +45,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const dotenv = __importStar(require("dotenv"));
+dotenv.config({ path: ".env.local" });
 const express_1 = __importDefault(require("express"));
 const body_parser_1 = __importDefault(require("body-parser"));
 const process_1 = __importDefault(require("process"));
@@ -32,8 +67,26 @@ const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const jwt_helper_1 = require("./helpers/jwt.helper");
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
+// Parse allowed origins from env (comma-separated) or use defaults
+const allowedOrigins = process_1.default.env.ALLOWED_ORIGINS
+    ? process_1.default.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
+    : [
+        process_1.default.env.ORIGIN_URL || "http://localhost:8100",
+        "http://localhost:5173", // Vite dev server (landing)
+        "http://localhost:3000",
+    ];
 const corsOptions = {
-    origin: process_1.default.env.ORIGIN_URL || "http://localhost:8100",
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) {
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        console.warn(`CORS blocked request from origin: ${origin}`);
+        return callback(new Error("Not allowed by CORS"), false);
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: [
         "Content-Type",
@@ -151,6 +204,42 @@ app.post("/user/last-access", requireAuth_middleware_1.RequireAuthMiddleware.ver
 app.get("/", (req, res) => {
     res.send("API Working");
 });
+// === WAITLIST ENDPOINT (Public) ===
+app.post("/waitlist", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: "Email is required",
+            });
+        }
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid email format",
+            });
+        }
+        const result = yield db_helper_1.DbHelper.addToWaitlist(email.toLowerCase().trim());
+        res.status(201).json({
+            success: true,
+            message: "Successfully added to waitlist",
+            data: {
+                email: result.email,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Error adding to waitlist:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to add to waitlist",
+            details: error === null || error === void 0 ? void 0 : error.message,
+        });
+    }
+}));
 //#region Google Sheets (Protected Endpoints)
 // All Google Sheets endpoints now require authentication
 app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -1511,6 +1600,6 @@ app.listen(port, () => {
     console.log("🚀 =================================");
 });
 console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || "development"}`);
-console.log(`🚀 CORS Origin: ${process_1.default.env.ORIGIN_URL || "http://localhost:8100"}`);
+console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(", ")}`);
 console.log("🚀 =================================");
 //# sourceMappingURL=index.js.map
