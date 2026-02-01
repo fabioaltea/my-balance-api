@@ -74,6 +74,7 @@ const allowedOrigins = process_1.default.env.ALLOWED_ORIGINS
         process_1.default.env.ORIGIN_URL || "http://localhost:8100",
         "http://localhost:5173", // Vite dev server (landing)
         "http://localhost:3000",
+        "http://localhost:8081", // Expo web dev server
     ];
 const corsOptions = {
     origin: (origin, callback) => {
@@ -95,6 +96,7 @@ const corsOptions = {
         "refresh_token",
         "spreadsheet_id",
         "x-shortcutkey",
+        "x-authorization",
     ],
     exposedHeaders: [
         "Access-Control-Allow-Origin",

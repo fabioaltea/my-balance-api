@@ -24,7 +24,7 @@ export class AuthController {
     res: Response,
   ): Promise<void> {
     try {
-      const { authorizationCode, codeVerifier, deviceId, deviceType } =
+      const { authorizationCode, codeVerifier, deviceId, deviceType, redirectUri } =
         req.body as GoogleCallbackRequest;
 
       if (!authorizationCode || !deviceId) {
@@ -32,7 +32,7 @@ export class AuthController {
           success: false,
           error: "Missing required fields",
           required: ["authorizationCode", "deviceId"],
-          optional: ["codeVerifier", "deviceType"],
+          optional: ["codeVerifier", "deviceType", "redirectUri"],
         });
         return;
       }
@@ -41,9 +41,11 @@ export class AuthController {
 
       // Exchange code for Google tokens
       // Note: codeVerifier is optional - if not provided, PKCE is not used
+      // Note: redirectUri is required for web to match the URI used in the authorization request
       const googleTokens = await googleOAuthHelper.exchangeCodeForTokens({
         authorizationCode,
         codeVerifier: codeVerifier || undefined, // Pass undefined if empty string
+        redirectUri: redirectUri || undefined, // Pass the redirect URI used in auth request (for web)
       });
 
       // Verify ID token and get user identity
@@ -87,7 +89,15 @@ export class AuthController {
 
       // Store Google refresh token in user_google_tokens table (UPSERT)
       // One token per user+device_type combination
+      console.log("📦 Google tokens received:", {
+        hasIdToken: !!googleTokens.idToken,
+        hasRefreshToken: !!googleTokens.refreshToken,
+        scopes: googleTokens.scopes,
+        deviceType: deviceType || "web",
+      });
+
       if (googleTokens.refreshToken) {
+        console.log("💾 Storing Google refresh token for user:", user.user_email, "deviceType:", deviceType || "web");
         const encryptedGoogleRefreshToken = CryptoHelper.encrypt(
           googleTokens.refreshToken,
         );
@@ -96,6 +106,9 @@ export class AuthController {
           encryptedGoogleRefreshToken,
           deviceType || "web",
         );
+        console.log("✅ Google refresh token stored successfully");
+      } else {
+        console.warn("⚠️ No Google refresh token received - user may need to re-authorize with prompt=consent");
       }
 
       // Create session for JWT/device tracking (without Google token)

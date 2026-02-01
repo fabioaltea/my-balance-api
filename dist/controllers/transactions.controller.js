@@ -12,6 +12,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionsController = void 0;
 const mybalance_1 = require("../helpers/mybalance");
 const google_1 = require("../helpers/google");
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 class TransactionsController {
     /**
      * GET /transactions - Restituisce tutte le transazioni
@@ -48,6 +62,8 @@ class TransactionsController {
                 res.json({ success: true, data: allTransactions });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getTransactions"))
+                    return;
                 console.error("❌ Error fetching transactions:", error);
                 res.status(500).json({
                     success: false,
@@ -85,6 +101,8 @@ class TransactionsController {
                 res.json({ success: true, data: result });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createTransaction"))
+                    return;
                 console.error("Error creating transaction:", error);
                 res.status(500).json({
                     error: "Failed to create transaction",
@@ -122,6 +140,8 @@ class TransactionsController {
                 res.json({ success: true, data: updatedTransaction });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "updateTransaction"))
+                    return;
                 console.error("Error updating transaction:", error);
                 res.status(500).json({
                     error: "Failed to update transaction",
@@ -158,6 +178,8 @@ class TransactionsController {
                 res.json({ success: true, message: "Transaction deleted successfully" });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "deleteTransaction"))
+                    return;
                 console.error("Error deleting transaction:", error);
                 res.status(500).json({
                     error: "Failed to delete transaction",
@@ -201,6 +223,8 @@ class TransactionsController {
                 res.json({ success: true, data: transaction });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getTransaction"))
+                    return;
                 console.error("Error fetching transaction:", error);
                 res.status(500).json({
                     error: "Failed to fetch transaction",

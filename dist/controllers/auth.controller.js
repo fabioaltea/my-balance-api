@@ -22,22 +22,24 @@ class AuthController {
     static googleCallback(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { authorizationCode, codeVerifier, deviceId, deviceType } = req.body;
+                const { authorizationCode, codeVerifier, deviceId, deviceType, redirectUri } = req.body;
                 if (!authorizationCode || !deviceId) {
                     res.status(400).json({
                         success: false,
                         error: "Missing required fields",
                         required: ["authorizationCode", "deviceId"],
-                        optional: ["codeVerifier", "deviceType"],
+                        optional: ["codeVerifier", "deviceType", "redirectUri"],
                     });
                     return;
                 }
                 const googleOAuthHelper = new google_1.GoogleAuthHelper(deviceType !== null && deviceType !== void 0 ? deviceType : "web");
                 // Exchange code for Google tokens
                 // Note: codeVerifier is optional - if not provided, PKCE is not used
+                // Note: redirectUri is required for web to match the URI used in the authorization request
                 const googleTokens = yield googleOAuthHelper.exchangeCodeForTokens({
                     authorizationCode,
                     codeVerifier: codeVerifier || undefined, // Pass undefined if empty string
+                    redirectUri: redirectUri || undefined, // Pass the redirect URI used in auth request (for web)
                 });
                 // Verify ID token and get user identity
                 const identity = yield googleOAuthHelper.verifyIdToken(googleTokens.idToken);
@@ -74,9 +76,20 @@ class AuthController {
                 const refreshToken = jwt_helper_1.JwtHelper.signRefreshToken(tokenPayload);
                 // Store Google refresh token in user_google_tokens table (UPSERT)
                 // One token per user+device_type combination
+                console.log("📦 Google tokens received:", {
+                    hasIdToken: !!googleTokens.idToken,
+                    hasRefreshToken: !!googleTokens.refreshToken,
+                    scopes: googleTokens.scopes,
+                    deviceType: deviceType || "web",
+                });
                 if (googleTokens.refreshToken) {
+                    console.log("💾 Storing Google refresh token for user:", user.user_email, "deviceType:", deviceType || "web");
                     const encryptedGoogleRefreshToken = crypto_helper_1.CryptoHelper.encrypt(googleTokens.refreshToken);
                     yield db_helper_1.DbHelper.storeGoogleRefreshToken(user.user_email, encryptedGoogleRefreshToken, deviceType || "web");
+                    console.log("✅ Google refresh token stored successfully");
+                }
+                else {
+                    console.warn("⚠️ No Google refresh token received - user may need to re-authorize with prompt=consent");
                 }
                 // Create session for JWT/device tracking (without Google token)
                 const sessionId = yield db_helper_1.DbHelper.createSession({

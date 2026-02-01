@@ -1,9 +1,24 @@
 import { Request, Response } from "express";
 import { DbHelper } from "../helpers/db.helper";
 import { TransactionsHelper, AccountsHelper } from "../helpers/mybalance";
-import { GoogleAuthHelper } from "../helpers/google";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 import { IAccount } from "../models";
 import crypto from "crypto";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 /**
  * ShortcutController
@@ -192,6 +207,7 @@ export class ShortcutController {
         message: "Movement created successfully via shortcut",
       });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createMovementViaShortcut")) return;
       console.error("Error creating movement via shortcut:", error);
       res.status(500).json({
         success: false,

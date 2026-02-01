@@ -1,6 +1,21 @@
 import { Request, Response } from "express";
 import { TransactionsHelper } from "../helpers/mybalance";
-import { GoogleAuthHelper } from "../helpers/google";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 export class TransactionsController {
   /**
@@ -56,6 +71,7 @@ export class TransactionsController {
 
       res.json({ success: true, data: allTransactions });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getTransactions")) return;
       console.error("❌ Error fetching transactions:", error);
       res.status(500).json({
         success: false,
@@ -108,7 +124,8 @@ export class TransactionsController {
       );
 
       res.json({ success: true, data: result });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createTransaction")) return;
       console.error("Error creating transaction:", error);
       res.status(500).json({
         error: "Failed to create transaction",
@@ -161,7 +178,8 @@ export class TransactionsController {
       );
 
       res.json({ success: true, data: updatedTransaction });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "updateTransaction")) return;
       console.error("Error updating transaction:", error);
       res.status(500).json({
         error: "Failed to update transaction",
@@ -213,7 +231,8 @@ export class TransactionsController {
       );
 
       res.json({ success: true, message: "Transaction deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "deleteTransaction")) return;
       console.error("Error deleting transaction:", error);
       res.status(500).json({
         error: "Failed to delete transaction",
@@ -270,7 +289,8 @@ export class TransactionsController {
       }
 
       res.json({ success: true, data: transaction });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getTransaction")) return;
       console.error("Error fetching transaction:", error);
       res.status(500).json({
         error: "Failed to fetch transaction",

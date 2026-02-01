@@ -39,6 +39,7 @@ export interface GoogleCallbackRequest {
   codeVerifier?: string; // Optional for PKCE support
   deviceId: string;
   deviceType?: "ios" | "android" | "web"; // Default to web
+  redirectUri?: string; // Optional - used for web to pass the actual redirect URI used
 }
 
 export interface RefreshRequest {

@@ -12,6 +12,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MovementsController = void 0;
 const mybalance_1 = require("../helpers/mybalance");
 const google_1 = require("../helpers/google");
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 class MovementsController {
     /**
      * GET /movements - Recupera tutti i movements
@@ -41,6 +55,8 @@ class MovementsController {
                 res.json({ success: true, data: movements });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getMovements"))
+                    return;
                 console.error("Error fetching movements:", error);
                 res.status(500).json({
                     success: false,
@@ -85,6 +101,8 @@ class MovementsController {
                 res.json({ success: true, data: movement });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getMovement"))
+                    return;
                 console.error("Error fetching movement:", error);
                 res.status(500).json({
                     success: false,
@@ -122,6 +140,8 @@ class MovementsController {
                 res.json({ success: true, data: result });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createMovement"))
+                    return;
                 console.error("Error creating movement:", error);
                 res.status(500).json({
                     success: false,
@@ -162,6 +182,8 @@ class MovementsController {
                 res.json({ success: true, data: updatedMovement });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "updateMovement"))
+                    return;
                 console.error("Error updating movement:", error);
                 res.status(500).json({
                     success: false,
@@ -199,6 +221,8 @@ class MovementsController {
                 res.json({ success: true, message: "Movement deleted successfully" });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "deleteMovement"))
+                    return;
                 console.error("Error deleting movement:", error);
                 res.status(500).json({
                     success: false,

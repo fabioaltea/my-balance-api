@@ -1,6 +1,21 @@
 import { Request, Response } from "express";
 import { TransactionsHelper } from "../helpers/mybalance";
-import { GoogleAuthHelper } from "../helpers/google";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 export class MovementsController {
   /**
@@ -43,6 +58,7 @@ export class MovementsController {
 
       res.json({ success: true, data: movements });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getMovements")) return;
       console.error("Error fetching movements:", error);
       res.status(500).json({
         success: false,
@@ -101,6 +117,7 @@ export class MovementsController {
 
       res.json({ success: true, data: movement });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getMovement")) return;
       console.error("Error fetching movement:", error);
       res.status(500).json({
         success: false,
@@ -151,6 +168,7 @@ export class MovementsController {
 
       res.json({ success: true, data: result });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createMovement")) return;
       console.error("Error creating movement:", error);
       res.status(500).json({
         success: false,
@@ -207,6 +225,7 @@ export class MovementsController {
 
       res.json({ success: true, data: updatedMovement });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "updateMovement")) return;
       console.error("Error updating movement:", error);
       res.status(500).json({
         success: false,
@@ -257,6 +276,7 @@ export class MovementsController {
 
       res.json({ success: true, message: "Movement deleted successfully" });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "deleteMovement")) return;
       console.error("Error deleting movement:", error);
       res.status(500).json({
         success: false,

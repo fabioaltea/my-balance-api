@@ -17,6 +17,20 @@ const db_helper_1 = require("../helpers/db.helper");
 const mybalance_1 = require("../helpers/mybalance");
 const google_1 = require("../helpers/google");
 const crypto_1 = __importDefault(require("crypto"));
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 /**
  * ShortcutController
  * Handles iOS Shortcuts integration for quick movement creation
@@ -178,6 +192,8 @@ class ShortcutController {
                 });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createMovementViaShortcut"))
+                    return;
                 console.error("Error creating movement via shortcut:", error);
                 res.status(500).json({
                     success: false,

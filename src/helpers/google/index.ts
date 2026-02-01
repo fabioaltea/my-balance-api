@@ -1,5 +1,6 @@
 // Google helpers index
-export { GoogleAuthHelper, GoogleOAuthHelper } from "./auth.helper";
+export { GoogleAuthHelper, GoogleOAuthHelper, GoogleTokenError } from "./auth.helper";
+export type { RefreshResult } from "./auth.helper";
 export { GoogleHelper } from "./sheets.helper";
 
 // Re-export interfaces from models for convenience
