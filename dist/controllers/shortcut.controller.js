@@ -175,7 +175,7 @@ class ShortcutController {
                             body: JSON.stringify({
                                 to: user.push_token,
                                 title: "MyBalance",
-                                body: "Nuovo movimento da confermare",
+                                body: "There is a new unconfirmed movement to be reviewed",
                                 sound: "default",
                             }),
                         });
