@@ -1,9 +1,24 @@
 import { Request, Response } from "express";
-import { DbHelper } from "../helpers/DbHelper";
-import { TransactionsHelper } from "../helpers/MyBalance/TransactionsHelper";
-import { AccountsHelper, IAccount } from "../helpers/MyBalance/AccountsHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
+import { DbHelper } from "../helpers/db.helper";
+import { TransactionsHelper, AccountsHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+import { IAccount } from "../models";
 import crypto from "crypto";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 /**
  * ShortcutController
@@ -165,12 +180,34 @@ export class ShortcutController {
         movement,
       );
 
+      // Send push notification if user has a push token
+      if (user.push_token) {
+        try {
+          await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: user.push_token,
+              title: "MyBalance",
+              body: "There is a new unconfirmed movement to be reviewed",
+              sound: "default",
+            }),
+          });
+        } catch (pushError) {
+          console.error("Error sending push notification:", pushError);
+          // Don't fail the request if push notification fails
+        }
+      }
+
       res.json({
         success: true,
         data: result,
         message: "Movement created successfully via shortcut",
       });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createMovementViaShortcut")) return;
       console.error("Error creating movement via shortcut:", error);
       res.status(500).json({
         success: false,

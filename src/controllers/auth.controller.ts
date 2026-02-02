@@ -1,34 +1,18 @@
 import { Request, Response } from "express";
-import { GoogleAuthHelper as GoogleOAuthHelper } from "../helpers/GoogleAuthHelper";
+import { GoogleAuthHelper as GoogleOAuthHelper } from "../helpers/google";
 import { JwtHelper } from "../helpers/jwt.helper";
 import { CryptoHelper } from "../helpers/crypto.helper";
-import { DbHelper } from "../helpers/DbHelper";
+import { DbHelper } from "../helpers/db.helper";
 import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
-
-export interface GoogleCallbackRequest {
-  authorizationCode: string;
-  codeVerifier?: string; // Optional for PKCE support
-  deviceId: string;
-  deviceType?: "ios" | "android" | "web"; // Default to web
-}
-
-export interface RefreshRequest {
-  refreshToken: string;
-  deviceId: string;
-}
-
-export interface PasskeyLoginRequest {
-  passkeyAssertion: any; // WebAuthn assertion response
-  deviceId: string;
-}
-
-export interface LogoutRequest {
-  refreshToken?: string;
-  deviceId: string;
-}
+import {
+  GoogleCallbackRequest,
+  RefreshRequest,
+  PasskeyLoginRequest,
+  LogoutRequest,
+} from "../models";
 
 export class AuthController {
   /**
@@ -40,7 +24,7 @@ export class AuthController {
     res: Response,
   ): Promise<void> {
     try {
-      const { authorizationCode, codeVerifier, deviceId, deviceType } =
+      const { authorizationCode, codeVerifier, deviceId, deviceType, redirectUri } =
         req.body as GoogleCallbackRequest;
 
       if (!authorizationCode || !deviceId) {
@@ -48,7 +32,7 @@ export class AuthController {
           success: false,
           error: "Missing required fields",
           required: ["authorizationCode", "deviceId"],
-          optional: ["codeVerifier", "deviceType"],
+          optional: ["codeVerifier", "deviceType", "redirectUri"],
         });
         return;
       }
@@ -57,9 +41,11 @@ export class AuthController {
 
       // Exchange code for Google tokens
       // Note: codeVerifier is optional - if not provided, PKCE is not used
+      // Note: redirectUri is required for web to match the URI used in the authorization request
       const googleTokens = await googleOAuthHelper.exchangeCodeForTokens({
         authorizationCode,
         codeVerifier: codeVerifier || undefined, // Pass undefined if empty string
+        redirectUri: redirectUri || undefined, // Pass the redirect URI used in auth request (for web)
       });
 
       // Verify ID token and get user identity
@@ -103,7 +89,15 @@ export class AuthController {
 
       // Store Google refresh token in user_google_tokens table (UPSERT)
       // One token per user+device_type combination
+      console.log("📦 Google tokens received:", {
+        hasIdToken: !!googleTokens.idToken,
+        hasRefreshToken: !!googleTokens.refreshToken,
+        scopes: googleTokens.scopes,
+        deviceType: deviceType || "web",
+      });
+
       if (googleTokens.refreshToken) {
+        console.log("💾 Storing Google refresh token for user:", user.user_email, "deviceType:", deviceType || "web");
         const encryptedGoogleRefreshToken = CryptoHelper.encrypt(
           googleTokens.refreshToken,
         );
@@ -112,6 +106,9 @@ export class AuthController {
           encryptedGoogleRefreshToken,
           deviceType || "web",
         );
+        console.log("✅ Google refresh token stored successfully");
+      } else {
+        console.warn("⚠️ No Google refresh token received - user may need to re-authorize with prompt=consent");
       }
 
       // Create session for JWT/device tracking (without Google token)
@@ -329,6 +326,7 @@ export class AuthController {
           emailVerified: user.email_verified,
           spreadsheetId: user.spreadsheet_id || null, // Can be null for new users
           lastAccess: user.last_access,
+          pushNotificationsEnabled: !!user.push_token,
         },
       });
     } catch (error: any) {
@@ -336,6 +334,63 @@ export class AuthController {
       res.status(500).json({
         success: false,
         error: "Failed to get profile",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Save push notification token
+   * POST /auth/push-token
+   */
+  public static async savePushToken(req: any, res: Response): Promise<void> {
+    try {
+      const userEmail = req.userId;
+      const { pushToken } = req.body;
+
+      if (!pushToken) {
+        res.status(400).json({
+          success: false,
+          error: "Missing push token",
+        });
+        return;
+      }
+
+      await DbHelper.savePushToken(userEmail, pushToken);
+
+      res.json({
+        success: true,
+        message: "Push token saved successfully",
+      });
+    } catch (error: any) {
+      console.error("Save push token error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to save push token",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * Remove push notification token
+   * DELETE /auth/push-token
+   */
+  public static async removePushToken(req: any, res: Response): Promise<void> {
+    try {
+      const userEmail = req.userId;
+
+      await DbHelper.removePushToken(userEmail);
+
+      res.json({
+        success: true,
+        message: "Push token removed successfully",
+      });
+    } catch (error: any) {
+      console.error("Remove push token error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to remove push token",
         details: error.message,
       });
     }

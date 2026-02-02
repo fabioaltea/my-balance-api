@@ -1,6 +1,21 @@
 import { Request, Response } from "express";
-import { CategoriesHelper } from "../helpers/MyBalance/CategoriesHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
+import { CategoriesHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 export class CategoriesController {
   /**
@@ -43,6 +58,7 @@ export class CategoriesController {
 
       res.json({ success: true, data: categories });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getCategories")) return;
       console.error("Error fetching categories:", error);
       res.status(500).json({
         success: false,
@@ -102,6 +118,7 @@ export class CategoriesController {
 
       res.json({ success: true, data: category });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getCategory")) return;
       console.error("Error fetching category:", error);
       res.status(500).json({
         success: false,
@@ -152,6 +169,7 @@ export class CategoriesController {
 
       res.json({ success: true, data: result });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createCategory")) return;
       console.error("Error creating category:", error);
       res.status(500).json({
         success: false,
@@ -204,6 +222,7 @@ export class CategoriesController {
 
       res.json({ success: true, data: updatedCategory });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "updateCategory")) return;
       console.error("Error updating category:", error);
       res.status(500).json({
         success: false,
@@ -254,6 +273,7 @@ export class CategoriesController {
 
       res.json({ success: true, message: "Category deleted successfully" });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "deleteCategory")) return;
       console.error("Error deleting category:", error);
       res.status(500).json({
         success: false,
@@ -315,6 +335,7 @@ export class CategoriesController {
 
       res.json({ success: true, data: result });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createCategoriesBatch")) return;
       console.error("Error creating categories batch:", error);
       res.status(500).json({
         success: false,

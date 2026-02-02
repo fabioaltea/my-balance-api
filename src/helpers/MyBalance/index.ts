@@ -1,13 +1,10 @@
 // Barrel export per tutti gli helper MyBalance
-export { TransactionsHelper } from "./TransactionsHelper";
-export { AccountsHelper } from "./AccountsHelper";
-export { CategoriesHelper } from "./CategoriesHelper";
-export { SpreadsheetsHelper } from "./SpreadsheetsHelper";
+export { TransactionsHelper } from "./transactions.helper";
+export { AccountsHelper } from "./accounts.helper";
+export { CategoriesHelper } from "./categories.helper";
+export { SpreadsheetsHelper } from "./spreadsheets.helper";
 
-// Export delle interfacce comuni
-export type { IAccount, IAccountData } from "./AccountsHelper";
-export type { ICategory, ICategoryData } from "./CategoriesHelper";
-export type {
-  ISpreadsheetValidation,
-  ITemplateData,
-} from "./SpreadsheetsHelper";
+// Export delle interfacce dai models
+export type { IAccount, IAccountData } from "../../models";
+export type { ICategory, ICategoryData } from "../../models";
+export type { ISpreadsheetValidation, ITemplateData } from "../../models";

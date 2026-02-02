@@ -51,6 +51,18 @@ authRoutes.get(
   AuthController.getProfile,
 );
 
+// Push notifications
+authRoutes.post(
+  "/push-token",
+  RequireAuthMiddleware.verify,
+  AuthController.savePushToken,
+);
+authRoutes.delete(
+  "/push-token",
+  RequireAuthMiddleware.verify,
+  AuthController.removePushToken,
+);
+
 // Health check endpoint
 authRoutes.get("/health", (req, res) => {
   res.json({

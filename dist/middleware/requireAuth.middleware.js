@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequireAuthMiddleware = void 0;
 const jwt_helper_1 = require("../helpers/jwt.helper");
-const DbHelper_1 = require("../helpers/DbHelper");
+const db_helper_1 = require("../helpers/db.helper");
 class RequireAuthMiddleware {
     /**
      * Middleware to verify JWT access token and session
@@ -44,7 +44,7 @@ class RequireAuthMiddleware {
                 });
                 // Verify session exists for this deviceId
                 if (payload.deviceId) {
-                    const session = yield DbHelper_1.DbHelper.getSessionByDeviceId(payload.deviceId);
+                    const session = yield db_helper_1.DbHelper.getSessionByDeviceId(payload.deviceId);
                     if (!session) {
                         console.log("❌ Session not found for deviceId:", payload.deviceId);
                         res.status(401).json({

@@ -10,8 +10,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoriesController = void 0;
-const CategoriesHelper_1 = require("../helpers/MyBalance/CategoriesHelper");
-const GoogleAuthHelper_1 = require("../helpers/GoogleAuthHelper");
+const mybalance_1 = require("../helpers/mybalance");
+const google_1 = require("../helpers/google");
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 class CategoriesController {
     /**
      * GET /categories - Recupera tutte le categorie
@@ -23,11 +37,11 @@ class CategoriesController {
                 const userEmail = req.userId;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -37,10 +51,12 @@ class CategoriesController {
                     return;
                 }
                 // Get all categories using CategoriesHelper
-                const categories = yield CategoriesHelper_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
+                const categories = yield mybalance_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
                 res.json({ success: true, data: categories });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getCategories"))
+                    return;
                 console.error("Error fetching categories:", error);
                 res.status(500).json({
                     success: false,
@@ -60,11 +76,11 @@ class CategoriesController {
                 const { categoryId } = req.params;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -74,7 +90,7 @@ class CategoriesController {
                     return;
                 }
                 // Get categories and find the one with matching ID
-                const categories = yield CategoriesHelper_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
+                const categories = yield mybalance_1.CategoriesHelper.getCategories(spreadsheetId, authClient);
                 const category = categories.find((c) => c.name === categoryId);
                 if (!category) {
                     res.status(404).json({
@@ -86,6 +102,8 @@ class CategoriesController {
                 res.json({ success: true, data: category });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getCategory"))
+                    return;
                 console.error("Error fetching category:", error);
                 res.status(500).json({
                     success: false,
@@ -105,11 +123,11 @@ class CategoriesController {
                 const categoryData = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -119,10 +137,12 @@ class CategoriesController {
                     return;
                 }
                 // Create category using CategoriesHelper
-                const result = yield CategoriesHelper_1.CategoriesHelper.createCategory(spreadsheetId, categoryData, authClient);
+                const result = yield mybalance_1.CategoriesHelper.createCategory(spreadsheetId, categoryData, authClient);
                 res.json({ success: true, data: result });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createCategory"))
+                    return;
                 console.error("Error creating category:", error);
                 res.status(500).json({
                     success: false,
@@ -143,11 +163,11 @@ class CategoriesController {
                 const updateData = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -157,10 +177,12 @@ class CategoriesController {
                     return;
                 }
                 // Update category using CategoriesHelper
-                const updatedCategory = yield CategoriesHelper_1.CategoriesHelper.updateCategory(spreadsheetId, categoryId, updateData, authClient);
+                const updatedCategory = yield mybalance_1.CategoriesHelper.updateCategory(spreadsheetId, categoryId, updateData, authClient);
                 res.json({ success: true, data: updatedCategory });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "updateCategory"))
+                    return;
                 console.error("Error updating category:", error);
                 res.status(500).json({
                     success: false,
@@ -180,11 +202,11 @@ class CategoriesController {
                 const { categoryId } = req.params;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -194,10 +216,12 @@ class CategoriesController {
                     return;
                 }
                 // Delete category using CategoriesHelper
-                yield CategoriesHelper_1.CategoriesHelper.deleteCategory(spreadsheetId, categoryId, authClient);
+                yield mybalance_1.CategoriesHelper.deleteCategory(spreadsheetId, categoryId, authClient);
                 res.json({ success: true, message: "Category deleted successfully" });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "deleteCategory"))
+                    return;
                 console.error("Error deleting category:", error);
                 res.status(500).json({
                     success: false,
@@ -224,11 +248,11 @@ class CategoriesController {
                 }
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -238,10 +262,12 @@ class CategoriesController {
                     return;
                 }
                 // Create categories in batch using CategoriesHelper
-                const result = yield CategoriesHelper_1.CategoriesHelper.createCategoriesBatch(spreadsheetId, categories, authClient);
+                const result = yield mybalance_1.CategoriesHelper.createCategoriesBatch(spreadsheetId, categories, authClient);
                 res.json({ success: true, data: result });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createCategoriesBatch"))
+                    return;
                 console.error("Error creating categories batch:", error);
                 res.status(500).json({
                     success: false,

@@ -1,7 +1,21 @@
 import { Request, Response } from "express";
-import { AccountsHelper } from "../helpers/MyBalance/AccountsHelper";
-import { GoogleAuthHelper } from "../helpers/GoogleAuthHelper";
-import { TransactionsHelper } from "../helpers/MyBalance/TransactionsHelper";
+import { AccountsHelper, TransactionsHelper } from "../helpers/mybalance";
+import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+  return false;
+}
 
 export class AccountsController {
   /**
@@ -52,6 +66,7 @@ export class AccountsController {
       console.log("💰 Accounts fetched successfully:", accounts.length);
       res.json({ success: true, data: accounts });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getAccounts")) return;
       console.error("Error fetching accounts:", error);
       res.status(500).json({
         error: "Failed to fetch accounts",
@@ -115,7 +130,8 @@ export class AccountsController {
       );
 
       res.json({ success: true, data: account });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createAccount")) return;
       console.error("Error creating account:", error);
       res.status(500).json({
         error: "Failed to create account",
@@ -216,7 +232,8 @@ export class AccountsController {
 
       console.log("💰 Account updated successfully:", updatedAccount.name);
       res.json({ success: true, data: updatedAccount });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "updateAccount")) return;
       console.error("Error updating account:", error);
       res.status(500).json({
         error: "Failed to update account",
@@ -274,7 +291,8 @@ export class AccountsController {
       );
 
       res.json({ success: true, message: "Account deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "deleteAccount")) return;
       console.error("Error deleting account:", error);
       res.status(500).json({
         error: "Failed to delete account",
@@ -335,7 +353,8 @@ export class AccountsController {
       );
 
       res.json({ success: true, data: createdAccounts });
-    } catch (error) {
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createAccountsBatch")) return;
       console.error("Error creating accounts batch:", error);
       res.status(500).json({
         error: "Failed to create accounts",

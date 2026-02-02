@@ -10,9 +10,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccountsController = void 0;
-const AccountsHelper_1 = require("../helpers/MyBalance/AccountsHelper");
-const GoogleAuthHelper_1 = require("../helpers/GoogleAuthHelper");
-const TransactionsHelper_1 = require("../helpers/MyBalance/TransactionsHelper");
+const mybalance_1 = require("../helpers/mybalance");
+const google_1 = require("../helpers/google");
+// Helper to handle Google token errors and return appropriate HTTP status
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 class AccountsController {
     /**
      * GET /accounts - Recupera tutti gli accounts
@@ -29,12 +42,12 @@ class AccountsController {
                 const userEmail = req.userId;
                 // Get user's Google auth client with proper credentials
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
                     spreadsheetId =
-                        yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -45,11 +58,13 @@ class AccountsController {
                 }
                 console.log("📊 Reading accounts from spreadsheet:", spreadsheetId);
                 // Get all accounts using AccountsHelper
-                const accounts = yield AccountsHelper_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
                 console.log("💰 Accounts fetched successfully:", accounts.length);
                 res.json({ success: true, data: accounts });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "getAccounts"))
+                    return;
                 console.error("Error fetching accounts:", error);
                 res.status(500).json({
                     error: "Failed to fetch accounts",
@@ -68,12 +83,12 @@ class AccountsController {
                 const { name, description, balance, color, textColor } = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
                     spreadsheetId =
-                        yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -92,7 +107,7 @@ class AccountsController {
                     return;
                 }
                 // Create new account using AccountsHelper
-                const account = yield AccountsHelper_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+                const account = yield mybalance_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
                     name: name || "Unnamed Account",
                     description: description || "",
                     balance: balance || "0,00",
@@ -102,6 +117,8 @@ class AccountsController {
                 res.json({ success: true, data: account });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createAccount"))
+                    return;
                 console.error("Error creating account:", error);
                 res.status(500).json({
                     error: "Failed to create account",
@@ -127,12 +144,12 @@ class AccountsController {
                 const updateData = req.body;
                 // Get user's Google auth client with proper credentials
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
                     spreadsheetId =
-                        yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -154,7 +171,7 @@ class AccountsController {
                 // Se è prevista la modifica del nome, recupera prima l'account corrente
                 let oldAccountName = null;
                 if (updateData.name) {
-                    const accounts = yield AccountsHelper_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                    const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
                     const currentAccount = accounts.find((acc) => acc.accountId === accountId);
                     if (currentAccount && currentAccount.name !== updateData.name) {
                         oldAccountName = currentAccount.name;
@@ -162,17 +179,19 @@ class AccountsController {
                     }
                 }
                 // Update account using AccountsHelper
-                const updatedAccount = yield AccountsHelper_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
+                const updatedAccount = yield mybalance_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
                 // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
                 if (oldAccountName && updateData.name) {
                     console.log(`📊 Updating transactions from account "${oldAccountName}" to "${updateData.name}"`);
-                    const updatedCount = yield TransactionsHelper_1.TransactionsHelper.updateTransactionsAccountName(authClient, spreadsheetId, oldAccountName, updateData.name);
+                    const updatedCount = yield mybalance_1.TransactionsHelper.updateTransactionsAccountName(authClient, spreadsheetId, oldAccountName, updateData.name);
                     console.log(`📊 Updated ${updatedCount} transactions with new account name`);
                 }
                 console.log("💰 Account updated successfully:", updatedAccount.name);
                 res.json({ success: true, data: updatedAccount });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "updateAccount"))
+                    return;
                 console.error("Error updating account:", error);
                 res.status(500).json({
                     error: "Failed to update account",
@@ -193,7 +212,7 @@ class AccountsController {
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
                     spreadsheetId =
-                        yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -204,7 +223,7 @@ class AccountsController {
                 }
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get refresh token from auth client
                 const refreshToken = authClient.credentials.refresh_token;
                 if (!refreshToken) {
@@ -215,10 +234,12 @@ class AccountsController {
                     return;
                 }
                 // Delete account using AccountsHelper
-                yield AccountsHelper_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
+                yield mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
                 res.json({ success: true, message: "Account deleted successfully" });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "deleteAccount"))
+                    return;
                 console.error("Error deleting account:", error);
                 res.status(500).json({
                     error: "Failed to delete account",
@@ -239,7 +260,7 @@ class AccountsController {
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
                     spreadsheetId =
-                        yield GoogleAuthHelper_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -250,7 +271,7 @@ class AccountsController {
                 }
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield GoogleAuthHelper_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get refresh token from auth client
                 const refreshToken = authClient.credentials.refresh_token;
                 if (!refreshToken) {
@@ -261,10 +282,12 @@ class AccountsController {
                     return;
                 }
                 // Create accounts batch using AccountsHelper
-                const createdAccounts = yield AccountsHelper_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
+                const createdAccounts = yield mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
                 res.json({ success: true, data: createdAccounts });
             }
             catch (error) {
+                if (handleGoogleTokenError(error, res, "createAccountsBatch"))
+                    return;
                 console.error("Error creating accounts batch:", error);
                 res.status(500).json({
                     error: "Failed to create accounts",
