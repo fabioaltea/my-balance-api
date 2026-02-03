@@ -2,7 +2,6 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import express from "express";
-import bodyParser from "body-parser";
 import process from "process";
 import { GoogleHelper, GoogleAuthHelper } from "./helpers/google";
 import { google } from "googleapis/build/src";
@@ -95,9 +94,9 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 app.use(express.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(bodyParser.raw());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.raw());
 
 // NEW AUTHENTICATION ROUTES
 app.use("/auth", authRoutes);

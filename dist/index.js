@@ -48,7 +48,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv = __importStar(require("dotenv"));
 dotenv.config({ path: ".env.local" });
 const express_1 = __importDefault(require("express"));
-const body_parser_1 = __importDefault(require("body-parser"));
 const process_1 = __importDefault(require("process"));
 const google_1 = require("./helpers/google");
 const cors_1 = __importDefault(require("cors"));
@@ -116,9 +115,9 @@ app.use("*", (req, res, next) => {
 app.use((0, cors_1.default)(corsOptions));
 app.options("*", (0, cors_1.default)(corsOptions));
 app.use(express_1.default.json());
-app.use(body_parser_1.default.urlencoded({ extended: true }));
-app.use(body_parser_1.default.json());
-app.use(body_parser_1.default.raw());
+app.use(express_1.default.urlencoded({ extended: true }));
+app.use(express_1.default.json());
+app.use(express_1.default.raw());
 // NEW AUTHENTICATION ROUTES
 app.use("/auth", auth_routes_1.authRoutes);
 // NEW ORGANIZED API ROUTES
