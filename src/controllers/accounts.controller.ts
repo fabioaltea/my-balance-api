@@ -362,4 +362,60 @@ export class AccountsController {
       });
     }
   }
+
+  /**
+   * GET /accounts/balances - Recupera solo i balance degli accounts (ottimizzato)
+   */
+  public static async getAccountBalances(req: any, res: Response): Promise<void> {
+    try {
+      console.log("💰 =============");
+      console.log("💰 GET /accounts/balances endpoint hit!");
+      console.log("💰 User ID:", req.userId);
+      console.log("💰 Device Type:", req.deviceType);
+      console.log("💰 =============");
+
+      const userEmail = req.userId;
+
+      // Get user's Google auth client with proper credentials
+      const deviceType = req.deviceType || "web";
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(
+        userEmail,
+        deviceType,
+      );
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+      }
+
+      if (!spreadsheetId) {
+        res.status(400).json({
+          success: false,
+          error:
+            "No spreadsheet ID provided and no default spreadsheet configured",
+        });
+        return;
+      }
+
+      console.log("📊 Reading account balances from spreadsheet:", spreadsheetId);
+
+      // Get account balances using AccountsHelper (optimized method)
+      const balances = await AccountsHelper.getAccountBalances(
+        spreadsheetId,
+        authClient,
+      );
+
+      console.log("💰 Account balances fetched successfully:", balances.length);
+      res.json({ success: true, data: balances });
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getAccountBalances")) return;
+      console.error("Error fetching account balances:", error);
+      res.status(500).json({
+        error: "Failed to fetch account balances",
+        details: error?.message,
+      });
+    }
+  }
 }

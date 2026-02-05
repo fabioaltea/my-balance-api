@@ -50,9 +50,56 @@ class MovementsController {
                     });
                     return;
                 }
+                // Parse pagination parameters
+                const page = parseInt(req.query.page) || 1;
+                const limit = Math.min(parseInt(req.query.limit) || 100, 500); // Max 500 per page
+                const startDate = req.query.startDate; // Format: dd-MM-yyyy
+                const endDate = req.query.endDate; // Format: dd-MM-yyyy
+                const sort = req.query.sort || "desc"; // "asc" or "desc"
                 // Get all movements using TransactionsHelper
-                const movements = yield mybalance_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
-                res.json({ success: true, data: movements });
+                const allMovements = yield mybalance_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
+                // Apply date filtering if provided
+                let filteredMovements = allMovements;
+                if (startDate || endDate) {
+                    filteredMovements = allMovements.filter((m) => {
+                        const txTimestamp = mybalance_1.TransactionsHelper.parseDateToTimestamp(m.date);
+                        if (startDate) {
+                            const startTimestamp = mybalance_1.TransactionsHelper.parseDateToTimestamp(startDate);
+                            if (txTimestamp < startTimestamp)
+                                return false;
+                        }
+                        if (endDate) {
+                            const endTimestamp = mybalance_1.TransactionsHelper.parseDateToTimestamp(endDate);
+                            if (txTimestamp > endTimestamp)
+                                return false;
+                        }
+                        return true;
+                    });
+                }
+                // Sort movements by date
+                filteredMovements.sort((a, b) => {
+                    const dateA = mybalance_1.TransactionsHelper.parseDateToTimestamp(a.date);
+                    const dateB = mybalance_1.TransactionsHelper.parseDateToTimestamp(b.date);
+                    return sort === "desc" ? dateB - dateA : dateA - dateB;
+                });
+                // Calculate pagination
+                const total = filteredMovements.length;
+                const totalPages = Math.ceil(total / limit);
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                const paginatedMovements = filteredMovements.slice(startIndex, endIndex);
+                console.log(`🔄 Movements loaded: ${paginatedMovements.length} of ${total} (page ${page}/${totalPages})`);
+                res.json({
+                    success: true,
+                    data: paginatedMovements,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages,
+                        hasMore: page < totalPages,
+                    },
+                });
             }
             catch (error) {
                 if (handleGoogleTokenError(error, res, "getMovements"))

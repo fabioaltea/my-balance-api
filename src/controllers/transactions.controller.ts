@@ -58,18 +58,58 @@ export class TransactionsController {
 
       console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
 
+      // Parse pagination parameters
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 100, 500); // Max 500 per page
+      const startDate = req.query.startDate; // Format: dd-MM-yyyy
+      const endDate = req.query.endDate; // Format: dd-MM-yyyy
+      const sort = req.query.sort || "desc"; // "asc" or "desc"
+
       // Get all transactions using TransactionsHelper
       const allTransactions = await TransactionsHelper.listTransactions(
         authClient,
         spreadsheetId
       );
 
+      // Apply date filtering if provided
+      let filteredTransactions = allTransactions;
+      if (startDate || endDate) {
+        filteredTransactions = TransactionsHelper.filterTransactionsByDateRange(
+          allTransactions,
+          startDate,
+          endDate
+        );
+      }
+
+      // Sort transactions by date
+      filteredTransactions.sort((a, b) => {
+        const dateA = TransactionsHelper.parseDateToTimestamp(a.date);
+        const dateB = TransactionsHelper.parseDateToTimestamp(b.date);
+        return sort === "desc" ? dateB - dateA : dateA - dateB;
+      });
+
+      // Calculate pagination
+      const total = filteredTransactions.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
       console.log(
-        "🔄 Transactions loaded successfully:",
-        allTransactions.length
+        `🔄 Transactions loaded: ${paginatedTransactions.length} of ${total} (page ${page}/${totalPages})`
       );
 
-      res.json({ success: true, data: allTransactions });
+      res.json({
+        success: true,
+        data: paginatedTransactions,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasMore: page < totalPages,
+        },
+      });
     } catch (error: any) {
       if (handleGoogleTokenError(error, res, "getTransactions")) return;
       console.error("❌ Error fetching transactions:", error);
@@ -295,6 +335,62 @@ export class TransactionsController {
       res.status(500).json({
         error: "Failed to fetch transaction",
         details: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /transactions/summary - Recupera sommario aggregato delle transazioni
+   */
+  public static async getTransactionsSummary(req: any, res: Response): Promise<void> {
+    try {
+      console.log("🔄 GET /transactions/summary endpoint hit!");
+      const userEmail = req.userId;
+
+      // Get user's Google auth client
+      const deviceType = req.deviceType || "web";
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(
+        userEmail,
+        deviceType
+      );
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+        return;
+      }
+
+      // Parse date range parameters
+      const startDate = req.query.startDate; // Format: dd-MM-yyyy
+      const endDate = req.query.endDate; // Format: dd-MM-yyyy
+
+      // Get summary using TransactionsHelper
+      const summary = await TransactionsHelper.getTransactionsSummary(
+        authClient,
+        spreadsheetId,
+        startDate,
+        endDate
+      );
+
+      res.json({ success: true, data: summary });
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getTransactionsSummary")) return;
+      console.error("Error fetching transactions summary:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch transactions summary",
+        details: error?.message,
       });
     }
   }

@@ -56,10 +56,43 @@ class TransactionsController {
                     return;
                 }
                 console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
+                // Parse pagination parameters
+                const page = parseInt(req.query.page) || 1;
+                const limit = Math.min(parseInt(req.query.limit) || 100, 500); // Max 500 per page
+                const startDate = req.query.startDate; // Format: dd-MM-yyyy
+                const endDate = req.query.endDate; // Format: dd-MM-yyyy
+                const sort = req.query.sort || "desc"; // "asc" or "desc"
                 // Get all transactions using TransactionsHelper
                 const allTransactions = yield mybalance_1.TransactionsHelper.listTransactions(authClient, spreadsheetId);
-                console.log("🔄 Transactions loaded successfully:", allTransactions.length);
-                res.json({ success: true, data: allTransactions });
+                // Apply date filtering if provided
+                let filteredTransactions = allTransactions;
+                if (startDate || endDate) {
+                    filteredTransactions = mybalance_1.TransactionsHelper.filterTransactionsByDateRange(allTransactions, startDate, endDate);
+                }
+                // Sort transactions by date
+                filteredTransactions.sort((a, b) => {
+                    const dateA = mybalance_1.TransactionsHelper.parseDateToTimestamp(a.date);
+                    const dateB = mybalance_1.TransactionsHelper.parseDateToTimestamp(b.date);
+                    return sort === "desc" ? dateB - dateA : dateA - dateB;
+                });
+                // Calculate pagination
+                const total = filteredTransactions.length;
+                const totalPages = Math.ceil(total / limit);
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+                console.log(`🔄 Transactions loaded: ${paginatedTransactions.length} of ${total} (page ${page}/${totalPages})`);
+                res.json({
+                    success: true,
+                    data: paginatedTransactions,
+                    pagination: {
+                        page,
+                        limit,
+                        total,
+                        totalPages,
+                        hasMore: page < totalPages,
+                    },
+                });
             }
             catch (error) {
                 if (handleGoogleTokenError(error, res, "getTransactions"))
@@ -229,6 +262,48 @@ class TransactionsController {
                 res.status(500).json({
                     error: "Failed to fetch transaction",
                     details: error.message,
+                });
+            }
+        });
+    }
+    /**
+     * GET /transactions/summary - Recupera sommario aggregato delle transazioni
+     */
+    static getTransactionsSummary(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                console.log("🔄 GET /transactions/summary endpoint hit!");
+                const userEmail = req.userId;
+                // Get user's Google auth client
+                const deviceType = req.deviceType || "web";
+                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                // Get spreadsheet ID - either from query or user's default
+                let spreadsheetId = req.query.spreadsheet_id;
+                if (!spreadsheetId) {
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                }
+                if (!spreadsheetId) {
+                    res.status(400).json({
+                        success: false,
+                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                    });
+                    return;
+                }
+                // Parse date range parameters
+                const startDate = req.query.startDate; // Format: dd-MM-yyyy
+                const endDate = req.query.endDate; // Format: dd-MM-yyyy
+                // Get summary using TransactionsHelper
+                const summary = yield mybalance_1.TransactionsHelper.getTransactionsSummary(authClient, spreadsheetId, startDate, endDate);
+                res.json({ success: true, data: summary });
+            }
+            catch (error) {
+                if (handleGoogleTokenError(error, res, "getTransactionsSummary"))
+                    return;
+                console.error("Error fetching transactions summary:", error);
+                res.status(500).json({
+                    success: false,
+                    error: "Failed to fetch transactions summary",
+                    details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
         });

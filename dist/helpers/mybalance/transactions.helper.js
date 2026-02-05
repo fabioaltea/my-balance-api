@@ -525,6 +525,118 @@ class TransactionsHelper {
         const match = range.match(/(\d+)$/);
         return match ? match[1] : "1";
     }
+    /**
+     * Filtra le transazioni per intervallo di date
+     */
+    static filterTransactionsByDateRange(transactions, startDate, endDate) {
+        return transactions.filter((t) => {
+            const txTimestamp = this.parseDateToTimestamp(t.date);
+            if (startDate) {
+                const startTimestamp = this.parseDateToTimestamp(startDate);
+                if (txTimestamp < startTimestamp)
+                    return false;
+            }
+            if (endDate) {
+                const endTimestamp = this.parseDateToTimestamp(endDate);
+                if (txTimestamp > endTimestamp)
+                    return false;
+            }
+            return true;
+        });
+    }
+    /**
+     * Converte una data in formato dd-MM-yyyy a timestamp per confronti
+     */
+    static parseDateToTimestamp(dateStr) {
+        if (!dateStr)
+            return 0;
+        // Formato atteso: dd-MM-yyyy
+        const parts = dateStr.split("-");
+        if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; // Month is 0-based
+            const year = parseInt(parts[2], 10);
+            return new Date(year, month, day).getTime();
+        }
+        // Fallback: prova a parsare come data generica
+        const date = new Date(dateStr);
+        return isNaN(date.getTime()) ? 0 : date.getTime();
+    }
+    /**
+     * Restituisce un sommario aggregato delle transazioni
+     */
+    static getTransactionsSummary(authClient, spreadsheetId, startDate, endDate) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Get all transactions
+            const allTransactions = yield this.listTransactions(authClient, spreadsheetId);
+            // Apply date filtering if provided
+            let transactions = allTransactions;
+            if (startDate || endDate) {
+                transactions = this.filterTransactionsByDateRange(allTransactions, startDate, endDate);
+            }
+            // Calculate aggregations
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const byAccount = {};
+            const byCategory = {};
+            let minDate = "";
+            let maxDate = "";
+            transactions.forEach((t) => {
+                var _a;
+                // Skip template or unconfirmed transactions
+                const status = (_a = t.status) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+                if (status === "recurrent" || status === "unconfirmed") {
+                    return;
+                }
+                // Parse amount
+                const amount = this.parseAmountToNumber(t.amount);
+                if (isNaN(amount))
+                    return;
+                // Track date range
+                if (!minDate || this.parseDateToTimestamp(t.date) < this.parseDateToTimestamp(minDate)) {
+                    minDate = t.date;
+                }
+                if (!maxDate || this.parseDateToTimestamp(t.date) > this.parseDateToTimestamp(maxDate)) {
+                    maxDate = t.date;
+                }
+                // Income vs Expense
+                if (amount > 0) {
+                    totalIncome += amount;
+                }
+                else {
+                    totalExpense += Math.abs(amount);
+                }
+                // By account
+                if (t.account) {
+                    if (!byAccount[t.account]) {
+                        byAccount[t.account] = { count: 0, total: 0 };
+                    }
+                    byAccount[t.account].count++;
+                    byAccount[t.account].total += amount;
+                }
+                // By category
+                if (t.category) {
+                    if (!byCategory[t.category]) {
+                        byCategory[t.category] = { count: 0, total: 0 };
+                    }
+                    byCategory[t.category].count++;
+                    byCategory[t.category].total += amount;
+                }
+            });
+            return {
+                totalCount: transactions.length,
+                dateRange: {
+                    start: minDate || (startDate || ""),
+                    end: maxDate || (endDate || ""),
+                },
+                totalIncome,
+                totalExpense,
+                netBalance: totalIncome - totalExpense,
+                byAccount,
+                byCategory,
+            };
+        });
+    }
 }
 exports.TransactionsHelper = TransactionsHelper;
 // Pattern riconosciuto se già nel formato desiderato yyyy-MM-dd hh:mm

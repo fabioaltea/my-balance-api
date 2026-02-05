@@ -25,6 +25,14 @@ const accountsRateLimit = (0, express_rate_limit_1.default)({
 // All accounts routes require authentication
 console.log("🔧 Setting up ACCOUNTS routes...");
 /**
+ * GET /accounts/balances - Recupera solo i balance degli accounts (ottimizzato)
+ */
+console.log("🔧 Defining GET /accounts/balances route...");
+accountsRoutes.get("/balances", accountsRateLimit, (req, res, next) => {
+    console.log("🔧 GET /accounts/balances route hit - before auth middleware");
+    next();
+}, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccountBalances);
+/**
  * GET /accounts - Recupera tutti gli accounts
  */
 console.log("🔧 Defining GET /accounts route...");

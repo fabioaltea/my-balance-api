@@ -350,6 +350,75 @@ export class AccountsHelper {
   // =================
 
   /**
+   * Recupera solo i balance degli accounts (ottimizzato - carica solo dati necessari)
+   */
+  static async getAccountBalances(
+    spreadsheetId: string,
+    authClient: any,
+  ): Promise<Array<{ accountId: string; name: string; balance: string }>> {
+    try {
+      const auth = authClient;
+      
+      // Carica solo i nomi degli account
+      const rows: any[][] = await GoogleHelper.get(
+        auth,
+        spreadsheetId,
+        SHEET_RANGE,
+      );
+
+      if (!rows || rows.length === 0) return [];
+
+      // Recupera le transazioni per calcolare i balance reali
+      console.log("📊 Fetching transactions to calculate account balances...");
+      const transactions = await TransactionsHelper.listTransactions(
+        auth,
+        spreadsheetId,
+      );
+      console.log(`📊 Found ${transactions.length} transactions`);
+
+      const balances: Array<{ accountId: string; name: string; balance: string }> = [];
+
+      // Salta la prima riga se contiene headers
+      const startIndex =
+        rows[0] && rows[0][COLS.NAME] === "accountName" ? 1 : 0;
+
+      for (let i = startIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || row[COLS.IS_TOTAL] === "1") continue;
+
+        const name = row[COLS.NAME] ? String(row[COLS.NAME]).trim() : "";
+        if (!name || name.startsWith("DELETED_")) continue;
+
+        // Calcola il balance reale per questo account
+        const calculatedBalance = this.calculateAccountBalance(
+          name,
+          transactions,
+        );
+
+        const accountId = `acc_${i}_${name.replace(/\s+/g, "_")}`;
+
+        balances.push({
+          accountId,
+          name,
+          balance: this.formatBalance(calculatedBalance),
+        });
+
+        console.log(
+          `💰 Account "${name}": calculated balance = ${this.formatBalance(calculatedBalance)}`,
+        );
+      }
+
+      console.log(
+        `📊 Returning ${balances.length} account balances`,
+      );
+      return balances;
+    } catch (error) {
+      console.error("Error getting account balances:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Calcola il balance reale di un account sommando tutte le sue transazioni
    */
   private static calculateAccountBalance(

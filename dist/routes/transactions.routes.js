@@ -25,6 +25,10 @@ const transactionsRateLimit = (0, express_rate_limit_1.default)({
 // All transactions routes require authentication
 console.log("🔧 Setting up TRANSACTIONS routes...");
 /**
+ * GET /transactions/summary - Recupera sommario aggregato delle transazioni
+ */
+transactionsRoutes.get("/summary", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactionsSummary);
+/**
  * GET /transactions - Restituisce tutte le transazioni
  */
 console.log("🔧 Defining GET /transactions route...");

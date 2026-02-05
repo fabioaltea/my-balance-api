@@ -22,6 +22,16 @@ const transactionsRateLimit = rateLimit({
 console.log("🔧 Setting up TRANSACTIONS routes...");
 
 /**
+ * GET /transactions/summary - Recupera sommario aggregato delle transazioni
+ */
+transactionsRoutes.get(
+  "/summary",
+  transactionsRateLimit,
+  RequireAuthMiddleware.verify,
+  TransactionsController.getTransactionsSummary,
+);
+
+/**
  * GET /transactions - Restituisce tutte le transazioni
  */
 console.log("🔧 Defining GET /transactions route...");
