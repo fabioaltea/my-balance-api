@@ -679,7 +679,7 @@ export class TransactionsHelper {
     const parts = dateStr.split("-");
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // Month is 0-based
+      const month = parseInt(parts[1], 10) - 1; // Months are 0-based in JavaScript Date constructor
       const year = parseInt(parts[2], 10);
       return new Date(year, month, day).getTime();
     }
@@ -727,6 +727,8 @@ export class TransactionsHelper {
     let totalExpense = 0;
     const byAccount: Record<string, { count: number; total: number }> = {};
     const byCategory: Record<string, { count: number; total: number }> = {};
+    let minDateTimestamp = Number.MAX_SAFE_INTEGER;
+    let maxDateTimestamp = 0;
     let minDate = "";
     let maxDate = "";
 
@@ -741,11 +743,14 @@ export class TransactionsHelper {
       const amount = this.parseAmountToNumber(t.amount);
       if (isNaN(amount)) return;
 
-      // Track date range
-      if (!minDate || this.parseDateToTimestamp(t.date) < this.parseDateToTimestamp(minDate)) {
+      // Track date range (parse timestamp once and cache)
+      const dateTimestamp = this.parseDateToTimestamp(t.date);
+      if (dateTimestamp < minDateTimestamp) {
+        minDateTimestamp = dateTimestamp;
         minDate = t.date;
       }
-      if (!maxDate || this.parseDateToTimestamp(t.date) > this.parseDateToTimestamp(maxDate)) {
+      if (dateTimestamp > maxDateTimestamp) {
+        maxDateTimestamp = dateTimestamp;
         maxDate = t.date;
       }
 

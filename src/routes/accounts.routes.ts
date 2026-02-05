@@ -28,10 +28,6 @@ console.log("🔧 Defining GET /accounts/balances route...");
 accountsRoutes.get(
   "/balances",
   accountsRateLimit,
-  (req, res, next) => {
-    console.log("🔧 GET /accounts/balances route hit - before auth middleware");
-    next();
-  },
   RequireAuthMiddleware.verify,
   AccountsController.getAccountBalances,
 );
@@ -43,10 +39,6 @@ console.log("🔧 Defining GET /accounts route...");
 accountsRoutes.get(
   "/",
   accountsRateLimit,
-  (req, res, next) => {
-    console.log("🔧 GET /accounts route hit - before auth middleware");
-    next();
-  },
   RequireAuthMiddleware.verify,
   AccountsController.getAccounts,
 );

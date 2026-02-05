@@ -302,11 +302,7 @@ class AccountsController {
     static getAccountBalances(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("💰 =============");
-                console.log("💰 GET /accounts/balances endpoint hit!");
-                console.log("💰 User ID:", req.userId);
-                console.log("💰 Device Type:", req.deviceType);
-                console.log("💰 =============");
+                console.log("💰 GET /accounts/balances endpoint hit for user:", req.userId);
                 const userEmail = req.userId;
                 // Get user's Google auth client with proper credentials
                 const deviceType = req.deviceType || "web";
@@ -324,7 +320,6 @@ class AccountsController {
                     });
                     return;
                 }
-                console.log("📊 Reading account balances from spreadsheet:", spreadsheetId);
                 // Get account balances using AccountsHelper (optimized method)
                 const balances = yield mybalance_1.AccountsHelper.getAccountBalances(spreadsheetId, authClient);
                 console.log("💰 Account balances fetched successfully:", balances.length);

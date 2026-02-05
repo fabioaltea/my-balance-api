@@ -65,6 +65,23 @@ export class TransactionsController {
       const endDate = req.query.endDate; // Format: dd-MM-yyyy
       const sort = req.query.sort || "desc"; // "asc" or "desc"
 
+      // Validate pagination parameters
+      if (isNaN(page) || page < 1) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid page parameter. Must be a positive integer.",
+        });
+        return;
+      }
+
+      if (isNaN(limit) || limit < 1) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid limit parameter. Must be a positive integer.",
+        });
+        return;
+      }
+
       // Get all transactions using TransactionsHelper
       const allTransactions = await TransactionsHelper.listTransactions(
         authClient,

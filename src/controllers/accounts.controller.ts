@@ -368,11 +368,7 @@ export class AccountsController {
    */
   public static async getAccountBalances(req: any, res: Response): Promise<void> {
     try {
-      console.log("💰 =============");
-      console.log("💰 GET /accounts/balances endpoint hit!");
-      console.log("💰 User ID:", req.userId);
-      console.log("💰 Device Type:", req.deviceType);
-      console.log("💰 =============");
+      console.log("💰 GET /accounts/balances endpoint hit for user:", req.userId);
 
       const userEmail = req.userId;
 
@@ -398,8 +394,6 @@ export class AccountsController {
         });
         return;
       }
-
-      console.log("📊 Reading account balances from spreadsheet:", spreadsheetId);
 
       // Get account balances using AccountsHelper (optimized method)
       const balances = await AccountsHelper.getAccountBalances(

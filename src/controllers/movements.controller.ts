@@ -57,6 +57,23 @@ export class MovementsController {
       const endDate = req.query.endDate; // Format: dd-MM-yyyy
       const sort = req.query.sort || "desc"; // "asc" or "desc"
 
+      // Validate pagination parameters
+      if (isNaN(page) || page < 1) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid page parameter. Must be a positive integer.",
+        });
+        return;
+      }
+
+      if (isNaN(limit) || limit < 1) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid limit parameter. Must be a positive integer.",
+        });
+        return;
+      }
+
       // Get all movements using TransactionsHelper
       const allMovements = await TransactionsHelper.listMovements(
         authClient,
@@ -68,18 +85,9 @@ export class MovementsController {
       if (startDate || endDate) {
         filteredMovements = allMovements.filter((m) => {
           const txTimestamp = TransactionsHelper.parseDateToTimestamp(m.date);
-          
-          if (startDate) {
-            const startTimestamp = TransactionsHelper.parseDateToTimestamp(startDate);
-            if (txTimestamp < startTimestamp) return false;
-          }
-          
-          if (endDate) {
-            const endTimestamp = TransactionsHelper.parseDateToTimestamp(endDate);
-            if (txTimestamp > endTimestamp) return false;
-          }
-          
-          return true;
+          const startTimestamp = startDate ? TransactionsHelper.parseDateToTimestamp(startDate) : 0;
+          const endTimestamp = endDate ? TransactionsHelper.parseDateToTimestamp(endDate) : Number.MAX_SAFE_INTEGER;
+          return txTimestamp >= startTimestamp && txTimestamp <= endTimestamp;
         });
       }
 

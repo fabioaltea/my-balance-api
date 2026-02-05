@@ -28,18 +28,12 @@ console.log("🔧 Setting up ACCOUNTS routes...");
  * GET /accounts/balances - Recupera solo i balance degli accounts (ottimizzato)
  */
 console.log("🔧 Defining GET /accounts/balances route...");
-accountsRoutes.get("/balances", accountsRateLimit, (req, res, next) => {
-    console.log("🔧 GET /accounts/balances route hit - before auth middleware");
-    next();
-}, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccountBalances);
+accountsRoutes.get("/balances", accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccountBalances);
 /**
  * GET /accounts - Recupera tutti gli accounts
  */
 console.log("🔧 Defining GET /accounts route...");
-accountsRoutes.get("/", accountsRateLimit, (req, res, next) => {
-    console.log("🔧 GET /accounts route hit - before auth middleware");
-    next();
-}, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccounts);
+accountsRoutes.get("/", accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccounts);
 /**
  * POST /accounts - Crea nuovo account
  */
