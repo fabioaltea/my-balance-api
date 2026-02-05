@@ -51,14 +51,14 @@ export class MovementsController {
       }
 
       // Parse pagination parameters
-      const page = parseInt(req.query.page) || 1;
-      const limit = Math.min(parseInt(req.query.limit) || 100, 500); // Max 500 per page
-      const startDate = req.query.startDate; // Format: dd-MM-yyyy
-      const endDate = req.query.endDate; // Format: dd-MM-yyyy
-      const sort = req.query.sort || "desc"; // "asc" or "desc"
+      const pageParam = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+      const startDate = req.query.startDate as string; // Format: dd-MM-yyyy
+      const endDate = req.query.endDate as string; // Format: dd-MM-yyyy
+      const sort = (req.query.sort as string) || "desc"; // "asc" or "desc"
 
       // Validate pagination parameters
-      if (isNaN(page) || page < 1) {
+      if (isNaN(pageParam) || pageParam < 1) {
         res.status(400).json({
           success: false,
           error: "Invalid page parameter. Must be a positive integer.",
@@ -66,13 +66,34 @@ export class MovementsController {
         return;
       }
 
-      if (isNaN(limit) || limit < 1) {
+      if (isNaN(limitParam) || limitParam < 1) {
         res.status(400).json({
           success: false,
           error: "Invalid limit parameter. Must be a positive integer.",
         });
         return;
       }
+
+      // Validate date format if provided
+      const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
+      if (startDate && !dateRegex.test(startDate)) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid startDate format. Expected format: dd-MM-yyyy",
+        });
+        return;
+      }
+
+      if (endDate && !dateRegex.test(endDate)) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid endDate format. Expected format: dd-MM-yyyy",
+        });
+        return;
+      }
+
+      const page = pageParam;
+      const limit = Math.min(limitParam, 500); // Max 500 per page
 
       // Get all movements using TransactionsHelper
       const allMovements = await TransactionsHelper.listMovements(

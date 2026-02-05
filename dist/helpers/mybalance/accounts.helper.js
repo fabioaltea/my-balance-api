@@ -276,9 +276,7 @@ class AccountsHelper {
                 if (!rows || rows.length === 0)
                     return [];
                 // Recupera le transazioni per calcolare i balance reali
-                console.log("📊 Fetching transactions to calculate account balances...");
                 const transactions = yield transactions_helper_1.TransactionsHelper.listTransactions(auth, spreadsheetId);
-                console.log(`📊 Found ${transactions.length} transactions`);
                 const balances = [];
                 // Salta la prima riga se contiene headers
                 const startIndex = rows[0] && rows[0][COLS.NAME] === "accountName" ? 1 : 0;
@@ -297,9 +295,7 @@ class AccountsHelper {
                         name,
                         balance: this.formatBalance(calculatedBalance),
                     });
-                    console.log(`💰 Account "${name}": calculated balance = ${this.formatBalance(calculatedBalance)}`);
                 }
-                console.log(`📊 Returning ${balances.length} account balances`);
                 return balances;
             }
             catch (error) {

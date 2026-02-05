@@ -369,12 +369,10 @@ export class AccountsHelper {
       if (!rows || rows.length === 0) return [];
 
       // Recupera le transazioni per calcolare i balance reali
-      console.log("📊 Fetching transactions to calculate account balances...");
       const transactions = await TransactionsHelper.listTransactions(
         auth,
         spreadsheetId,
       );
-      console.log(`📊 Found ${transactions.length} transactions`);
 
       const balances: Array<{ accountId: string; name: string; balance: string }> = [];
 
@@ -402,15 +400,8 @@ export class AccountsHelper {
           name,
           balance: this.formatBalance(calculatedBalance),
         });
-
-        console.log(
-          `💰 Account "${name}": calculated balance = ${this.formatBalance(calculatedBalance)}`,
-        );
       }
 
-      console.log(
-        `📊 Returning ${balances.length} account balances`,
-      );
       return balances;
     } catch (error) {
       console.error("Error getting account balances:", error);
