@@ -59,12 +59,24 @@ class AggregationsHelper {
                 const amount = this.parseAmount(transaction.amount);
                 if (isNaN(amount))
                     return;
-                // Update aggregation
-                if (transaction.type === "in" || amount >= 0) {
+                // Update aggregation based on transaction type
+                // Type field takes precedence for categorization
+                if (transaction.type === "in") {
+                    // Income: add absolute value
                     aggregations[yearMonth].income += Math.abs(amount);
                 }
-                else if (transaction.type === "out" || amount < 0) {
+                else if (transaction.type === "out") {
+                    // Expense: add absolute value
                     aggregations[yearMonth].expense += Math.abs(amount);
+                }
+                else {
+                    // Fallback: if no type, use amount sign (negative = expense, positive = income)
+                    if (amount >= 0) {
+                        aggregations[yearMonth].income += Math.abs(amount);
+                    }
+                    else {
+                        aggregations[yearMonth].expense += Math.abs(amount);
+                    }
                 }
                 aggregations[yearMonth].count += 1;
             });

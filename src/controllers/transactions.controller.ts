@@ -67,8 +67,31 @@ export class TransactionsController {
       if (req.query.category) filters.category = req.query.category;
       if (req.query.type) filters.type = req.query.type;
       if (req.query.status) filters.status = req.query.status;
-      if (req.query.limit) filters.limit = parseInt(req.query.limit);
-      if (req.query.offset) filters.offset = parseInt(req.query.offset);
+      
+      // Validate numeric parameters
+      if (req.query.limit) {
+        const limit = parseInt(req.query.limit);
+        if (isNaN(limit) || limit <= 0) {
+          res.status(400).json({
+            success: false,
+            error: "Invalid 'limit' parameter. Must be a positive integer.",
+          });
+          return;
+        }
+        filters.limit = limit;
+      }
+      
+      if (req.query.offset) {
+        const offset = parseInt(req.query.offset);
+        if (isNaN(offset) || offset < 0) {
+          res.status(400).json({
+            success: false,
+            error: "Invalid 'offset' parameter. Must be a non-negative integer.",
+          });
+          return;
+        }
+        filters.offset = offset;
+      }
 
       // Get transactions with optional filters
       const allTransactions = await TransactionsHelper.listTransactions(

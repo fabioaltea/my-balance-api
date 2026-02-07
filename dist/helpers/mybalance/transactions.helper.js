@@ -368,12 +368,12 @@ class TransactionsHelper {
         if (filters.offset && filters.offset > 0) {
             filtered = filtered.slice(filters.offset);
         }
-        // Apply limit (default: 100, max: 1000)
-        const limit = filters.limit
-            ? Math.min(filters.limit, 1000)
-            : 100;
-        if (limit > 0) {
-            filtered = filtered.slice(0, limit);
+        // Apply limit only if explicitly provided (for backward compatibility)
+        if (filters.limit !== undefined) {
+            const limit = Math.min(filters.limit, 1000);
+            if (limit > 0) {
+                filtered = filtered.slice(0, limit);
+            }
         }
         return filtered;
     }
@@ -606,7 +606,7 @@ class TransactionsHelper {
             // Parse the since parameter
             const sinceDate = new Date(since);
             if (isNaN(sinceDate.getTime())) {
-                throw new Error("Invalid 'since' parameter. Expected ISO timestamp format.");
+                throw new Error("Invalid 'since' parameter. Expected ISO timestamp format (e.g., '2024-12-01T10:30:00' or '2024-12-01T10:30:00Z').");
             }
             // Convert all rows to transactions and filter by dateModified
             const transactions = [];
