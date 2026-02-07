@@ -19,7 +19,7 @@ function handleGoogleTokenError(error: any, res: Response, context: string): boo
 
 export class TransactionsController {
   /**
-   * GET /transactions - Restituisce tutte le transazioni
+   * GET /transactions - Restituisce tutte le transazioni (con supporto filtri)
    */
   public static async getTransactions(req: any, res: Response): Promise<void> {
     try {
@@ -58,10 +58,46 @@ export class TransactionsController {
 
       console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
 
-      // Get all transactions using TransactionsHelper
+      // Parse query filters (all optional for backward compatibility)
+      const filters: any = {};
+      
+      if (req.query.from_date) filters.from_date = req.query.from_date;
+      if (req.query.to_date) filters.to_date = req.query.to_date;
+      if (req.query.account) filters.account = req.query.account;
+      if (req.query.category) filters.category = req.query.category;
+      if (req.query.type) filters.type = req.query.type;
+      if (req.query.status) filters.status = req.query.status;
+      
+      // Validate numeric parameters
+      if (req.query.limit) {
+        const limit = parseInt(req.query.limit);
+        if (isNaN(limit) || limit <= 0) {
+          res.status(400).json({
+            success: false,
+            error: "Invalid 'limit' parameter. Must be a positive integer.",
+          });
+          return;
+        }
+        filters.limit = limit;
+      }
+      
+      if (req.query.offset) {
+        const offset = parseInt(req.query.offset);
+        if (isNaN(offset) || offset < 0) {
+          res.status(400).json({
+            success: false,
+            error: "Invalid 'offset' parameter. Must be a non-negative integer.",
+          });
+          return;
+        }
+        filters.offset = offset;
+      }
+
+      // Get transactions with optional filters
       const allTransactions = await TransactionsHelper.listTransactions(
         authClient,
-        spreadsheetId
+        spreadsheetId,
+        Object.keys(filters).length > 0 ? filters : undefined
       );
 
       console.log(
@@ -294,6 +330,71 @@ export class TransactionsController {
       console.error("Error fetching transaction:", error);
       res.status(500).json({
         error: "Failed to fetch transaction",
+        details: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /transactions/delta - Returns transactions modified since a timestamp
+   */
+  public static async getTransactionsDelta(req: any, res: Response): Promise<void> {
+    try {
+      const userEmail = req.userId;
+      const { since } = req.query;
+
+      if (!since) {
+        res.status(400).json({
+          success: false,
+          error: "Missing 'since' parameter. Expected ISO timestamp format (e.g., 2024-12-01T10:30:00)",
+        });
+        return;
+      }
+
+      // Get user's Google auth client
+      const deviceType = req.deviceType || "web";
+      const authClient = await GoogleAuthHelper.getAuthClientForUser(
+        userEmail,
+        deviceType
+      );
+
+      // Get spreadsheet ID - either from query or user's default
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
+          userEmail
+        );
+      }
+
+      if (!spreadsheetId) {
+        res.status(400).json({
+          success: false,
+          error:
+            "No spreadsheet ID provided and no default spreadsheet configured",
+        });
+        return;
+      }
+
+      console.log(`🔄 Loading transactions delta since: ${since}`);
+
+      // Get transactions modified since timestamp
+      const deltaTransactions = await TransactionsHelper.listTransactionsDelta(
+        authClient,
+        spreadsheetId,
+        since
+      );
+
+      console.log(
+        `🔄 Delta transactions loaded: ${deltaTransactions.length} items`
+      );
+
+      res.json({ success: true, data: deltaTransactions });
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "getTransactionsDelta")) return;
+      console.error("Error fetching transaction delta:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch transaction delta",
         details: error.message,
       });
     }

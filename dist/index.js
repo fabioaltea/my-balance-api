@@ -62,6 +62,7 @@ const categories_routes_1 = require("./routes/categories.routes");
 const transactions_routes_1 = require("./routes/transactions.routes");
 const movements_routes_1 = require("./routes/movements.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
+const aggregations_routes_1 = require("./routes/aggregations.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const jwt_helper_1 = require("./helpers/jwt.helper");
 const app = (0, express_1.default)();
@@ -126,6 +127,7 @@ app.use("/categories", categories_routes_1.categoriesRoutes);
 app.use("/transactions", transactions_routes_1.transactionsRoutes);
 app.use("/movements", movements_routes_1.movementsRoutes);
 app.use("/shortcut", shortcut_routes_1.shortcutRoutes);
+app.use("/aggregations", aggregations_routes_1.aggregationsRoutes);
 // User data endpoints (protected)
 app.get("/user/spreadsheet", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {

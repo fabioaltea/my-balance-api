@@ -33,6 +33,10 @@ transactionsRoutes.get("/", transactionsRateLimit, (req, res, next) => {
     next();
 }, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactions);
 /**
+ * GET /transactions/delta - Restituisce transazioni modificate da un certo timestamp
+ */
+transactionsRoutes.get("/delta", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactionsDelta);
+/**
  * POST /transactions - Crea nuova transazione
  */
 transactionsRoutes.post("/", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.createTransaction);

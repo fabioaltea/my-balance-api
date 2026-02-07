@@ -27,18 +27,27 @@ const COLS = {
 class AccountsHelper {
     /**
      * Recupera tutti gli accounts dal sheet "Accounts"
+     * @param spreadsheetId - The spreadsheet ID
+     * @param authClient - Google auth client
+     * @param calculateBalance - If true, calculates balance from transactions (default: true). If false, uses balance from sheet.
      */
-    static getAccounts(spreadsheetId, authClient) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static getAccounts(spreadsheetId_1, authClient_1) {
+        return __awaiter(this, arguments, void 0, function* (spreadsheetId, authClient, calculateBalance = true) {
             try {
                 const auth = authClient;
                 const rows = yield google_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
                 if (!rows || rows.length === 0)
                     return [];
-                // Recupera anche tutte le transazioni per calcolare i balance reali
-                console.log("📊 Fetching transactions to calculate account balances...");
-                const transactions = yield transactions_helper_1.TransactionsHelper.listTransactions(auth, spreadsheetId);
-                console.log(`📊 Found ${transactions.length} transactions`);
+                let transactions = [];
+                // Only fetch transactions if we need to calculate balance
+                if (calculateBalance) {
+                    console.log("📊 Fetching transactions to calculate account balances...");
+                    transactions = yield transactions_helper_1.TransactionsHelper.listTransactions(auth, spreadsheetId);
+                    console.log(`📊 Found ${transactions.length} transactions`);
+                }
+                else {
+                    console.log("📊 Using balance from sheet (calculate_balance=false)");
+                }
                 const accounts = [];
                 // Salta la prima riga se contiene headers
                 const startIndex = rows[0] && rows[0][COLS.NAME] === "accountName" ? 1 : 0;
@@ -48,15 +57,21 @@ class AccountsHelper {
                         continue;
                     const account = this.rowToAccount(row, i);
                     if (account && !account.name.startsWith("DELETED_")) {
-                        // Calcola il balance reale per questo account
-                        const calculatedBalance = this.calculateAccountBalance(account.name, transactions);
-                        // Sostituisci il balance del sheet con quello calcolato
-                        account.balance = this.formatBalance(calculatedBalance);
-                        console.log(`💰 Account "${account.name}": calculated balance = ${account.balance}`);
+                        if (calculateBalance) {
+                            // Calcola il balance reale per questo account
+                            const calculatedBalance = this.calculateAccountBalance(account.name, transactions);
+                            // Sostituisci il balance del sheet con quello calcolato
+                            account.balance = this.formatBalance(calculatedBalance);
+                            console.log(`💰 Account "${account.name}": calculated balance = ${account.balance}`);
+                        }
+                        else {
+                            // Use balance from sheet directly (faster)
+                            console.log(`💰 Account "${account.name}": using sheet balance = ${account.balance}`);
+                        }
                         accounts.push(account);
                     }
                 }
-                console.log(`📊 Returning ${accounts.length} accounts with calculated balances`);
+                console.log(`📊 Returning ${accounts.length} accounts`);
                 return accounts;
             }
             catch (error) {

@@ -57,8 +57,11 @@ class AccountsController {
                     return;
                 }
                 console.log("📊 Reading accounts from spreadsheet:", spreadsheetId);
+                // Parse calculate_balance parameter (default: true for backward compatibility)
+                const calculateBalance = req.query.calculate_balance !== "false";
+                console.log("📊 Calculate balance:", calculateBalance);
                 // Get all accounts using AccountsHelper
-                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient, calculateBalance);
                 console.log("💰 Accounts fetched successfully:", accounts.length);
                 res.json({ success: true, data: accounts });
             }
