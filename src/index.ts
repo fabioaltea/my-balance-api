@@ -273,11 +273,8 @@ app.get("/get", RequireAuthMiddleware.verify, async (req: any, res: any) => {
     const items = await GoogleAuthHelper.executeWithRetry(
       userEmail,
       deviceType,
-      async (client) => GoogleHelper.get(
-        client,
-        spreadsheetId,
-        req.query.range,
-      )
+      async (client) =>
+        GoogleHelper.get(client, spreadsheetId, req.query.range),
     );
     res.json({ success: true, data: items });
   } catch (error: any) {
@@ -317,7 +314,7 @@ app.post(
       const items = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => GoogleHelper.update(client, spreadsheetId, body)
+        async (client) => GoogleHelper.update(client, spreadsheetId, body),
       );
       res.json({ success: true, data: items });
     } catch (error: any) {
@@ -379,22 +376,20 @@ app.post(
         await GoogleAuthHelper.executeWithRetry(
           userEmail,
           deviceType,
-          async (client) => TransactionsHelper.appendMovement(
-            client,
-            spreadsheetId,
-            movementRequest,
-          )
+          async (client) =>
+            TransactionsHelper.appendMovement(
+              client,
+              spreadsheetId,
+              movementRequest,
+            ),
         );
       } else {
         // Nuovo formato
         await GoogleAuthHelper.executeWithRetry(
           userEmail,
           deviceType,
-          async (client) => TransactionsHelper.appendMovement(
-            client,
-            spreadsheetId,
-            body,
-          )
+          async (client) =>
+            TransactionsHelper.appendMovement(client, spreadsheetId, body),
         );
       }
 
@@ -437,12 +432,8 @@ app.post(
       const items = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => GoogleHelper.append(
-          client,
-          spreadsheetId,
-          req.query.range,
-          body,
-        )
+        async (client) =>
+          GoogleHelper.append(client, spreadsheetId, req.query.range, body),
       );
       res.json({ success: true, data: items });
     } catch (error: any) {
@@ -491,10 +482,8 @@ app.get(
       const movements = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listMovements(
-          client,
-          spreadsheetId,
-        )
+        async (client) =>
+          TransactionsHelper.listMovements(client, spreadsheetId),
       );
       res.json({ success: true, data: movements });
     } catch (error: any) {
@@ -536,11 +525,8 @@ app.get(
       const movement = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.getMovement(
-          client,
-          spreadsheetId,
-          movementId,
-        )
+        async (client) =>
+          TransactionsHelper.getMovement(client, spreadsheetId, movementId),
       );
 
       if (!movement) {
@@ -599,11 +585,12 @@ app.post(
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.appendMovement(
-          client,
-          spreadsheetId,
-          movementRequest,
-        )
+        async (client) =>
+          TransactionsHelper.appendMovement(
+            client,
+            spreadsheetId,
+            movementRequest,
+          ),
       );
       res
         .status(201)
@@ -674,7 +661,7 @@ app.put(
             spreadsheetId,
             movementRequest,
           );
-        }
+        },
       ).catch((error) => {
         if (error.message === "Movement not found") {
           return res.status(404).json({
@@ -729,11 +716,8 @@ app.delete(
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.deleteMovement(
-          client,
-          spreadsheetId,
-          movementId,
-        )
+        async (client) =>
+          TransactionsHelper.deleteMovement(client, spreadsheetId, movementId),
       );
       res.json({ success: true, data: "Movement deleted successfully" });
     } catch (error: any) {
@@ -797,10 +781,8 @@ app.get(
       const allTransactions = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listTransactions(
-          client,
-          spreadsheetId,
-        )
+        async (client) =>
+          TransactionsHelper.listTransactions(client, spreadsheetId),
       );
 
       console.log(
@@ -862,10 +844,8 @@ app.get(
       const allTransactions = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listTransactions(
-          client,
-          spreadsheetId,
-        )
+        async (client) =>
+          TransactionsHelper.listTransactions(client, spreadsheetId),
       );
 
       console.log(
@@ -1462,10 +1442,7 @@ app.get(
       const accounts = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => AccountsHelper.getAccounts(
-          spreadsheetId,
-          client,
-        )
+        async (client) => AccountsHelper.getAccounts(spreadsheetId, client),
       );
       res.json({ success: true, data: accounts });
     } catch (error: any) {
@@ -1703,10 +1680,7 @@ app.get(
       const categories = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.getCategories(
-          spreadsheetId,
-          client,
-        )
+        async (client) => CategoriesHelper.getCategories(spreadsheetId, client),
       );
       res.json({ success: true, data: categories });
     } catch (error) {

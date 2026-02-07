@@ -3,9 +3,17 @@ import { AccountsHelper, TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -61,11 +69,8 @@ export class AccountsController {
       const accounts = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => AccountsHelper.getAccounts(
-          spreadsheetId,
-          client,
-          calculateBalance
-        )
+        async (client) =>
+          AccountsHelper.getAccounts(spreadsheetId, client, calculateBalance),
       );
 
       console.log("💰 Accounts fetched successfully:", accounts.length);
@@ -118,18 +123,14 @@ export class AccountsController {
             throw new Error("No refresh token found for user");
           }
 
-          return AccountsHelper.createAccount(
-            spreadsheetId,
-            refreshToken,
-            {
-              name: name || "Unnamed Account",
-              description: description || "",
-              balance: balance || "0,00",
-              color: color || "#808080",
-              textColor: textColor || "#ffffff",
-            },
-          );
-        }
+          return AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+            name: name || "Unnamed Account",
+            description: description || "",
+            balance: balance || "0,00",
+            color: color || "#808080",
+            textColor: textColor || "#ffffff",
+          });
+        },
       );
 
       res.json({ success: true, data: account });
@@ -186,12 +187,11 @@ export class AccountsController {
         const accounts = await GoogleAuthHelper.executeWithRetry(
           userEmail,
           deviceType,
-          async (client) => AccountsHelper.getAccounts(
-            spreadsheetId,
-            client,
-          )
+          async (client) => AccountsHelper.getAccounts(spreadsheetId, client),
         );
-        const currentAccount = accounts.find((acc) => acc.accountId === accountId);
+        const currentAccount = accounts.find(
+          (acc) => acc.accountId === accountId,
+        );
         if (currentAccount && currentAccount.name !== updateData.name) {
           oldAccountName = currentAccount.name;
           console.log(
@@ -217,7 +217,7 @@ export class AccountsController {
             accountId,
             updateData,
           );
-        }
+        },
       );
 
       // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
@@ -228,14 +228,17 @@ export class AccountsController {
         const updatedCount = await GoogleAuthHelper.executeWithRetry(
           userEmail,
           deviceType,
-          async (client) => TransactionsHelper.updateTransactionsAccountName(
-            client,
-            spreadsheetId,
-            oldAccountName,
-            updateData.name,
-          )
+          async (client) =>
+            TransactionsHelper.updateTransactionsAccountName(
+              client,
+              spreadsheetId,
+              oldAccountName,
+              updateData.name,
+            ),
         );
-        console.log(`📊 Updated ${updatedCount} transactions with new account name`);
+        console.log(
+          `📊 Updated ${updatedCount} transactions with new account name`,
+        );
       }
 
       console.log("💰 Account updated successfully:", updatedAccount.name);
@@ -293,7 +296,7 @@ export class AccountsController {
             refreshToken,
             accountId,
           );
-        }
+        },
       );
 
       res.json({ success: true, message: "Account deleted successfully" });
@@ -353,7 +356,7 @@ export class AccountsController {
             refreshToken,
             accounts,
           );
-        }
+        },
       );
 
       res.json({ success: true, data: createdAccounts });

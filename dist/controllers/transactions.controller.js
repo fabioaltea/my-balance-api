@@ -44,7 +44,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -122,7 +123,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -161,7 +163,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -171,9 +174,7 @@ class TransactionsController {
                     return;
                 }
                 // Update transaction with automatic retry on auth errors
-                const updatedTransaction = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.updateMovement(client, spreadsheetId, updateData);
-                }));
+                const updatedTransaction = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.updateMovement(client, spreadsheetId, updateData); }));
                 res.json({ success: true, data: updatedTransaction });
             }
             catch (error) {
@@ -199,7 +200,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -237,7 +239,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -247,9 +250,7 @@ class TransactionsController {
                     return;
                 }
                 // Get transaction with automatic retry on auth errors
-                const transaction = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.getMovement(client, spreadsheetId, transactionId);
-                }));
+                const transaction = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.getMovement(client, spreadsheetId, transactionId); }));
                 if (!transaction) {
                     res.status(404).json({
                         success: false,
@@ -289,7 +290,8 @@ class TransactionsController {
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({

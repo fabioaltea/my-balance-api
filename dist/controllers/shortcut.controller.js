@@ -163,9 +163,7 @@ class ShortcutController {
                     ],
                 };
                 // Save movement to Google Sheets using TransactionsHelper
-                const result = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movement);
-                }));
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movement); }));
                 // Send push notification if user has a push token
                 if (user.push_token) {
                     try {

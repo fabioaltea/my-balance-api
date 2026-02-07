@@ -60,9 +60,7 @@ class AccountsController {
                 const calculateBalance = req.query.calculate_balance !== "false";
                 console.log("📊 Calculate balance:", calculateBalance);
                 // Get all accounts using AccountsHelper
-                const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client, calculateBalance);
-                }));
+                const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client, calculateBalance); }));
                 console.log("💰 Accounts fetched successfully:", accounts.length);
                 res.json({ success: true, data: accounts });
             }
@@ -162,9 +160,7 @@ class AccountsController {
                 // Se è prevista la modifica del nome, recupera prima l'account corrente
                 let oldAccountName = null;
                 if (updateData.name) {
-                    const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                        return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client);
-                    }));
+                    const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client); }));
                     const currentAccount = accounts.find((acc) => acc.accountId === accountId);
                     if (currentAccount && currentAccount.name !== updateData.name) {
                         oldAccountName = currentAccount.name;

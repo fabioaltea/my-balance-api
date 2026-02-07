@@ -3,9 +3,17 @@ import { CategoriesHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -32,9 +40,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -50,10 +57,7 @@ export class CategoriesController {
       const categories = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.getCategories(
-          spreadsheetId,
-          client
-        )
+        async (client) => CategoriesHelper.getCategories(spreadsheetId, client),
       );
 
       res.json({ success: true, data: categories });
@@ -82,9 +86,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -100,10 +103,7 @@ export class CategoriesController {
       const categories = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.getCategories(
-          spreadsheetId,
-          client
-        )
+        async (client) => CategoriesHelper.getCategories(spreadsheetId, client),
       );
 
       const category = categories.find((c) => c.name === categoryId);
@@ -142,9 +142,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -160,11 +159,8 @@ export class CategoriesController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.createCategory(
-          spreadsheetId,
-          categoryData,
-          client
-        )
+        async (client) =>
+          CategoriesHelper.createCategory(spreadsheetId, categoryData, client),
       );
 
       res.json({ success: true, data: result });
@@ -194,9 +190,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -212,12 +207,13 @@ export class CategoriesController {
       const updatedCategory = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.updateCategory(
-          spreadsheetId,
-          categoryId,
-          updateData,
-          client
-        )
+        async (client) =>
+          CategoriesHelper.updateCategory(
+            spreadsheetId,
+            categoryId,
+            updateData,
+            client,
+          ),
       );
 
       res.json({ success: true, data: updatedCategory });
@@ -246,9 +242,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -264,11 +259,8 @@ export class CategoriesController {
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.deleteCategory(
-          spreadsheetId,
-          categoryId,
-          client
-        )
+        async (client) =>
+          CategoriesHelper.deleteCategory(spreadsheetId, categoryId, client),
       );
 
       res.json({ success: true, message: "Category deleted successfully" });
@@ -288,7 +280,7 @@ export class CategoriesController {
    */
   public static async createCategoriesBatch(
     req: any,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const userEmail = req.userId;
@@ -308,9 +300,8 @@ export class CategoriesController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -326,11 +317,12 @@ export class CategoriesController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => CategoriesHelper.createCategoriesBatch(
-          spreadsheetId,
-          categories,
-          client
-        )
+        async (client) =>
+          CategoriesHelper.createCategoriesBatch(
+            spreadsheetId,
+            categories,
+            client,
+          ),
       );
 
       res.json({ success: true, data: result });

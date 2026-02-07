@@ -3,9 +3,17 @@ import { TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -32,9 +40,8 @@ export class MovementsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -50,10 +57,8 @@ export class MovementsController {
       const movements = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listMovements(
-          client,
-          spreadsheetId
-        )
+        async (client) =>
+          TransactionsHelper.listMovements(client, spreadsheetId),
       );
 
       res.json({ success: true, data: movements });
@@ -82,9 +87,8 @@ export class MovementsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -100,11 +104,8 @@ export class MovementsController {
       const movement = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.getMovement(
-          client,
-          spreadsheetId,
-          movementId
-        )
+        async (client) =>
+          TransactionsHelper.getMovement(client, spreadsheetId, movementId),
       );
 
       if (!movement) {
@@ -141,9 +142,8 @@ export class MovementsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -159,11 +159,12 @@ export class MovementsController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.appendMovement(
-          client,
-          spreadsheetId,
-          movementData
-        )
+        async (client) =>
+          TransactionsHelper.appendMovement(
+            client,
+            spreadsheetId,
+            movementData,
+          ),
       );
 
       res.json({ success: true, data: result });
@@ -193,9 +194,8 @@ export class MovementsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -216,11 +216,12 @@ export class MovementsController {
       const updatedMovement = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.updateMovement(
-          client,
-          spreadsheetId,
-          movementRequest
-        )
+        async (client) =>
+          TransactionsHelper.updateMovement(
+            client,
+            spreadsheetId,
+            movementRequest,
+          ),
       );
 
       res.json({ success: true, data: updatedMovement });
@@ -249,9 +250,8 @@ export class MovementsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -267,11 +267,8 @@ export class MovementsController {
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.deleteMovement(
-          client,
-          spreadsheetId,
-          movementId
-        )
+        async (client) =>
+          TransactionsHelper.deleteMovement(client, spreadsheetId, movementId),
       );
 
       res.json({ success: true, message: "Movement deleted successfully" });

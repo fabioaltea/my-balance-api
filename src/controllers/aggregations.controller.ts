@@ -3,9 +3,17 @@ import { AggregationsHelper } from "../helpers/mybalance/aggregations.helper";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -21,7 +29,10 @@ export class AggregationsController {
   /**
    * GET /aggregations/monthly - Returns pre-calculated monthly aggregations
    */
-  public static async getMonthlyAggregations(req: any, res: Response): Promise<void> {
+  public static async getMonthlyAggregations(
+    req: any,
+    res: Response,
+  ): Promise<void> {
     try {
       console.log("📊 =============");
       console.log("📊 GET /aggregations/monthly endpoint hit!");
@@ -37,9 +48,8 @@ export class AggregationsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -51,7 +61,10 @@ export class AggregationsController {
         return;
       }
 
-      console.log("📊 Loading monthly aggregations for spreadsheet:", spreadsheetId);
+      console.log(
+        "📊 Loading monthly aggregations for spreadsheet:",
+        spreadsheetId,
+      );
 
       // Parse optional date filters
       const from_date = req.query.from_date;
@@ -61,18 +74,19 @@ export class AggregationsController {
       const aggregations = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => AggregationsHelper.getMonthlyAggregations(
-          client,
-          spreadsheetId,
-          from_date,
-          to_date
-        )
+        async (client) =>
+          AggregationsHelper.getMonthlyAggregations(
+            client,
+            spreadsheetId,
+            from_date,
+            to_date,
+          ),
       );
 
       console.log(
         "📊 Monthly aggregations loaded successfully:",
         Object.keys(aggregations).length,
-        "months"
+        "months",
       );
 
       res.json({ success: true, data: aggregations });

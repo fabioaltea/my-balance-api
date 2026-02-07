@@ -3,9 +3,17 @@ import { TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -36,9 +44,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -80,7 +87,8 @@ export class TransactionsController {
         if (isNaN(offset) || offset < 0) {
           res.status(400).json({
             success: false,
-            error: "Invalid 'offset' parameter. Must be a non-negative integer.",
+            error:
+              "Invalid 'offset' parameter. Must be a non-negative integer.",
           });
           return;
         }
@@ -91,16 +99,17 @@ export class TransactionsController {
       const allTransactions = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listTransactions(
-          client,
-          spreadsheetId,
-          Object.keys(filters).length > 0 ? filters : undefined
-        )
+        async (client) =>
+          TransactionsHelper.listTransactions(
+            client,
+            spreadsheetId,
+            Object.keys(filters).length > 0 ? filters : undefined,
+          ),
       );
 
       console.log(
         "🔄 Transactions loaded successfully:",
-        allTransactions.length
+        allTransactions.length,
       );
 
       res.json({ success: true, data: allTransactions });
@@ -120,7 +129,7 @@ export class TransactionsController {
    */
   public static async createTransaction(
     req: any,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const userEmail = req.userId;
@@ -130,9 +139,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -148,11 +156,12 @@ export class TransactionsController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.appendMovement(
-          client,
-          spreadsheetId,
-          transactionData
-        )
+        async (client) =>
+          TransactionsHelper.appendMovement(
+            client,
+            spreadsheetId,
+            transactionData,
+          ),
       );
 
       res.json({ success: true, data: result });
@@ -171,7 +180,7 @@ export class TransactionsController {
    */
   public static async updateTransaction(
     req: any,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const userEmail = req.userId;
@@ -182,9 +191,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -200,11 +208,8 @@ export class TransactionsController {
       const updatedTransaction = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.updateMovement(
-          client,
-          spreadsheetId,
-          updateData
-        )
+        async (client) =>
+          TransactionsHelper.updateMovement(client, spreadsheetId, updateData),
       );
 
       res.json({ success: true, data: updatedTransaction });
@@ -223,7 +228,7 @@ export class TransactionsController {
    */
   public static async deleteTransaction(
     req: any,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const userEmail = req.userId;
@@ -233,9 +238,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -251,11 +255,12 @@ export class TransactionsController {
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.deleteMovement(
-          client,
-          spreadsheetId,
-          transactionId
-        )
+        async (client) =>
+          TransactionsHelper.deleteMovement(
+            client,
+            spreadsheetId,
+            transactionId,
+          ),
       );
 
       res.json({ success: true, message: "Transaction deleted successfully" });
@@ -281,9 +286,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -299,11 +303,8 @@ export class TransactionsController {
       const transaction = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.getMovement(
-          client,
-          spreadsheetId,
-          transactionId
-        )
+        async (client) =>
+          TransactionsHelper.getMovement(client, spreadsheetId, transactionId),
       );
 
       if (!transaction) {
@@ -328,7 +329,10 @@ export class TransactionsController {
   /**
    * GET /transactions/delta - Returns transactions modified since a timestamp
    */
-  public static async getTransactionsDelta(req: any, res: Response): Promise<void> {
+  public static async getTransactionsDelta(
+    req: any,
+    res: Response,
+  ): Promise<void> {
     try {
       const userEmail = req.userId;
       const { since } = req.query;
@@ -336,7 +340,8 @@ export class TransactionsController {
       if (!since) {
         res.status(400).json({
           success: false,
-          error: "Missing 'since' parameter. Expected ISO timestamp format (e.g., 2024-12-01T10:30:00)",
+          error:
+            "Missing 'since' parameter. Expected ISO timestamp format (e.g., 2024-12-01T10:30:00)",
         });
         return;
       }
@@ -346,9 +351,8 @@ export class TransactionsController {
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -366,15 +370,16 @@ export class TransactionsController {
       const deltaTransactions = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => TransactionsHelper.listTransactionsDelta(
-          client,
-          spreadsheetId,
-          since
-        )
+        async (client) =>
+          TransactionsHelper.listTransactionsDelta(
+            client,
+            spreadsheetId,
+            since,
+          ),
       );
 
       console.log(
-        `🔄 Delta transactions loaded: ${deltaTransactions.length} items`
+        `🔄 Delta transactions loaded: ${deltaTransactions.length} items`,
       );
 
       res.json({ success: true, data: deltaTransactions });

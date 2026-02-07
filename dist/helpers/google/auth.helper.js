@@ -246,8 +246,8 @@ class GoogleAuthHelper {
                     errorCode === 403 ||
                     errorMessage.includes("invalid_grant") ||
                     errorMessage.includes("invalid credentials") ||
-                    errorMessage.includes("token") && errorMessage.includes("expired") ||
-                    errorMessage.includes("token") && errorMessage.includes("revoked");
+                    (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+                    (errorMessage.includes("token") && errorMessage.includes("revoked"));
                 if (!isAuthError) {
                     // Not an auth error, just throw it
                     throw error;

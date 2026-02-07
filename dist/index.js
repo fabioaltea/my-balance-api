@@ -261,9 +261,7 @@ app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res
                 error: "Missing spreadsheet_id in headers and no default spreadsheet configured",
             });
         }
-        const items = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return google_1.GoogleHelper.get(client, spreadsheetId, req.query.range);
-        }));
+        const items = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return google_1.GoogleHelper.get(client, spreadsheetId, req.query.range); }));
         res.json({ success: true, data: items });
     }
     catch (error) {
@@ -347,9 +345,7 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
         }
         else {
             // Nuovo formato
-            yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-                return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, body);
-            }));
+            yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, body); }));
         }
         res.json({ success: true, data: "Movement added successfully" });
     }
@@ -379,9 +375,7 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
             });
         }
         const body = req.body;
-        const items = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return google_1.GoogleHelper.append(client, spreadsheetId, req.query.range, body);
-        }));
+        const items = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return google_1.GoogleHelper.append(client, spreadsheetId, req.query.range, body); }));
         res.json({ success: true, data: items });
     }
     catch (error) {
@@ -416,9 +410,7 @@ app.get("/movements", (req, res, next) => {
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const movements = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.TransactionsHelper.listMovements(client, spreadsheetId);
-        }));
+        const movements = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.listMovements(client, spreadsheetId); }));
         res.json({ success: true, data: movements });
     }
     catch (error) {
@@ -447,9 +439,7 @@ app.get("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddleware
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const movement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.TransactionsHelper.getMovement(client, spreadsheetId, movementId);
-        }));
+        const movement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.getMovement(client, spreadsheetId, movementId); }));
         if (!movement) {
             return res.status(404).json({
                 success: false,
@@ -580,9 +570,7 @@ app.delete("/movements/:movementId", requireAuth_middleware_1.RequireAuthMiddlew
             });
         }
         const { movementId } = req.params;
-        yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, movementId);
-        }));
+        yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, movementId); }));
         res.json({ success: true, data: "Movement deleted successfully" });
     }
     catch (error) {
@@ -629,9 +617,7 @@ app.get("/transactions", (req, res, next) => {
         }
         console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
         // Ottieni tutti i movements e poi estrai le singole transazioni
-        const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId);
-        }));
+        const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId); }));
         console.log("🔄 Transactions loaded successfully:", allTransactions.length);
         res.json({ success: true, data: allTransactions });
     }
@@ -672,9 +658,7 @@ app.get("/transactions/:spreadsheetId", (req, res, next) => {
         }
         console.log("📊 Reading transactions from spreadsheet:", spreadsheetId);
         // Get all transactions using TransactionsHelper
-        const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId);
-        }));
+        const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId); }));
         console.log("🔄 Transactions loaded successfully:", allTransactions.length);
         res.json({ success: true, data: allTransactions });
     }
@@ -1123,9 +1107,7 @@ app.get("/accounts", (req, res, next) => {
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client);
-        }));
+        const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client); }));
         res.json({ success: true, data: accounts });
     }
     catch (error) {
@@ -1301,9 +1283,7 @@ app.get("/categories", requireAuth_middleware_1.RequireAuthMiddleware.verify, (r
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const categories = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () {
-            return mybalance_1.CategoriesHelper.getCategories(spreadsheetId, client);
-        }));
+        const categories = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(void 0, void 0, void 0, function* () { return mybalance_1.CategoriesHelper.getCategories(spreadsheetId, client); }));
         res.json({ success: true, data: categories });
     }
     catch (error) {

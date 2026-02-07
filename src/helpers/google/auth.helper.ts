@@ -139,7 +139,10 @@ export class GoogleAuthHelper {
       // If redirectUri is provided, use it (needed for web where the URI is dynamic)
       if (params.redirectUri) {
         tokenRequest.redirect_uri = params.redirectUri;
-        console.log("Using custom redirect URI for token exchange:", params.redirectUri);
+        console.log(
+          "Using custom redirect URI for token exchange:",
+          params.redirectUri,
+        );
       }
 
       const { tokens } = await this.client.getToken(tokenRequest);
@@ -300,7 +303,10 @@ export class GoogleAuthHelper {
     apiCall: (client: OAuth2Client) => Promise<T>,
   ): Promise<T> {
     // Get the auth client (without preventive refresh)
-    let client = await GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+    let client = await GoogleAuthHelper.getAuthClientForUser(
+      userEmail,
+      deviceType,
+    );
 
     try {
       // Try the API call first
@@ -314,8 +320,8 @@ export class GoogleAuthHelper {
         errorCode === 403 ||
         errorMessage.includes("invalid_grant") ||
         errorMessage.includes("invalid credentials") ||
-        errorMessage.includes("token") && errorMessage.includes("expired") ||
-        errorMessage.includes("token") && errorMessage.includes("revoked");
+        (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+        (errorMessage.includes("token") && errorMessage.includes("revoked"));
 
       if (!isAuthError) {
         // Not an auth error, just throw it
@@ -334,7 +340,10 @@ export class GoogleAuthHelper {
         // Wait for ongoing refresh to complete
         await existingLock;
         // Get fresh client after lock is released
-        client = await GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+        client = await GoogleAuthHelper.getAuthClientForUser(
+          userEmail,
+          deviceType,
+        );
         // Retry with refreshed client
         return await apiCall(client);
       }
@@ -395,10 +404,15 @@ export class GoogleAuthHelper {
       await refreshPromise;
 
       // Get fresh client with refreshed token
-      client = await GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+      client = await GoogleAuthHelper.getAuthClientForUser(
+        userEmail,
+        deviceType,
+      );
 
       // Retry the API call with refreshed credentials
-      console.log(`♻️  Retrying API call for ${userEmail} with refreshed token`);
+      console.log(
+        `♻️  Retrying API call for ${userEmail} with refreshed token`,
+      );
       return await apiCall(client);
     }
   }
