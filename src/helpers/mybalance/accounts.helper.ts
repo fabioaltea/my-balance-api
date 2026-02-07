@@ -74,16 +74,7 @@ export class AccountsHelper {
             // Sostituisci il balance del sheet con quello calcolato
             account.balance = this.formatBalance(calculatedBalance);
 
-            console.log(
-              `💰 Account "${account.name}": calculated balance = ${account.balance}`,
-            );
-          } else {
-            // Use balance from sheet directly (faster)
-            console.log(
-              `💰 Account "${account.name}": using sheet balance = ${account.balance}`,
-            );
-          }
-
+          } 
           accounts.push(account);
         }
       }
@@ -391,9 +382,7 @@ export class AccountsHelper {
       }
     }
 
-    console.log(
-      `🧮 Final calculated balance for "${accountName}": ${totalBalance}`,
-    );
+  
     return totalBalance;
   }
 

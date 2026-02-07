@@ -33,10 +33,6 @@ export class AggregationsController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -62,11 +58,15 @@ export class AggregationsController {
       const to_date = req.query.to_date;
 
       // Get monthly aggregations
-      const aggregations = await AggregationsHelper.getMonthlyAggregations(
-        authClient,
-        spreadsheetId,
-        from_date,
-        to_date
+      const aggregations = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => AggregationsHelper.getMonthlyAggregations(
+          client,
+          spreadsheetId,
+          from_date,
+          to_date
+        )
       );
 
       console.log(

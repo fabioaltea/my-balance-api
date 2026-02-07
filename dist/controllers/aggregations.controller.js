@@ -41,7 +41,6 @@ class AggregationsController {
                 const userEmail = req.userId;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
@@ -59,7 +58,9 @@ class AggregationsController {
                 const from_date = req.query.from_date;
                 const to_date = req.query.to_date;
                 // Get monthly aggregations
-                const aggregations = yield aggregations_helper_1.AggregationsHelper.getMonthlyAggregations(authClient, spreadsheetId, from_date, to_date);
+                const aggregations = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return aggregations_helper_1.AggregationsHelper.getMonthlyAggregations(client, spreadsheetId, from_date, to_date);
+                }));
                 console.log("📊 Monthly aggregations loaded successfully:", Object.keys(aggregations).length, "months");
                 res.json({ success: true, data: aggregations });
             }

@@ -26,6 +26,7 @@ Modificare `listTransactions()` per accettare parametri di filtro:
 ```
 
 **Query parameters supportati**:
+
 - `from_date`: dd-MM-yyyy (default: ultimi 12 mesi)
 - `to_date`: dd-MM-yyyy (default: oggi)
 - `account`: nome account (default: tutti)
@@ -36,6 +37,7 @@ Modificare `listTransactions()` per accettare parametri di filtro:
 - `offset`: paginazione (default: 0)
 
 **Implementazione**:
+
 - Scaricare comunque tutto il foglio da Google Sheets (limitation API)
 - Filtrare in memoria prima di restituire
 - Aggiungere parsing e validazione parametri
@@ -68,6 +70,7 @@ Pre-calcola aggregazioni mensili per grafici senza inviare transazioni dettaglia
 **File**: `/api/src/helpers/mybalance/accounts.helper.ts`
 
 Aggiungere parametro `?calculate_balance=false`:
+
 - Se false: usa balance dal foglio Accounts (veloce)
 - Se true: calcola da tutte le transazioni (accurato ma lento)
 
@@ -103,21 +106,23 @@ Sfrutta colonna `dateModified` già presente.
 ## File da Modificare/Creare
 
 ### File da Modificare
+
 1. `/api/src/helpers/mybalance/transactions.helper.ts` - aggiungere filtri e endpoint delta
 2. `/api/src/helpers/mybalance/accounts.helper.ts` - parametro calculate_balance
 3. `/api/src/index.ts` (o routes) - nuove route
 
 ### File da Creare
+
 4. `/api/src/helpers/mybalance/aggregations.helper.ts` - **NUOVO** per aggregazioni mensili
 
 ## Metriche di Successo Backend
 
-| Metrica | Baseline | Target |
-|---------|----------|--------|
-| Payload transactions (filtrate) | 500KB | 50KB |
-| Payload aggregazioni | N/A | 1-2KB |
-| Response time transactions | 300-500ms | 200-300ms |
-| Response time aggregazioni | N/A | 100-200ms |
+| Metrica                         | Baseline  | Target    |
+| ------------------------------- | --------- | --------- |
+| Payload transactions (filtrate) | 500KB     | 50KB      |
+| Payload aggregazioni            | N/A       | 1-2KB     |
+| Response time transactions      | 300-500ms | 200-300ms |
+| Response time aggregazioni      | N/A       | 100-200ms |
 
 ## Note Implementative
 
@@ -143,10 +148,12 @@ Sfrutta colonna `dateModified` già presente.
 ## Rischi
 
 ### Rischio 1: Google Sheets API Limits
+
 **Problema**: Rate limit per alto volume requests
 **Mitigazione**: Accettabile per uso personale (basso volume)
 
 ### Rischio 2: Performance Filtri In-Memory
+
 **Problema**: Filtrare 5000 transactions in-memory potrebbe essere lento
 **Mitigazione**: JavaScript molto veloce per operazioni semplici (filter/reduce), ~10-20ms per 5k items
 
@@ -183,6 +190,7 @@ Dopo implementazione:
 ## Prossimi Step
 
 Dopo completamento backend:
+
 1. Frontend può iniziare integrazione React Query (Fase 2)
 2. Testing congiunto endpoint + frontend
 3. Deploy backend in staging per test isolati

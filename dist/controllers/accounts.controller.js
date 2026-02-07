@@ -42,7 +42,6 @@ class AccountsController {
                 const userEmail = req.userId;
                 // Get user's Google auth client with proper credentials
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
@@ -61,7 +60,9 @@ class AccountsController {
                 const calculateBalance = req.query.calculate_balance !== "false";
                 console.log("📊 Calculate balance:", calculateBalance);
                 // Get all accounts using AccountsHelper
-                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient, calculateBalance);
+                const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client, calculateBalance);
+                }));
                 console.log("💰 Accounts fetched successfully:", accounts.length);
                 res.json({ success: true, data: accounts });
             }
@@ -86,7 +87,6 @@ class AccountsController {
                 const { name, description, balance, color, textColor } = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
@@ -100,23 +100,21 @@ class AccountsController {
                     });
                     return;
                 }
-                // Get refresh token from auth client
-                const refreshToken = authClient.credentials.refresh_token;
-                if (!refreshToken) {
-                    res.status(401).json({
-                        success: false,
-                        error: "No refresh token found for user",
-                    });
-                    return;
-                }
                 // Create new account using AccountsHelper
-                const account = yield mybalance_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
-                    name: name || "Unnamed Account",
-                    description: description || "",
-                    balance: balance || "0,00",
-                    color: color || "#808080",
-                    textColor: textColor || "#ffffff",
-                });
+                const account = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    // Get refresh token from auth client
+                    const refreshToken = client.credentials.refresh_token;
+                    if (!refreshToken) {
+                        throw new Error("No refresh token found for user");
+                    }
+                    return mybalance_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+                        name: name || "Unnamed Account",
+                        description: description || "",
+                        balance: balance || "0,00",
+                        color: color || "#808080",
+                        textColor: textColor || "#ffffff",
+                    });
+                }));
                 res.json({ success: true, data: account });
             }
             catch (error) {
@@ -147,7 +145,6 @@ class AccountsController {
                 const updateData = req.body;
                 // Get user's Google auth client with proper credentials
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
@@ -162,19 +159,12 @@ class AccountsController {
                     return;
                 }
                 console.log("📊 Updating account in spreadsheet:", spreadsheetId);
-                // Get refresh token from auth client
-                const refreshToken = authClient.credentials.refresh_token;
-                if (!refreshToken) {
-                    res.status(401).json({
-                        success: false,
-                        error: "No refresh token found for user",
-                    });
-                    return;
-                }
                 // Se è prevista la modifica del nome, recupera prima l'account corrente
                 let oldAccountName = null;
                 if (updateData.name) {
-                    const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                    const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                        return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client);
+                    }));
                     const currentAccount = accounts.find((acc) => acc.accountId === accountId);
                     if (currentAccount && currentAccount.name !== updateData.name) {
                         oldAccountName = currentAccount.name;
@@ -182,11 +172,20 @@ class AccountsController {
                     }
                 }
                 // Update account using AccountsHelper
-                const updatedAccount = yield mybalance_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
+                const updatedAccount = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    // Get refresh token from auth client
+                    const refreshToken = client.credentials.refresh_token;
+                    if (!refreshToken) {
+                        throw new Error("No refresh token found for user");
+                    }
+                    return mybalance_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
+                }));
                 // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
                 if (oldAccountName && updateData.name) {
                     console.log(`📊 Updating transactions from account "${oldAccountName}" to "${updateData.name}"`);
-                    const updatedCount = yield mybalance_1.TransactionsHelper.updateTransactionsAccountName(authClient, spreadsheetId, oldAccountName, updateData.name);
+                    const updatedCount = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                        return mybalance_1.TransactionsHelper.updateTransactionsAccountName(client, spreadsheetId, oldAccountName, updateData.name);
+                    }));
                     console.log(`📊 Updated ${updatedCount} transactions with new account name`);
                 }
                 console.log("💰 Account updated successfully:", updatedAccount.name);
@@ -226,18 +225,15 @@ class AccountsController {
                 }
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
-                // Get refresh token from auth client
-                const refreshToken = authClient.credentials.refresh_token;
-                if (!refreshToken) {
-                    res.status(401).json({
-                        success: false,
-                        error: "No refresh token found for user",
-                    });
-                    return;
-                }
                 // Delete account using AccountsHelper
-                yield mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
+                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    // Get refresh token from auth client
+                    const refreshToken = client.credentials.refresh_token;
+                    if (!refreshToken) {
+                        throw new Error("No refresh token found for user");
+                    }
+                    return mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
+                }));
                 res.json({ success: true, message: "Account deleted successfully" });
             }
             catch (error) {
@@ -274,18 +270,15 @@ class AccountsController {
                 }
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
-                // Get refresh token from auth client
-                const refreshToken = authClient.credentials.refresh_token;
-                if (!refreshToken) {
-                    res.status(401).json({
-                        success: false,
-                        error: "No refresh token found for user",
-                    });
-                    return;
-                }
                 // Create accounts batch using AccountsHelper
-                const createdAccounts = yield mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
+                const createdAccounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    // Get refresh token from auth client
+                    const refreshToken = client.credentials.refresh_token;
+                    if (!refreshToken) {
+                        throw new Error("No refresh token found for user");
+                    }
+                    return mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
+                }));
                 res.json({ success: true, data: createdAccounts });
             }
             catch (error) {

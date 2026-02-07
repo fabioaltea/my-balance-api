@@ -138,9 +138,9 @@ class ShortcutController {
                     return;
                 }
                 // Get session for this user to retrieve Google tokens
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(user.email, "ios");
+                const deviceType = "ios"; // Assume iOS for shortcut
                 // Get user's accounts and find the best matching account
-                const accounts = yield mybalance_1.AccountsHelper.getAccounts(spreadsheetId, authClient);
+                const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client); }));
                 const matchedAccount = ShortcutController.findBestAccountMatch(account, accounts);
                 console.log(`🔍 Account matching: input="${account}" -> matched="${matchedAccount}"`);
                 // Create movement with "unconfirmed" status
@@ -163,7 +163,9 @@ class ShortcutController {
                     ],
                 };
                 // Save movement to Google Sheets using TransactionsHelper
-                const result = yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movement);
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movement);
+                }));
                 // Send push notification if user has a push token
                 if (user.push_token) {
                     try {

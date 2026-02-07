@@ -62,11 +62,6 @@ class AccountsHelper {
                             const calculatedBalance = this.calculateAccountBalance(account.name, transactions);
                             // Sostituisci il balance del sheet con quello calcolato
                             account.balance = this.formatBalance(calculatedBalance);
-                            console.log(`💰 Account "${account.name}": calculated balance = ${account.balance}`);
-                        }
-                        else {
-                            // Use balance from sheet directly (faster)
-                            console.log(`💰 Account "${account.name}": using sheet balance = ${account.balance}`);
                         }
                         accounts.push(account);
                     }
@@ -299,7 +294,6 @@ class AccountsHelper {
                 totalBalance += amount;
             }
         }
-        console.log(`🧮 Final calculated balance for "${accountName}": ${totalBalance}`);
         return totalBalance;
     }
     /**

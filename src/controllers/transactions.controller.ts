@@ -31,13 +31,7 @@ export class TransactionsController {
       console.log("🔄 =============");
 
       const userEmail = req.userId;
-
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -60,14 +54,14 @@ export class TransactionsController {
 
       // Parse query filters (all optional for backward compatibility)
       const filters: any = {};
-      
+
       if (req.query.from_date) filters.from_date = req.query.from_date;
       if (req.query.to_date) filters.to_date = req.query.to_date;
       if (req.query.account) filters.account = req.query.account;
       if (req.query.category) filters.category = req.query.category;
       if (req.query.type) filters.type = req.query.type;
       if (req.query.status) filters.status = req.query.status;
-      
+
       // Validate numeric parameters
       if (req.query.limit) {
         const limit = parseInt(req.query.limit);
@@ -80,7 +74,7 @@ export class TransactionsController {
         }
         filters.limit = limit;
       }
-      
+
       if (req.query.offset) {
         const offset = parseInt(req.query.offset);
         if (isNaN(offset) || offset < 0) {
@@ -93,11 +87,15 @@ export class TransactionsController {
         filters.offset = offset;
       }
 
-      // Get transactions with optional filters
-      const allTransactions = await TransactionsHelper.listTransactions(
-        authClient,
-        spreadsheetId,
-        Object.keys(filters).length > 0 ? filters : undefined
+      // Get transactions with automatic retry on auth errors
+      const allTransactions = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.listTransactions(
+          client,
+          spreadsheetId,
+          Object.keys(filters).length > 0 ? filters : undefined
+        )
       );
 
       console.log(
@@ -127,13 +125,7 @@ export class TransactionsController {
     try {
       const userEmail = req.userId;
       const transactionData = req.body;
-
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -152,11 +144,15 @@ export class TransactionsController {
         return;
       }
 
-      // Create transaction using TransactionsHelper
-      const result = await TransactionsHelper.appendMovement(
-        authClient,
-        spreadsheetId,
-        transactionData
+      // Create transaction with automatic retry on auth errors
+      const result = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.appendMovement(
+          client,
+          spreadsheetId,
+          transactionData
+        )
       );
 
       res.json({ success: true, data: result });
@@ -181,13 +177,7 @@ export class TransactionsController {
       const userEmail = req.userId;
       const { transactionId } = req.params;
       const updateData = req.body;
-
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -206,11 +196,15 @@ export class TransactionsController {
         return;
       }
 
-      // Update transaction using TransactionsHelper
-      const updatedTransaction = await TransactionsHelper.updateMovement(
-        authClient,
-        spreadsheetId,
-        updateData
+      // Update transaction with automatic retry on auth errors
+      const updatedTransaction = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.updateMovement(
+          client,
+          spreadsheetId,
+          updateData
+        )
       );
 
       res.json({ success: true, data: updatedTransaction });
@@ -234,13 +228,7 @@ export class TransactionsController {
     try {
       const userEmail = req.userId;
       const { transactionId } = req.params;
-
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -259,11 +247,15 @@ export class TransactionsController {
         return;
       }
 
-      // Delete transaction using TransactionsHelper
-      await TransactionsHelper.deleteMovement(
-        authClient,
-        spreadsheetId,
-        transactionId
+      // Delete transaction with automatic retry on auth errors
+      await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.deleteMovement(
+          client,
+          spreadsheetId,
+          transactionId
+        )
       );
 
       res.json({ success: true, message: "Transaction deleted successfully" });
@@ -284,13 +276,7 @@ export class TransactionsController {
     try {
       const userEmail = req.userId;
       const { transactionId } = req.params;
-
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -309,11 +295,15 @@ export class TransactionsController {
         return;
       }
 
-      // Get transaction using TransactionsHelper
-      const transaction = await TransactionsHelper.getMovement(
-        authClient,
-        spreadsheetId,
-        transactionId
+      // Get transaction with automatic retry on auth errors
+      const transaction = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.getMovement(
+          client,
+          spreadsheetId,
+          transactionId
+        )
       );
 
       if (!transaction) {
@@ -351,12 +341,7 @@ export class TransactionsController {
         return;
       }
 
-      // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -377,11 +362,15 @@ export class TransactionsController {
 
       console.log(`🔄 Loading transactions delta since: ${since}`);
 
-      // Get transactions modified since timestamp
-      const deltaTransactions = await TransactionsHelper.listTransactionsDelta(
-        authClient,
-        spreadsheetId,
-        since
+      // Get transactions modified since timestamp with automatic retry on auth errors
+      const deltaTransactions = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => TransactionsHelper.listTransactionsDelta(
+          client,
+          spreadsheetId,
+          since
+        )
       );
 
       console.log(

@@ -142,13 +142,14 @@ export class ShortcutController {
       }
 
       // Get session for this user to retrieve Google tokens
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        user.email,
-        "ios", // Assume iOS for shortcut
-      );
+      const deviceType = "ios"; // Assume iOS for shortcut
 
       // Get user's accounts and find the best matching account
-      const accounts = await AccountsHelper.getAccounts(spreadsheetId, authClient);
+      const accounts = await GoogleAuthHelper.executeWithRetry(
+        user.email,
+        deviceType,
+        async (client) => AccountsHelper.getAccounts(spreadsheetId, client)
+      );
       const matchedAccount = ShortcutController.findBestAccountMatch(account, accounts);
 
       console.log(`🔍 Account matching: input="${account}" -> matched="${matchedAccount}"`);
@@ -174,10 +175,14 @@ export class ShortcutController {
       };
 
       // Save movement to Google Sheets using TransactionsHelper
-      const result = await TransactionsHelper.appendMovement(
-        authClient,
-        spreadsheetId,
-        movement,
+      const result = await GoogleAuthHelper.executeWithRetry(
+        user.email,
+        deviceType,
+        async (client) => TransactionsHelper.appendMovement(
+          client,
+          spreadsheetId,
+          movement,
+        )
       );
 
       // Send push notification if user has a push token
