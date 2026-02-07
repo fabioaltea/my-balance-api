@@ -49,6 +49,18 @@ const COLS = {
 const SHEET_RANGE = "AllTransactions!A2:Z";
 const SHEET_NAME = "AllTransactions";
 
+// Interfaccia per filtri opzionali
+export interface ITransactionFilters {
+  from_date?: string; // dd-MM-yyyy format
+  to_date?: string; // dd-MM-yyyy format
+  account?: string;
+  category?: string;
+  type?: "in" | "out";
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export class TransactionsHelper {
   // Pattern riconosciuto se già nel formato desiderato yyyy-MM-dd hh:mm
   private static DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/; // meta dates
@@ -353,7 +365,8 @@ export class TransactionsHelper {
 
   public static async listTransactions(
     authClient: any,
-    spreadsheetId: string
+    spreadsheetId: string,
+    filters?: ITransactionFilters
   ): Promise<ITransaction[]> {
     const rows: any[][] = await GoogleHelper.get(
       authClient,
@@ -363,7 +376,7 @@ export class TransactionsHelper {
     if (!rows || rows.length === 0) return [];
 
     // Converte tutte le righe in transactions
-    const transactions: ITransaction[] = [];
+    let transactions: ITransaction[] = [];
     rows.forEach((r, i) => {
       const p = this.rowToTransaction(r, i);
       if (p && p.transaction.status !== "DELETED") {
@@ -371,8 +384,90 @@ export class TransactionsHelper {
       }
     });
 
-    // Raggruppa per movementId
+    // Apply filters if provided
+    if (filters) {
+      transactions = this.applyFilters(transactions, filters);
+    }
+
     return transactions;
+  }
+
+  // Apply filters to transactions in-memory
+  private static applyFilters(
+    transactions: ITransaction[],
+    filters: ITransactionFilters
+  ): ITransaction[] {
+    let filtered = [...transactions];
+
+    // Filter by date range
+    if (filters.from_date) {
+      const fromDate = this.parseDateForFilter(filters.from_date);
+      if (fromDate) {
+        filtered = filtered.filter((t) => {
+          const tDate = this.parseDateForFilter(t.date);
+          return tDate && tDate >= fromDate;
+        });
+      }
+    }
+
+    if (filters.to_date) {
+      const toDate = this.parseDateForFilter(filters.to_date);
+      if (toDate) {
+        filtered = filtered.filter((t) => {
+          const tDate = this.parseDateForFilter(t.date);
+          return tDate && tDate <= toDate;
+        });
+      }
+    }
+
+    // Filter by account
+    if (filters.account) {
+      filtered = filtered.filter((t) => t.account === filters.account);
+    }
+
+    // Filter by category
+    if (filters.category) {
+      filtered = filtered.filter((t) => t.category === filters.category);
+    }
+
+    // Filter by type
+    if (filters.type) {
+      filtered = filtered.filter((t) => t.type === filters.type);
+    }
+
+    // Filter by status
+    if (filters.status) {
+      filtered = filtered.filter((t) => t.status === filters.status);
+    }
+
+    // Apply offset
+    if (filters.offset && filters.offset > 0) {
+      filtered = filtered.slice(filters.offset);
+    }
+
+    // Apply limit (default: 100, max: 1000)
+    const limit = filters.limit
+      ? Math.min(filters.limit, 1000)
+      : 100;
+    if (limit > 0) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    return filtered;
+  }
+
+  // Parse date string in dd-MM-yyyy format to Date object for filtering
+  private static parseDateForFilter(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    
+    // Handle dd-MM-yyyy format
+    const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    return null;
   }
 
   // GET movimento per movementId
@@ -642,5 +737,68 @@ export class TransactionsHelper {
   private static extractRowNumberFromRange(range: string): string {
     const match = range.match(/(\d+)$/);
     return match ? match[1] : "1";
+  }
+
+  /**
+   * GET /transactions/delta - Returns transactions modified since a specific timestamp
+   * @param authClient - Google auth client
+   * @param spreadsheetId - The spreadsheet ID
+   * @param since - ISO timestamp string (e.g., "2024-12-01T10:30:00")
+   * @returns Transactions modified after the given timestamp
+   */
+  public static async listTransactionsDelta(
+    authClient: any,
+    spreadsheetId: string,
+    since: string
+  ): Promise<ITransaction[]> {
+    const rows: any[][] = await GoogleHelper.get(
+      authClient,
+      spreadsheetId,
+      SHEET_RANGE
+    );
+    if (!rows || rows.length === 0) return [];
+
+    // Parse the since parameter
+    const sinceDate = new Date(since);
+    if (isNaN(sinceDate.getTime())) {
+      throw new Error("Invalid 'since' parameter. Expected ISO timestamp format.");
+    }
+
+    // Convert all rows to transactions and filter by dateModified
+    const transactions: ITransaction[] = [];
+    rows.forEach((r, i) => {
+      const p = this.rowToTransaction(r, i);
+      if (p && p.transaction.status !== "DELETED") {
+        // Parse dateModified (format: yyyy-MM-dd HH:mm)
+        const dateModified = this.parseMetaDateToDate(p.transaction.dateModified);
+        if (dateModified && dateModified > sinceDate) {
+          transactions.push(p.transaction);
+        }
+      }
+    });
+
+    return transactions;
+  }
+
+  /**
+   * Parse meta date string (yyyy-MM-dd HH:mm) to Date object
+   */
+  private static parseMetaDateToDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    
+    // Handle yyyy-MM-dd HH:mm format
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      return new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      );
+    }
+    
+    return null;
   }
 }

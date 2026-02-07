@@ -30,6 +30,7 @@ import { categoriesRoutes } from "./routes/categories.routes";
 import { transactionsRoutes } from "./routes/transactions.routes";
 import { movementsRoutes } from "./routes/movements.routes";
 import { shortcutRoutes } from "./routes/shortcut.routes";
+import { aggregationsRoutes } from "./routes/aggregations.routes";
 import { RequireAuthMiddleware } from "./middleware/requireAuth.middleware";
 import { CryptoHelper } from "./helpers/crypto.helper";
 import { JwtHelper } from "./helpers/jwt.helper";
@@ -107,6 +108,7 @@ app.use("/categories", categoriesRoutes);
 app.use("/transactions", transactionsRoutes);
 app.use("/movements", movementsRoutes);
 app.use("/shortcut", shortcutRoutes);
+app.use("/aggregations", aggregationsRoutes);
 
 // User data endpoints (protected)
 app.get(

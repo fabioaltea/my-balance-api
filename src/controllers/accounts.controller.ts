@@ -57,10 +57,15 @@ export class AccountsController {
 
       console.log("📊 Reading accounts from spreadsheet:", spreadsheetId);
 
+      // Parse calculate_balance parameter (default: true for backward compatibility)
+      const calculateBalance = req.query.calculate_balance !== "false";
+      console.log("📊 Calculate balance:", calculateBalance);
+
       // Get all accounts using AccountsHelper
       const accounts = await AccountsHelper.getAccounts(
         spreadsheetId,
         authClient,
+        calculateBalance
       );
 
       console.log("💰 Accounts fetched successfully:", accounts.length);
