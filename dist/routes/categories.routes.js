@@ -22,8 +22,11 @@ const categoriesRateLimit = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
 });
-// All categories routes require authentication
 console.log("🔧 Setting up CATEGORIES routes...");
+/**
+ * GET /categories/default - Recupera categorie default (pubblico)
+ */
+categoriesRoutes.get("/default", categoriesRateLimit, categories_controller_1.CategoriesController.getDefaultCategories);
 /**
  * GET /categories - Recupera tutte le categorie
  */
