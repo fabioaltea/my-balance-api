@@ -19,10 +19,14 @@ const COLS = {
 export class AccountsHelper {
   /**
    * Recupera tutti gli accounts dal sheet "Accounts"
+   * @param spreadsheetId - The spreadsheet ID
+   * @param authClient - Google auth client
+   * @param calculateBalance - If true, calculates balance from transactions (default: true). If false, uses balance from sheet.
    */
   static async getAccounts(
     spreadsheetId: string,
     authClient: any,
+    calculateBalance: boolean = true
   ): Promise<IAccount[]> {
     try {
       const auth = authClient;
@@ -34,13 +38,19 @@ export class AccountsHelper {
 
       if (!rows || rows.length === 0) return [];
 
-      // Recupera anche tutte le transazioni per calcolare i balance reali
-      console.log("📊 Fetching transactions to calculate account balances...");
-      const transactions = await TransactionsHelper.listTransactions(
-        auth,
-        spreadsheetId,
-      );
-      console.log(`📊 Found ${transactions.length} transactions`);
+      let transactions: ITransaction[] = [];
+      
+      // Only fetch transactions if we need to calculate balance
+      if (calculateBalance) {
+        console.log("📊 Fetching transactions to calculate account balances...");
+        transactions = await TransactionsHelper.listTransactions(
+          auth,
+          spreadsheetId,
+        );
+        console.log(`📊 Found ${transactions.length} transactions`);
+      } else {
+        console.log("📊 Using balance from sheet (calculate_balance=false)");
+      }
 
       const accounts: IAccount[] = [];
 
@@ -54,25 +64,23 @@ export class AccountsHelper {
 
         const account = this.rowToAccount(row, i);
         if (account && !account.name.startsWith("DELETED_")) {
-          // Calcola il balance reale per questo account
-          const calculatedBalance = this.calculateAccountBalance(
-            account.name,
-            transactions,
-          );
+          if (calculateBalance) {
+            // Calcola il balance reale per questo account
+            const calculatedBalance = this.calculateAccountBalance(
+              account.name,
+              transactions,
+            );
 
-          // Sostituisci il balance del sheet con quello calcolato
-          account.balance = this.formatBalance(calculatedBalance);
+            // Sostituisci il balance del sheet con quello calcolato
+            account.balance = this.formatBalance(calculatedBalance);
 
-          console.log(
-            `💰 Account "${account.name}": calculated balance = ${account.balance}`,
-          );
-
+          } 
           accounts.push(account);
         }
       }
 
       console.log(
-        `📊 Returning ${accounts.length} accounts with calculated balances`,
+        `📊 Returning ${accounts.length} accounts`,
       );
       return accounts;
     } catch (error) {
@@ -374,9 +382,7 @@ export class AccountsHelper {
       }
     }
 
-    console.log(
-      `🧮 Final calculated balance for "${accountName}": ${totalBalance}`,
-    );
+  
     return totalBalance;
   }
 

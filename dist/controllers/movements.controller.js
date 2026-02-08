@@ -37,11 +37,11 @@ class MovementsController {
                 const userEmail = req.userId;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -51,7 +51,7 @@ class MovementsController {
                     return;
                 }
                 // Get all movements using TransactionsHelper
-                const movements = yield mybalance_1.TransactionsHelper.listMovements(authClient, spreadsheetId);
+                const movements = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.listMovements(client, spreadsheetId); }));
                 res.json({ success: true, data: movements });
             }
             catch (error) {
@@ -76,11 +76,11 @@ class MovementsController {
                 const { movementId } = req.params;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -90,7 +90,7 @@ class MovementsController {
                     return;
                 }
                 // Get movement using TransactionsHelper
-                const movement = yield mybalance_1.TransactionsHelper.getMovement(authClient, spreadsheetId, movementId);
+                const movement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.getMovement(client, spreadsheetId, movementId); }));
                 if (!movement) {
                     res.status(404).json({
                         success: false,
@@ -122,11 +122,11 @@ class MovementsController {
                 const movementData = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -136,7 +136,9 @@ class MovementsController {
                     return;
                 }
                 // Create movement using TransactionsHelper
-                const result = yield mybalance_1.TransactionsHelper.appendMovement(authClient, spreadsheetId, movementData);
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movementData);
+                }));
                 res.json({ success: true, data: result });
             }
             catch (error) {
@@ -162,11 +164,11 @@ class MovementsController {
                 const updateData = req.body;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -178,7 +180,9 @@ class MovementsController {
                 // Update movement using TransactionsHelper
                 // Ensure movementId from URL is included in the request
                 const movementRequest = Object.assign(Object.assign({}, updateData), { movementId: movementId });
-                const updatedMovement = yield mybalance_1.TransactionsHelper.updateMovement(authClient, spreadsheetId, movementRequest);
+                const updatedMovement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return mybalance_1.TransactionsHelper.updateMovement(client, spreadsheetId, movementRequest);
+                }));
                 res.json({ success: true, data: updatedMovement });
             }
             catch (error) {
@@ -203,11 +207,11 @@ class MovementsController {
                 const { movementId } = req.params;
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
-                const authClient = yield google_1.GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
@@ -217,7 +221,7 @@ class MovementsController {
                     return;
                 }
                 // Delete movement using TransactionsHelper
-                yield mybalance_1.TransactionsHelper.deleteMovement(authClient, spreadsheetId, movementId);
+                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, movementId); }));
                 res.json({ success: true, message: "Movement deleted successfully" });
             }
             catch (error) {
