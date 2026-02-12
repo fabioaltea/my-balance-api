@@ -546,7 +546,8 @@ app.post("/spreadsheet/create", requireAuth_middleware_1.RequireAuthMiddleware.v
                 error: "Title is required",
             });
         }
-        const spreadsheetId = yield mybalance_1.SpreadsheetsHelper.createSpreadsheet(userEmail, title, userEmail);
+        const deviceType = req.deviceType || "web";
+        const spreadsheetId = yield mybalance_1.SpreadsheetsHelper.createSpreadsheet(userEmail, title, deviceType);
         res.json({ success: true, data: { spreadsheetId } });
     }
     catch (error) {
@@ -566,7 +567,8 @@ app.post("/spreadsheet/initialize", requireAuth_middleware_1.RequireAuthMiddlewa
                 error: "Missing spreadsheetId in body",
             });
         }
-        yield mybalance_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
+        const deviceType = req.deviceType || "web";
+        yield mybalance_1.SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail, deviceType);
         res.json({
             success: true,
             message: "Spreadsheet initialized successfully",
@@ -594,13 +596,34 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
                 error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
             });
         }
-        const validation = yield mybalance_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail);
+        const deviceType = req.deviceType || "web";
+        const validation = yield mybalance_1.SpreadsheetsHelper.validateSpreadsheetStructure(spreadsheetId, userEmail, deviceType);
         res.json({ success: true, data: validation });
     }
     catch (error) {
         console.error("Error validating spreadsheet:", error);
         res.status(500).json({
             error: "Failed to validate spreadsheet",
+            details: error.message,
+        });
+    }
+}));
+app.post("/spreadsheet/migrate", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userEmail = req.userId;
+        const deviceType = req.deviceType || "web";
+        console.log(`🔄 Migration request from ${userEmail}`);
+        const result = yield mybalance_1.MigrationHelper.executePendingMigrations(userEmail, deviceType);
+        res.json({
+            success: true,
+            data: result,
+        });
+    }
+    catch (error) {
+        console.error("Error executing migration:", error);
+        res.status(500).json({
+            success: false,
+            error: "Failed to execute migration",
             details: error.message,
         });
     }

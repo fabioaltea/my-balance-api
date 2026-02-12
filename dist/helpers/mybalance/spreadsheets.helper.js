@@ -10,17 +10,29 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpreadsheetsHelper = void 0;
+const google_1 = require("../google");
+const auth_helper_1 = require("../google/auth.helper");
+const db_helper_1 = require("../db.helper");
+const migration_helper_1 = require("./migration.helper");
 class SpreadsheetsHelper {
     /**
-     * Crea nuovo spreadsheet vuoto
+     * Crea nuovo spreadsheet usando le Google Sheets API
      */
-    static createSpreadsheet(refreshToken, title, userEmail) {
+    static createSpreadsheet(userEmail, title, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Creating spreadsheet", title, "for", userEmail);
-                // Placeholder - da implementare con chiamate dirette alle API
-                return "new_spreadsheet_id_" + Date.now();
+                const res = yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.create(client, userEmail); }));
+                const spreadsheetId = res.data.spreadsheetId;
+                if (!spreadsheetId) {
+                    throw new Error("No spreadsheet ID returned from Google API");
+                }
+                // Salva lo spreadsheetId nel DB (tabella users legacy)
+                yield auth_helper_1.GoogleAuthHelper.setSpreadsheetIdForUser(userEmail, spreadsheetId);
+                // Upsert user_products con schema version corrente
+                yield db_helper_1.DbHelper.upsertUserProduct(userEmail, spreadsheetId, migration_helper_1.LATEST_SCHEMA_VERSION);
+                console.log("Spreadsheet created:", spreadsheetId);
+                return spreadsheetId;
             }
             catch (error) {
                 console.error("Error creating spreadsheet:", error);
@@ -29,17 +41,39 @@ class SpreadsheetsHelper {
         });
     }
     /**
-     * Inizializza spreadsheet con headers e struttura
+     * Inizializza spreadsheet con headers
      */
-    static initializeSpreadsheet(spreadsheetId, refreshToken) {
+    static initializeSpreadsheet(spreadsheetId, userEmail, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Initializing spreadsheet", spreadsheetId);
-                // Placeholder - da implementare:
-                // 1. Creare sheet AllTransactions, Accounts, Categories
-                // 2. Aggiungere headers
-                // 3. Impostare formattazione
+                // Header rows allineati ai COLS usati dai rispettivi helper
+                const headerData = [
+                    {
+                        range: "AllTransactions!A1:P1",
+                        values: [[
+                                "description", "category", "amount", "date", "type", "account",
+                                "status", "location", "notes", "transactionId", "movementId",
+                                "recurrenceId", "recurrencePattern", "dateAdded", "dateModified", "dateDeleted"
+                            ]],
+                    },
+                    {
+                        range: "Accounts!A1:F1",
+                        values: [[
+                                "accountName", "accountColor", "accountTxtColor",
+                                "accountImgUrl", "dateAdded", "dateModified"
+                            ]],
+                    },
+                    {
+                        range: "Categories!A1:E1",
+                        values: [[
+                                "categoryName", "categoryColor", "categoryIconUrl",
+                                "dateAdded", "dateModified"
+                            ]],
+                    },
+                ];
+                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.update(client, spreadsheetId, headerData); }));
+                console.log("Spreadsheet initialized with headers");
             }
             catch (error) {
                 console.error("Error initializing spreadsheet:", error);
@@ -50,16 +84,20 @@ class SpreadsheetsHelper {
     /**
      * Valida struttura spreadsheet esistente
      */
-    static validateSpreadsheetStructure(spreadsheetId, refreshToken) {
+    static validateSpreadsheetStructure(spreadsheetId, userEmail, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Validating spreadsheet structure", spreadsheetId);
                 const issues = [];
-                // Placeholder - da implementare:
-                // 1. Controllare esistenza sheet principali
-                // 2. Verificare headers
-                // 3. Validare struttura colonne
+                const requiredSheets = ["AllTransactions", "Accounts", "Categories"];
+                for (const sheetName of requiredSheets) {
+                    try {
+                        yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.get(client, spreadsheetId, `${sheetName}!A1:A1`); }));
+                    }
+                    catch (_a) {
+                        issues.push(`Missing sheet: ${sheetName}`);
+                    }
+                }
                 return {
                     valid: issues.length === 0,
                     issues,
@@ -86,40 +124,37 @@ class SpreadsheetsHelper {
                         "date",
                         "type",
                         "account",
+                        "status",
+                        "location",
+                        "notes",
                         "transactionId",
                         "movementId",
-                        "notes",
-                        "location",
                         "recurrenceId",
+                        "recurrencePattern",
                         "dateAdded",
                         "dateModified",
                         "dateDeleted",
-                        "status",
                     ],
                 },
                 {
                     name: "Accounts",
                     headers: [
-                        "name",
-                        "description",
-                        "balance",
-                        "color",
-                        "textColor",
-                        "status",
+                        "accountName",
+                        "accountColor",
+                        "accountTxtColor",
+                        "accountImgUrl",
                         "dateAdded",
-                        "dateDeleted",
+                        "dateModified",
                     ],
                 },
                 {
                     name: "Categories",
                     headers: [
-                        "name",
-                        "description",
-                        "color",
-                        "icon",
-                        "status",
+                        "categoryName",
+                        "categoryColor",
+                        "categoryIconUrl",
                         "dateAdded",
-                        "dateDeleted",
+                        "dateModified",
                     ],
                 },
             ],

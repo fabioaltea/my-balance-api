@@ -116,21 +116,14 @@ export class AccountsController {
       const account = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => {
-          // Get refresh token from auth client
-          const refreshToken = (client as any).credentials.refresh_token;
-          if (!refreshToken) {
-            throw new Error("No refresh token found for user");
-          }
-
-          return AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+        async (client) =>
+          AccountsHelper.createAccount(spreadsheetId, client, {
             name: name || "Unnamed Account",
             description: description || "",
             balance: balance || "0,00",
             color: color || "#808080",
             textColor: textColor || "#ffffff",
-          });
-        },
+          }),
       );
 
       res.json({ success: true, data: account });
@@ -204,20 +197,13 @@ export class AccountsController {
       const updatedAccount = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => {
-          // Get refresh token from auth client
-          const refreshToken = (client as any).credentials.refresh_token;
-          if (!refreshToken) {
-            throw new Error("No refresh token found for user");
-          }
-
-          return AccountsHelper.updateAccount(
+        async (client) =>
+          AccountsHelper.updateAccount(
             spreadsheetId,
-            refreshToken,
+            client,
             accountId,
             updateData,
-          );
-        },
+          ),
       );
 
       // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
@@ -284,19 +270,8 @@ export class AccountsController {
       await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => {
-          // Get refresh token from auth client
-          const refreshToken = (client as any).credentials.refresh_token;
-          if (!refreshToken) {
-            throw new Error("No refresh token found for user");
-          }
-
-          return AccountsHelper.deleteAccount(
-            spreadsheetId,
-            refreshToken,
-            accountId,
-          );
-        },
+        async (client) =>
+          AccountsHelper.deleteAccount(spreadsheetId, client, accountId),
       );
 
       res.json({ success: true, message: "Account deleted successfully" });
@@ -344,19 +319,8 @@ export class AccountsController {
       const createdAccounts = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) => {
-          // Get refresh token from auth client
-          const refreshToken = (client as any).credentials.refresh_token;
-          if (!refreshToken) {
-            throw new Error("No refresh token found for user");
-          }
-
-          return AccountsHelper.createAccountsBatch(
-            spreadsheetId,
-            refreshToken,
-            accounts,
-          );
-        },
+        async (client) =>
+          AccountsHelper.createAccountsBatch(spreadsheetId, client, accounts),
       );
 
       res.json({ success: true, data: createdAccounts });

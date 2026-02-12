@@ -13,15 +13,13 @@ exports.CategoriesHelper = void 0;
 const google_1 = require("../google");
 const SHEET_NAME = "Categories";
 const SHEET_RANGE = "Categories!A2:Z";
-// Mappatura colonne del foglio "Categories" (0-based)
+// Mappatura colonne del foglio "Categories" (0-based) — Schema v3
 const COLS = {
     NAME: 0, // A: categoryName
-    TYPE: 1, // B: categoryType (legacy, non più usato)
-    COLOR: 2, // C: categoryColor
-    ICON: 3, // D: categoryIcon
-    BALANCE: 4, // E: categoryBalance (legacy, non più usato)
-    DESCRIPTION: 5, // F: description (se presente)
-    IS_DELETED: 6, // G: flag eliminazione (se presente)
+    COLOR: 1, // B: categoryColor
+    ICON: 2, // C: categoryIcon
+    DATE_ADDED: 3, // G: dateAdded
+    DATE_MODIFIED: 4, // H: dateModified
 };
 class CategoriesHelper {
     /**
@@ -46,8 +44,7 @@ class CategoriesHelper {
                         continue;
                     const category = this.rowToCategory(row, i);
                     if (category &&
-                        !category.name.startsWith("DELETED_") &&
-                        category.status === "ACTIVE") {
+                        !category.name.startsWith("DELETED_")) {
                         categories.push(category);
                     }
                 }
@@ -65,16 +62,26 @@ class CategoriesHelper {
     static createCategory(spreadsheetId, categoryData, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
-                console.log("Creating category in", spreadsheetId, categoryData);
-                // Placeholder - da implementare
+                const auth = authClient;
+                const now = this.formatDateTime(new Date());
+                // Prepara la riga seguendo il layout COLS (v3)
+                const newRow = [
+                    categoryData.name, // A: categoryName
+                    categoryData.color || "#808080", // B: categoryColor
+                    categoryData.icon || "", // C: categoryIcon
+                    now, // D: dateAdded
+                    now, // E: dateModified
+                ];
+                const body = {
+                    majorDimension: "ROWS",
+                    range: SHEET_RANGE,
+                    values: [newRow],
+                };
+                yield google_1.GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body);
                 return {
-                    categoryId: this.generateId(),
                     name: categoryData.name,
-                    description: categoryData.description || "",
                     color: categoryData.color || "#808080",
                     icon: categoryData.icon || "",
-                    status: "ACTIVE",
                     dateAdded: this.formatDateTime(new Date()),
                 };
             }
@@ -87,20 +94,39 @@ class CategoriesHelper {
     /**
      * Aggiorna categoria esistente
      */
-    static updateCategory(spreadsheetId, categoryId, updateData, authClient) {
+    static updateCategory(spreadsheetId, categoryName, updateData, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
-                console.log("Updating category", categoryId, "in", spreadsheetId, updateData);
-                // Placeholder - da implementare
-                return {
-                    categoryId,
-                    name: updateData.name || "",
-                    description: updateData.description || "",
-                    color: updateData.color || "#808080",
-                    icon: updateData.icon || "",
-                    status: "ACTIVE",
-                };
+                const auth = authClient;
+                const rows = yield google_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+                if (!rows)
+                    throw new Error("Sheet vuoto");
+                let targetRowIndex = -1;
+                let existingCategory = null;
+                for (let i = 0; i < rows.length; i++) {
+                    const category = this.rowToCategory(rows[i], i);
+                    if (category && category.name === categoryName) {
+                        targetRowIndex = i;
+                        existingCategory = category;
+                        break;
+                    }
+                }
+                if (targetRowIndex === -1 || !existingCategory) {
+                    throw new Error(`Categoria con nome ${categoryName} non trovata`);
+                }
+                const updatedRow = [...rows[targetRowIndex]];
+                if (updateData.name)
+                    updatedRow[COLS.NAME] = updateData.name;
+                if (updateData.color)
+                    updatedRow[COLS.COLOR] = updateData.color;
+                if (updateData.icon)
+                    updatedRow[COLS.ICON] = updateData.icon;
+                const rowNumber = targetRowIndex + 2; // +2: skip header row + 1-based
+                const updateRange = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                yield google_1.GoogleHelper.update(auth, spreadsheetId, [
+                    { range: updateRange, values: [updatedRow] },
+                ]);
+                return Object.assign(Object.assign({}, existingCategory), { name: updateData.name || existingCategory.name, color: updateData.color || existingCategory.color, icon: updateData.icon || existingCategory.icon });
             }
             catch (error) {
                 console.error("Error updating category:", error);
@@ -111,12 +137,30 @@ class CategoriesHelper {
     /**
      * Elimina categoria (soft delete)
      */
-    static deleteCategory(spreadsheetId, categoryId, authClient) {
+    static deleteCategory(spreadsheetId, categoryName, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
-                console.log("Deleting category", categoryId, "from", spreadsheetId);
-                // Placeholder - da implementare
+                const auth = authClient;
+                const rows = yield google_1.GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+                if (!rows)
+                    throw new Error("Sheet vuoto");
+                let targetRowIndex = -1;
+                for (let i = 0; i < rows.length; i++) {
+                    const category = this.rowToCategory(rows[i], i);
+                    if (category && category.name === categoryName) {
+                        targetRowIndex = i;
+                        break;
+                    }
+                }
+                if (targetRowIndex === -1) {
+                    throw new Error(`Categoria con nome ${categoryName} non trovata`);
+                }
+                const updatedRow = [...rows[targetRowIndex]];
+                const rowNumber = targetRowIndex + 2; // +2: skip header row + 1-based
+                const updateRange = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                yield google_1.GoogleHelper.update(auth, spreadsheetId, [
+                    { range: updateRange, values: [updatedRow] },
+                ]);
             }
             catch (error) {
                 console.error("Error deleting category:", error);
@@ -130,18 +174,32 @@ class CategoriesHelper {
     static createCategoriesBatch(spreadsheetId, categories, authClient) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
-                console.log("Creating categories batch in", spreadsheetId, categories);
-                // Placeholder - da implementare
-                return categories.map((category) => ({
-                    categoryId: this.generateId(),
-                    name: category.name,
-                    description: category.description || "",
-                    color: category.color || "#808080",
-                    icon: category.icon || "",
-                    status: "ACTIVE",
-                    dateAdded: this.formatDateTime(new Date()),
-                }));
+                const auth = authClient;
+                const now = this.formatDateTime(new Date());
+                const newRows = [];
+                const resultCategories = [];
+                for (const categoryData of categories) {
+                    newRows.push([
+                        categoryData.name, // A: categoryName
+                        categoryData.color || "#808080", // B: categoryColor
+                        categoryData.icon || "", // C: categoryIcon
+                        now, // D: dateAdded
+                        now, // E: dateModified
+                    ]);
+                    resultCategories.push({
+                        name: categoryData.name,
+                        color: categoryData.color || "#808080",
+                        icon: categoryData.icon || "",
+                        dateAdded: now,
+                    });
+                }
+                const body = {
+                    majorDimension: "ROWS",
+                    range: SHEET_RANGE,
+                    values: newRows,
+                };
+                yield google_1.GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body);
+                return resultCategories;
             }
             catch (error) {
                 console.error("Error creating categories batch:", error);
@@ -152,74 +210,74 @@ class CategoriesHelper {
     /**
      * Ottieni categorie default del sistema
      */
-    static getDefaultCategories() {
-        return [
-            {
-                categoryId: "default_1",
-                name: "Alimentari",
-                description: "Spesa per cibo e bevande",
-                color: "#4CAF50",
-                icon: "restaurant",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_2",
-                name: "Trasporti",
-                description: "Auto, benzina, mezzi pubblici",
-                color: "#2196F3",
-                icon: "car",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_3",
-                name: "Casa",
-                description: "Affitto, bollette, spese domestiche",
-                color: "#FF9800",
-                icon: "home",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_4",
-                name: "Salute",
-                description: "Visite mediche, farmaci",
-                color: "#F44336",
-                icon: "medical",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_5",
-                name: "Svago",
-                description: "Divertimento, hobby, viaggi",
-                color: "#9C27B0",
-                icon: "game",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_6",
-                name: "Lavoro",
-                description: "Stipendio, bonus, rimborsi",
-                color: "#607D8B",
-                icon: "briefcase",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_7",
-                name: "Investimenti",
-                description: "Azioni, fondi, risparmi",
-                color: "#795548",
-                icon: "trending-up",
-                status: "ACTIVE",
-            },
-            {
-                categoryId: "default_8",
-                name: "Altro",
-                description: "Spese varie non categorizzate",
-                color: "#9E9E9E",
-                icon: "ellipsis",
-                status: "ACTIVE",
-            },
-        ];
-    }
+    // static getDefaultCategories(): ICategory[] {
+    //   return [
+    //     {
+    //       categoryId: "default_1",
+    //       name: "Alimentari",
+    //       description: "Spesa per cibo e bevande",
+    //       color: "#4CAF50",
+    //       icon: "restaurant",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_2",
+    //       name: "Trasporti",
+    //       description: "Auto, benzina, mezzi pubblici",
+    //       color: "#2196F3",
+    //       icon: "car",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_3",
+    //       name: "Casa",
+    //       description: "Affitto, bollette, spese domestiche",
+    //       color: "#FF9800",
+    //       icon: "home",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_4",
+    //       name: "Salute",
+    //       description: "Visite mediche, farmaci",
+    //       color: "#F44336",
+    //       icon: "medical",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_5",
+    //       name: "Svago",
+    //       description: "Divertimento, hobby, viaggi",
+    //       color: "#9C27B0",
+    //       icon: "game",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_6",
+    //       name: "Lavoro",
+    //       description: "Stipendio, bonus, rimborsi",
+    //       color: "#607D8B",
+    //       icon: "briefcase",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_7",
+    //       name: "Investimenti",
+    //       description: "Azioni, fondi, risparmi",
+    //       color: "#795548",
+    //       icon: "trending-up",
+    //       status: "ACTIVE",
+    //     },
+    //     {
+    //       categoryId: "default_8",
+    //       name: "Altro",
+    //       description: "Spese varie non categorizzate",
+    //       color: "#9E9E9E",
+    //       icon: "ellipsis",
+    //       status: "ACTIVE",
+    //     },
+    //   ];
+    // }
     // =================
     // UTILITY METHODS
     // =================
@@ -234,14 +292,9 @@ class CategoriesHelper {
             if (!name || name === "categoryName" || name === "name")
                 return null; // Skip header or empty
             return {
-                categoryId: `cat_${rowIndex}_${name.replace(/\s+/g, "_")}`,
                 name: name,
-                description: row[COLS.DESCRIPTION]
-                    ? String(row[COLS.DESCRIPTION]).trim()
-                    : "",
                 color: row[COLS.COLOR] || "#808080",
                 icon: row[COLS.ICON] || "tag",
-                status: row[COLS.IS_DELETED] === "1" ? "DELETED" : "ACTIVE",
                 dateAdded: this.formatDateTime(new Date()), // Non abbiamo data nel sheet legacy
             };
         }

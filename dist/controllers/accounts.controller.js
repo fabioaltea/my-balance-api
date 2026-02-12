@@ -100,12 +100,7 @@ class AccountsController {
                 }
                 // Create new account using AccountsHelper
                 const account = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    // Get refresh token from auth client
-                    const refreshToken = client.credentials.refresh_token;
-                    if (!refreshToken) {
-                        throw new Error("No refresh token found for user");
-                    }
-                    return mybalance_1.AccountsHelper.createAccount(spreadsheetId, refreshToken, {
+                    return mybalance_1.AccountsHelper.createAccount(spreadsheetId, client, {
                         name: name || "Unnamed Account",
                         description: description || "",
                         balance: balance || "0,00",
@@ -169,12 +164,7 @@ class AccountsController {
                 }
                 // Update account using AccountsHelper
                 const updatedAccount = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    // Get refresh token from auth client
-                    const refreshToken = client.credentials.refresh_token;
-                    if (!refreshToken) {
-                        throw new Error("No refresh token found for user");
-                    }
-                    return mybalance_1.AccountsHelper.updateAccount(spreadsheetId, refreshToken, accountId, updateData);
+                    return mybalance_1.AccountsHelper.updateAccount(spreadsheetId, client, accountId, updateData);
                 }));
                 // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
                 if (oldAccountName && updateData.name) {
@@ -222,14 +212,7 @@ class AccountsController {
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
                 // Delete account using AccountsHelper
-                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    // Get refresh token from auth client
-                    const refreshToken = client.credentials.refresh_token;
-                    if (!refreshToken) {
-                        throw new Error("No refresh token found for user");
-                    }
-                    return mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, refreshToken, accountId);
-                }));
+                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.deleteAccount(spreadsheetId, client, accountId); }));
                 res.json({ success: true, message: "Account deleted successfully" });
             }
             catch (error) {
@@ -267,14 +250,7 @@ class AccountsController {
                 // Get user's Google auth client
                 const deviceType = req.deviceType || "web";
                 // Create accounts batch using AccountsHelper
-                const createdAccounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    // Get refresh token from auth client
-                    const refreshToken = client.credentials.refresh_token;
-                    if (!refreshToken) {
-                        throw new Error("No refresh token found for user");
-                    }
-                    return mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, refreshToken, accounts);
-                }));
+                const createdAccounts = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.createAccountsBatch(spreadsheetId, client, accounts); }));
                 res.json({ success: true, data: createdAccounts });
             }
             catch (error) {

@@ -8,6 +8,7 @@ import cors from "cors";
 import {
   TransactionsHelper,
   SpreadsheetsHelper,
+  MigrationHelper,
 } from "./helpers/mybalance";
 import { DbHelper } from "./helpers/db.helper";
 import {
@@ -646,10 +647,11 @@ app.post(
         });
       }
 
+      const deviceType = req.deviceType || "web";
       const spreadsheetId = await SpreadsheetsHelper.createSpreadsheet(
         userEmail,
         title,
-        userEmail,
+        deviceType,
       );
 
       res.json({ success: true, data: { spreadsheetId } });
@@ -677,7 +679,8 @@ app.post(
         });
       }
 
-      await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail);
+      const deviceType = req.deviceType || "web";
+      await SpreadsheetsHelper.initializeSpreadsheet(spreadsheetId, userEmail, deviceType);
       res.json({
         success: true,
         message: "Spreadsheet initialized successfully",
@@ -713,9 +716,11 @@ app.get(
         });
       }
 
+      const deviceType = req.deviceType || "web";
       const validation = await SpreadsheetsHelper.validateSpreadsheetStructure(
         spreadsheetId,
         userEmail,
+        deviceType,
       );
 
       res.json({ success: true, data: validation });
@@ -723,6 +728,36 @@ app.get(
       console.error("Error validating spreadsheet:", error);
       res.status(500).json({
         error: "Failed to validate spreadsheet",
+        details: error.message,
+      });
+    }
+  },
+);
+
+app.post(
+  "/spreadsheet/migrate",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId;
+      const deviceType = req.deviceType || "web";
+
+      console.log(`🔄 Migration request from ${userEmail}`);
+
+      const result = await MigrationHelper.executePendingMigrations(
+        userEmail,
+        deviceType,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error executing migration:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to execute migration",
         details: error.message,
       });
     }

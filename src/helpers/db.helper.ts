@@ -607,6 +607,91 @@ export class DbHelper {
     }
   }
 
+  // === USER PRODUCTS / SCHEMA VERSION METHODS ===
+
+  /**
+   * Get user_products row for a user+product
+   */
+  public static async getUserProduct(
+    userEmail: string,
+    productName: string = "MyBalance",
+  ): Promise<{ spreadsheet_id: string; schema_version: number } | null> {
+    const client = await DbHelper._pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT spreadsheet_id, schema_version FROM user_products
+         WHERE user_email = $1 AND product_name = $2`,
+        [userEmail, productName],
+      );
+      return rows[0] ?? null;
+    } catch (error) {
+      console.error("Error getting user product:", error);
+      throw new Error("Error getting user product");
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get schema_version for a user+product from user_products table
+   */
+  public static async getSchemaVersion(
+    userEmail: string,
+    productName: string = "MyBalance",
+  ): Promise<number> {
+    const product = await this.getUserProduct(userEmail, productName);
+    return product?.schema_version ?? 1;
+  }
+
+  /**
+   * Update schema_version for a user+product in user_products table
+   */
+  public static async updateSchemaVersion(
+    userEmail: string,
+    schemaVersion: number,
+    productName: string = "MyBalance",
+  ): Promise<void> {
+    const client = await DbHelper._pool.connect();
+    try {
+      await client.query(
+        `UPDATE user_products SET schema_version = $1
+         WHERE user_email = $2 AND product_name = $3`,
+        [schemaVersion, userEmail, productName],
+      );
+    } catch (error) {
+      console.error("Error updating schema version:", error);
+      throw new Error("Error updating schema version");
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Upsert user_products row (insert or update spreadsheet_id + schema_version)
+   */
+  public static async upsertUserProduct(
+    userEmail: string,
+    spreadsheetId: string,
+    schemaVersion: number,
+    productName: string = "MyBalance",
+  ): Promise<void> {
+    const client = await DbHelper._pool.connect();
+    try {
+      await client.query(
+        `INSERT INTO user_products (user_email, product_name, spreadsheet_id, schema_version)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_email, product_name)
+         DO UPDATE SET spreadsheet_id = $3, schema_version = $4`,
+        [userEmail, productName, spreadsheetId, schemaVersion],
+      );
+    } catch (error) {
+      console.error("Error upserting user product:", error);
+      throw new Error("Error upserting user product");
+    } finally {
+      client.release();
+    }
+  }
+
   // === WAITLIST METHODS ===
 
   /**

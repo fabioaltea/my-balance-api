@@ -8,24 +8,23 @@ import {
   ITransactionRequest,
 } from "../../models";
 
-// Mappatura colonne (0-based) stabile del foglio "AllTransactions".
-// Manteniamo i campi esistenti nelle loro posizioni originali per non rompere dati già inseriti:
+// Mappatura colonne (0-based) del foglio "AllTransactions" — Schema v2.
 // A: description (0)
 // B: category (1)
 // C: amount (2)
 // D: date (3)
-// E: status (4)
-// F: location (5)
-// G: transactionId (6)
-// H: movementId (7)
-// I: recurrenceId (8)
-// J: type (9) [nuovo]
-// K: notes (10) [nuovo]
-// L: dateAdded (11)
-// M: dateModified (12)
-// N: dateDeleted (13)
-// O: account (14) [nuovo]
-// P-Z: liberi
+// E: type (4)
+// F: account (5)
+// G: status (6)
+// H: location (7)
+// I: notes (8)
+// J: transactionId (9)
+// K: movementId (10)
+// L: recurrenceId (11)
+// M: recurrencePattern (12)
+// N: dateAdded (13)
+// O: dateModified (14)
+// P: dateDeleted (15)
 const COLS = {
   DESCRIPTION: 0,
   CATEGORY: 1,
@@ -33,16 +32,16 @@ const COLS = {
   DATE: 3,
   TYPE: 4,
   ACCOUNT: 5,
-  TRANSACTION_ID: 6,
-  MOVEMENT_ID: 7,
+  STATUS: 6,
+  LOCATION: 7,
   NOTES: 8,
-  LOCATION: 9,
-  RECURRENCE_ID: 10,
-  DATE_ADDED: 11, // L (index 11)
-  DATE_MODIFIED: 12, // M (index 12)
-  DATE_DELETED: 13, // N (index 13)
-  STATUS: 14,
-  RECURRENCE_PATTERN: 15, // P (index 15) - ISO 8601 duration format
+  TRANSACTION_ID: 9,
+  MOVEMENT_ID: 10,
+  RECURRENCE_ID: 11,
+  RECURRENCE_PATTERN: 12,
+  DATE_ADDED: 13,
+  DATE_MODIFIED: 14,
+  DATE_DELETED: 15,
 } as const;
 
 // Range base usato per operazioni

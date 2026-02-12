@@ -565,6 +565,78 @@ class DbHelper {
             }
         });
     }
+    // === USER PRODUCTS / SCHEMA VERSION METHODS ===
+    /**
+     * Get user_products row for a user+product
+     */
+    static getUserProduct(userEmail_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, productName = "MyBalance") {
+            var _a;
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT spreadsheet_id, schema_version FROM user_products
+         WHERE user_email = $1 AND product_name = $2`, [userEmail, productName]);
+                return (_a = rows[0]) !== null && _a !== void 0 ? _a : null;
+            }
+            catch (error) {
+                console.error("Error getting user product:", error);
+                throw new Error("Error getting user product");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Get schema_version for a user+product from user_products table
+     */
+    static getSchemaVersion(userEmail_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, productName = "MyBalance") {
+            var _a;
+            const product = yield this.getUserProduct(userEmail, productName);
+            return (_a = product === null || product === void 0 ? void 0 : product.schema_version) !== null && _a !== void 0 ? _a : 1;
+        });
+    }
+    /**
+     * Update schema_version for a user+product in user_products table
+     */
+    static updateSchemaVersion(userEmail_1, schemaVersion_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, schemaVersion, productName = "MyBalance") {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE user_products SET schema_version = $1
+         WHERE user_email = $2 AND product_name = $3`, [schemaVersion, userEmail, productName]);
+            }
+            catch (error) {
+                console.error("Error updating schema version:", error);
+                throw new Error("Error updating schema version");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Upsert user_products row (insert or update spreadsheet_id + schema_version)
+     */
+    static upsertUserProduct(userEmail_1, spreadsheetId_1, schemaVersion_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, spreadsheetId, schemaVersion, productName = "MyBalance") {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`INSERT INTO user_products (user_email, product_name, spreadsheet_id, schema_version)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (user_email, product_name)
+         DO UPDATE SET spreadsheet_id = $3, schema_version = $4`, [userEmail, productName, spreadsheetId, schemaVersion]);
+            }
+            catch (error) {
+                console.error("Error upserting user product:", error);
+                throw new Error("Error upserting user product");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
     // === WAITLIST METHODS ===
     /**
      * Add email to waitlist

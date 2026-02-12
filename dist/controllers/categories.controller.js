@@ -236,22 +236,22 @@ class CategoriesController {
     /**
      * GET /categories/default - Recupera categorie default del sistema (pubblico)
      */
-    static getDefaultCategories(req, res) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const defaultCategories = mybalance_1.CategoriesHelper.getDefaultCategories();
-                res.json({ success: true, data: defaultCategories });
-            }
-            catch (error) {
-                console.error("Error fetching default categories:", error);
-                res.status(500).json({
-                    success: false,
-                    error: "Failed to fetch default categories",
-                    details: error === null || error === void 0 ? void 0 : error.message,
-                });
-            }
-        });
-    }
+    // public static async getDefaultCategories(
+    //   req: any,
+    //   res: Response,
+    // ): Promise<void> {
+    //   try {
+    //     const defaultCategories = CategoriesHelper.getDefaultCategories();
+    //     res.json({ success: true, data: defaultCategories });
+    //   } catch (error: any) {
+    //     console.error("Error fetching default categories:", error);
+    //     res.status(500).json({
+    //       success: false,
+    //       error: "Failed to fetch default categories",
+    //       details: error?.message,
+    //     });
+    //   }
+    // }
     /**
      * POST /categories/batch - Crea categorie in batch
      */

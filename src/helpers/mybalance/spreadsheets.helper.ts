@@ -1,21 +1,40 @@
 import { GoogleHelper } from "../google";
-import { ISpreadsheetValidation, ITemplateData } from "../../models";
+import { GoogleAuthHelper } from "../google/auth.helper";
+import { DbHelper } from "../db.helper";
+import { LATEST_SCHEMA_VERSION } from "./migration.helper";
+import { ISpreadsheetValidation, ITemplateData, DeviceType } from "../../models";
 
 export class SpreadsheetsHelper {
   /**
-   * Crea nuovo spreadsheet vuoto
+   * Crea nuovo spreadsheet usando le Google Sheets API
    */
   static async createSpreadsheet(
-    refreshToken: string,
+    userEmail: string,
     title: string,
-    userEmail: string
+    deviceType: DeviceType
   ): Promise<string> {
     try {
-      // TODO: Implementare chiamata diretta alle Google Sheets API
       console.log("Creating spreadsheet", title, "for", userEmail);
 
-      // Placeholder - da implementare con chiamate dirette alle API
-      return "new_spreadsheet_id_" + Date.now();
+      const res = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => GoogleHelper.create(client, userEmail)
+      );
+
+      const spreadsheetId = res.data.spreadsheetId;
+      if (!spreadsheetId) {
+        throw new Error("No spreadsheet ID returned from Google API");
+      }
+
+      // Salva lo spreadsheetId nel DB (tabella users legacy)
+      await GoogleAuthHelper.setSpreadsheetIdForUser(userEmail, spreadsheetId);
+
+      // Upsert user_products con schema version corrente
+      await DbHelper.upsertUserProduct(userEmail, spreadsheetId, LATEST_SCHEMA_VERSION);
+
+      console.log("Spreadsheet created:", spreadsheetId);
+      return spreadsheetId;
     } catch (error) {
       console.error("Error creating spreadsheet:", error);
       throw error;
@@ -23,20 +42,49 @@ export class SpreadsheetsHelper {
   }
 
   /**
-   * Inizializza spreadsheet con headers e struttura
+   * Inizializza spreadsheet con headers
    */
   static async initializeSpreadsheet(
     spreadsheetId: string,
-    refreshToken: string
+    userEmail: string,
+    deviceType: DeviceType
   ): Promise<void> {
     try {
-      // TODO: Implementare chiamata diretta alle Google Sheets API
       console.log("Initializing spreadsheet", spreadsheetId);
 
-      // Placeholder - da implementare:
-      // 1. Creare sheet AllTransactions, Accounts, Categories
-      // 2. Aggiungere headers
-      // 3. Impostare formattazione
+      // Header rows allineati ai COLS usati dai rispettivi helper
+      const headerData = [
+        {
+          range: "AllTransactions!A1:P1",
+          values: [[
+            "description", "category", "amount", "date", "type", "account",
+            "status", "location", "notes", "transactionId", "movementId",
+            "recurrenceId", "recurrencePattern", "dateAdded", "dateModified", "dateDeleted"
+          ]],
+        },
+        {
+          range: "Accounts!A1:F1",
+          values: [[
+            "accountName", "accountColor", "accountTxtColor",
+            "accountImgUrl", "dateAdded", "dateModified"
+          ]],
+        },
+        {
+          range: "Categories!A1:E1",
+          values: [[
+            "categoryName", "categoryColor", "categoryIconUrl",
+            "dateAdded", "dateModified"
+          ]],
+        },
+      ];
+
+      await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => GoogleHelper.update(client, spreadsheetId, headerData)
+      );
+
+      console.log("Spreadsheet initialized with headers");
     } catch (error) {
       console.error("Error initializing spreadsheet:", error);
       throw error;
@@ -48,18 +96,27 @@ export class SpreadsheetsHelper {
    */
   static async validateSpreadsheetStructure(
     spreadsheetId: string,
-    refreshToken: string
+    userEmail: string,
+    deviceType: DeviceType
   ): Promise<ISpreadsheetValidation> {
     try {
-      // TODO: Implementare chiamata diretta alle Google Sheets API
       console.log("Validating spreadsheet structure", spreadsheetId);
 
       const issues: string[] = [];
+      const requiredSheets = ["AllTransactions", "Accounts", "Categories"];
 
-      // Placeholder - da implementare:
-      // 1. Controllare esistenza sheet principali
-      // 2. Verificare headers
-      // 3. Validare struttura colonne
+      for (const sheetName of requiredSheets) {
+        try {
+          await GoogleAuthHelper.executeWithRetry(
+            userEmail,
+            deviceType,
+            async (client) =>
+              GoogleHelper.get(client, spreadsheetId, `${sheetName}!A1:A1`)
+          );
+        } catch {
+          issues.push(`Missing sheet: ${sheetName}`);
+        }
+      }
 
       return {
         valid: issues.length === 0,
@@ -86,40 +143,37 @@ export class SpreadsheetsHelper {
             "date",
             "type",
             "account",
+            "status",
+            "location",
+            "notes",
             "transactionId",
             "movementId",
-            "notes",
-            "location",
             "recurrenceId",
+            "recurrencePattern",
             "dateAdded",
             "dateModified",
             "dateDeleted",
-            "status",
           ],
         },
         {
           name: "Accounts",
           headers: [
-            "name",
-            "description",
-            "balance",
-            "color",
-            "textColor",
-            "status",
+            "accountName",
+            "accountColor",
+            "accountTxtColor",
+            "accountImgUrl",
             "dateAdded",
-            "dateDeleted",
+            "dateModified",
           ],
         },
         {
           name: "Categories",
           headers: [
-            "name",
-            "description",
-            "color",
-            "icon",
-            "status",
+            "categoryName",
+            "categoryColor",
+            "categoryIconUrl",
             "dateAdded",
-            "dateDeleted",
+            "dateModified",
           ],
         },
       ],
