@@ -72,8 +72,160 @@ class SpreadsheetsHelper {
                             ]],
                     },
                 ];
-                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.update(client, spreadsheetId, headerData); }));
-                console.log("Spreadsheet initialized with headers");
+                // Contenuto sheet Instructions
+                const now = new Date();
+                const dateStr = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getFullYear()} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+                const instructionsData = [
+                    { range: "Instructions!A1", values: [["MyBalance"]] },
+                    { range: "Instructions!A3", values: [["MyBalance is your personal finance management app."]] },
+                    { range: "Instructions!A5", values: [[`Schema Version: ${migration_helper_1.LATEST_SCHEMA_VERSION}`]] },
+                    { range: "Instructions!A6", values: [[`Last schema update: ${dateStr}`]] },
+                    { range: "Instructions!A7", values: [[`Last MyBalance update: ${dateStr}`]] },
+                    { range: "Instructions!A9", values: [["IMPORTANT"]] },
+                    { range: "Instructions!A10", values: [["Do not manually edit the sheets: AllTransactions, Accounts, Categories."]] },
+                    { range: "Instructions!A11", values: [["These sheets are automatically managed by the MyBalance app."]] },
+                    { range: "Instructions!A12", values: [["You can create new sheets that reference data from these sheets without any issues."]] },
+                ];
+                // Scrivi headers + contenuto Instructions
+                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.update(client, spreadsheetId, [...headerData, ...instructionsData]); }));
+                // Sheet IDs dal template
+                const SHEET_IDS = {
+                    AllTransactions: 351667172,
+                    Accounts: 1969697880,
+                    Categories: 1969697881,
+                    Instructions: 1969697882,
+                };
+                // Formattazione: headers, Instructions, conditional formatting
+                const formatRequests = [
+                    // --- Header rows: sfondo scuro + testo bianco bold ---
+                    ...[
+                        SHEET_IDS.AllTransactions,
+                        SHEET_IDS.Accounts,
+                        SHEET_IDS.Categories,
+                    ].map((sheetId) => ({
+                        repeatCell: {
+                            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 0.1, green: 0.1, blue: 0.18 },
+                                    textFormat: {
+                                        bold: true,
+                                        foregroundColor: { red: 1, green: 1, blue: 1 },
+                                    },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor,textFormat)",
+                        },
+                    })),
+                    // --- Instructions: titolo MyBalance (A1) grande e bold ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 0,
+                                endRowIndex: 1,
+                                startColumnIndex: 0,
+                                endColumnIndex: 1,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    textFormat: {
+                                        bold: true,
+                                        fontSize: 18,
+                                        foregroundColor: { red: 0.1, green: 0.1, blue: 0.18 },
+                                    },
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                },
+                            },
+                            fields: "userEnteredFormat(textFormat,backgroundColor)",
+                        },
+                    },
+                    // --- Instructions: "IMPORTANTE" (A9) sfondo giallo warning + bold ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 1,
+                                endRowIndex: 9,
+                                startColumnIndex: 0,
+                                endColumnIndex: 5,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                    textFormat: { bold: true },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor,textFormat)",
+                        },
+                    },
+                    // --- Instructions: disclaimer rows (A10:A12) yellow warning background ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 9,
+                                endRowIndex: 12,
+                                startColumnIndex: 0,
+                                endColumnIndex: 5,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor)",
+                        },
+                    },
+                    // --- Conditional formatting: "in" → sfondo verde chiaro ---
+                    {
+                        addConditionalFormatRule: {
+                            rule: {
+                                ranges: [
+                                    {
+                                        sheetId: SHEET_IDS.AllTransactions,
+                                        startRowIndex: 1,
+                                        endRowIndex: 9999,
+                                    },
+                                ],
+                                booleanRule: {
+                                    condition: {
+                                        type: "CUSTOM_FORMULA",
+                                        values: [{ userEnteredValue: '=$E2="in"' }],
+                                    },
+                                    format: {
+                                        backgroundColor: { red: 0.83, green: 0.93, blue: 0.85 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    // --- Conditional formatting: "out" → sfondo rosso chiaro ---
+                    {
+                        addConditionalFormatRule: {
+                            rule: {
+                                ranges: [
+                                    {
+                                        sheetId: SHEET_IDS.AllTransactions,
+                                        startRowIndex: 1,
+                                        endRowIndex: 9999,
+                                    },
+                                ],
+                                booleanRule: {
+                                    condition: {
+                                        type: "CUSTOM_FORMULA",
+                                        values: [{ userEnteredValue: '=$E2="out"' }],
+                                    },
+                                    format: {
+                                        backgroundColor: { red: 0.97, green: 0.84, blue: 0.85 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ];
+                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, formatRequests); }));
+                console.log("Spreadsheet initialized with headers, instructions, and formatting");
             }
             catch (error) {
                 console.error("Error initializing spreadsheet:", error);
