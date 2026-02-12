@@ -10,17 +10,29 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SpreadsheetsHelper = void 0;
+const google_1 = require("../google");
+const auth_helper_1 = require("../google/auth.helper");
+const db_helper_1 = require("../db.helper");
+const migration_helper_1 = require("./migration.helper");
 class SpreadsheetsHelper {
     /**
-     * Crea nuovo spreadsheet vuoto
+     * Crea nuovo spreadsheet usando le Google Sheets API
      */
-    static createSpreadsheet(refreshToken, title, userEmail) {
+    static createSpreadsheet(userEmail, title, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Creating spreadsheet", title, "for", userEmail);
-                // Placeholder - da implementare con chiamate dirette alle API
-                return "new_spreadsheet_id_" + Date.now();
+                const res = yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.create(client, userEmail); }));
+                const spreadsheetId = res.data.spreadsheetId;
+                if (!spreadsheetId) {
+                    throw new Error("No spreadsheet ID returned from Google API");
+                }
+                // Salva lo spreadsheetId nel DB (tabella users legacy)
+                yield auth_helper_1.GoogleAuthHelper.setSpreadsheetIdForUser(userEmail, spreadsheetId);
+                // Upsert user_products con schema version corrente
+                yield db_helper_1.DbHelper.upsertUserProduct(userEmail, spreadsheetId, migration_helper_1.LATEST_SCHEMA_VERSION);
+                console.log("Spreadsheet created:", spreadsheetId);
+                return spreadsheetId;
             }
             catch (error) {
                 console.error("Error creating spreadsheet:", error);
@@ -29,17 +41,191 @@ class SpreadsheetsHelper {
         });
     }
     /**
-     * Inizializza spreadsheet con headers e struttura
+     * Inizializza spreadsheet con headers
      */
-    static initializeSpreadsheet(spreadsheetId, refreshToken) {
+    static initializeSpreadsheet(spreadsheetId, userEmail, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Initializing spreadsheet", spreadsheetId);
-                // Placeholder - da implementare:
-                // 1. Creare sheet AllTransactions, Accounts, Categories
-                // 2. Aggiungere headers
-                // 3. Impostare formattazione
+                // Header rows allineati ai COLS usati dai rispettivi helper
+                const headerData = [
+                    {
+                        range: "AllTransactions!A1:P1",
+                        values: [[
+                                "description", "category", "amount", "date", "type", "account",
+                                "status", "location", "notes", "transactionId", "movementId",
+                                "recurrenceId", "recurrencePattern", "dateAdded", "dateModified", "dateDeleted"
+                            ]],
+                    },
+                    {
+                        range: "Accounts!A1:F1",
+                        values: [[
+                                "accountName", "accountColor", "accountTxtColor",
+                                "accountImgUrl", "dateAdded", "dateModified"
+                            ]],
+                    },
+                    {
+                        range: "Categories!A1:E1",
+                        values: [[
+                                "categoryName", "categoryColor", "categoryIconUrl",
+                                "dateAdded", "dateModified"
+                            ]],
+                    },
+                ];
+                // Contenuto sheet Instructions
+                const now = new Date();
+                const dateStr = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getFullYear()} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+                const instructionsData = [
+                    { range: "Instructions!A1", values: [["MyBalance"]] },
+                    { range: "Instructions!A3", values: [["MyBalance is your personal finance management app."]] },
+                    { range: "Instructions!A5", values: [[`Schema Version: ${migration_helper_1.LATEST_SCHEMA_VERSION}`]] },
+                    { range: "Instructions!A6", values: [[`Last schema update: ${dateStr}`]] },
+                    { range: "Instructions!A7", values: [[`Last MyBalance update: ${dateStr}`]] },
+                    { range: "Instructions!A9", values: [["IMPORTANT"]] },
+                    { range: "Instructions!A10", values: [["Do not manually edit the sheets: AllTransactions, Accounts, Categories."]] },
+                    { range: "Instructions!A11", values: [["These sheets are automatically managed by the MyBalance app."]] },
+                    { range: "Instructions!A12", values: [["You can create new sheets that reference data from these sheets without any issues."]] },
+                ];
+                // Scrivi headers + contenuto Instructions
+                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.update(client, spreadsheetId, [...headerData, ...instructionsData]); }));
+                // Sheet IDs dal template
+                const SHEET_IDS = {
+                    AllTransactions: 351667172,
+                    Accounts: 1969697880,
+                    Categories: 1969697881,
+                    Instructions: 1969697882,
+                };
+                // Formattazione: headers, Instructions, conditional formatting
+                const formatRequests = [
+                    // --- Header rows: sfondo scuro + testo bianco bold ---
+                    ...[
+                        SHEET_IDS.AllTransactions,
+                        SHEET_IDS.Accounts,
+                        SHEET_IDS.Categories,
+                    ].map((sheetId) => ({
+                        repeatCell: {
+                            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 0.1, green: 0.1, blue: 0.18 },
+                                    textFormat: {
+                                        bold: true,
+                                        foregroundColor: { red: 1, green: 1, blue: 1 },
+                                    },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor,textFormat)",
+                        },
+                    })),
+                    // --- Instructions: titolo MyBalance (A1) grande e bold ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 0,
+                                endRowIndex: 1,
+                                startColumnIndex: 0,
+                                endColumnIndex: 1,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    textFormat: {
+                                        bold: true,
+                                        fontSize: 18,
+                                        foregroundColor: { red: 0.1, green: 0.1, blue: 0.18 },
+                                    },
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                },
+                            },
+                            fields: "userEnteredFormat(textFormat,backgroundColor)",
+                        },
+                    },
+                    // --- Instructions: "IMPORTANTE" (A9) sfondo giallo warning + bold ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 1,
+                                endRowIndex: 9,
+                                startColumnIndex: 0,
+                                endColumnIndex: 5,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                    textFormat: { bold: true },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor,textFormat)",
+                        },
+                    },
+                    // --- Instructions: disclaimer rows (A10:A12) yellow warning background ---
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: SHEET_IDS.Instructions,
+                                startRowIndex: 9,
+                                endRowIndex: 12,
+                                startColumnIndex: 0,
+                                endColumnIndex: 5,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 1, green: 0.95, blue: 0.8 },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor)",
+                        },
+                    },
+                    // --- Conditional formatting: "in" → sfondo verde chiaro ---
+                    {
+                        addConditionalFormatRule: {
+                            rule: {
+                                ranges: [
+                                    {
+                                        sheetId: SHEET_IDS.AllTransactions,
+                                        startRowIndex: 1,
+                                        endRowIndex: 9999,
+                                    },
+                                ],
+                                booleanRule: {
+                                    condition: {
+                                        type: "CUSTOM_FORMULA",
+                                        values: [{ userEnteredValue: '=$E2="in"' }],
+                                    },
+                                    format: {
+                                        backgroundColor: { red: 0.83, green: 0.93, blue: 0.85 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    // --- Conditional formatting: "out" → sfondo rosso chiaro ---
+                    {
+                        addConditionalFormatRule: {
+                            rule: {
+                                ranges: [
+                                    {
+                                        sheetId: SHEET_IDS.AllTransactions,
+                                        startRowIndex: 1,
+                                        endRowIndex: 9999,
+                                    },
+                                ],
+                                booleanRule: {
+                                    condition: {
+                                        type: "CUSTOM_FORMULA",
+                                        values: [{ userEnteredValue: '=$E2="out"' }],
+                                    },
+                                    format: {
+                                        backgroundColor: { red: 0.97, green: 0.84, blue: 0.85 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ];
+                yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, formatRequests); }));
+                console.log("Spreadsheet initialized with headers, instructions, and formatting");
             }
             catch (error) {
                 console.error("Error initializing spreadsheet:", error);
@@ -50,16 +236,20 @@ class SpreadsheetsHelper {
     /**
      * Valida struttura spreadsheet esistente
      */
-    static validateSpreadsheetStructure(spreadsheetId, refreshToken) {
+    static validateSpreadsheetStructure(spreadsheetId, userEmail, deviceType) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // TODO: Implementare chiamata diretta alle Google Sheets API
                 console.log("Validating spreadsheet structure", spreadsheetId);
                 const issues = [];
-                // Placeholder - da implementare:
-                // 1. Controllare esistenza sheet principali
-                // 2. Verificare headers
-                // 3. Validare struttura colonne
+                const requiredSheets = ["AllTransactions", "Accounts", "Categories"];
+                for (const sheetName of requiredSheets) {
+                    try {
+                        yield auth_helper_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return google_1.GoogleHelper.get(client, spreadsheetId, `${sheetName}!A1:A1`); }));
+                    }
+                    catch (_a) {
+                        issues.push(`Missing sheet: ${sheetName}`);
+                    }
+                }
                 return {
                     valid: issues.length === 0,
                     issues,
@@ -86,40 +276,37 @@ class SpreadsheetsHelper {
                         "date",
                         "type",
                         "account",
+                        "status",
+                        "location",
+                        "notes",
                         "transactionId",
                         "movementId",
-                        "notes",
-                        "location",
                         "recurrenceId",
+                        "recurrencePattern",
                         "dateAdded",
                         "dateModified",
                         "dateDeleted",
-                        "status",
                     ],
                 },
                 {
                     name: "Accounts",
                     headers: [
-                        "name",
-                        "description",
-                        "balance",
-                        "color",
-                        "textColor",
-                        "status",
+                        "accountName",
+                        "accountColor",
+                        "accountTxtColor",
+                        "accountImgUrl",
                         "dateAdded",
-                        "dateDeleted",
+                        "dateModified",
                     ],
                 },
                 {
                     name: "Categories",
                     headers: [
-                        "name",
-                        "description",
-                        "color",
-                        "icon",
-                        "status",
+                        "categoryName",
+                        "categoryColor",
+                        "categoryIconUrl",
                         "dateAdded",
-                        "dateDeleted",
+                        "dateModified",
                     ],
                 },
             ],

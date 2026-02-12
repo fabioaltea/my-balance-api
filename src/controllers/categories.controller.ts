@@ -3,9 +3,17 @@ import { CategoriesHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -28,17 +36,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -51,9 +54,10 @@ export class CategoriesController {
       }
 
       // Get all categories using CategoriesHelper
-      const categories = await CategoriesHelper.getCategories(
-        spreadsheetId,
-        authClient
+      const categories = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => CategoriesHelper.getCategories(spreadsheetId, client),
       );
 
       res.json({ success: true, data: categories });
@@ -78,17 +82,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -101,9 +100,10 @@ export class CategoriesController {
       }
 
       // Get categories and find the one with matching ID
-      const categories = await CategoriesHelper.getCategories(
-        spreadsheetId,
-        authClient
+      const categories = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) => CategoriesHelper.getCategories(spreadsheetId, client),
       );
 
       const category = categories.find((c) => c.name === categoryId);
@@ -138,17 +138,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -161,10 +156,11 @@ export class CategoriesController {
       }
 
       // Create category using CategoriesHelper
-      const result = await CategoriesHelper.createCategory(
-        spreadsheetId,
-        categoryData,
-        authClient
+      const result = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          CategoriesHelper.createCategory(spreadsheetId, categoryData, client),
       );
 
       res.json({ success: true, data: result });
@@ -190,17 +186,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -213,11 +204,16 @@ export class CategoriesController {
       }
 
       // Update category using CategoriesHelper
-      const updatedCategory = await CategoriesHelper.updateCategory(
-        spreadsheetId,
-        categoryId,
-        updateData,
-        authClient
+      const updatedCategory = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          CategoriesHelper.updateCategory(
+            spreadsheetId,
+            categoryId,
+            updateData,
+            client,
+          ),
       );
 
       res.json({ success: true, data: updatedCategory });
@@ -242,17 +238,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -265,10 +256,11 @@ export class CategoriesController {
       }
 
       // Delete category using CategoriesHelper
-      await CategoriesHelper.deleteCategory(
-        spreadsheetId,
-        categoryId,
-        authClient
+      await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          CategoriesHelper.deleteCategory(spreadsheetId, categoryId, client),
       );
 
       res.json({ success: true, message: "Category deleted successfully" });
@@ -284,11 +276,31 @@ export class CategoriesController {
   }
 
   /**
+   * GET /categories/default - Recupera categorie default del sistema (pubblico)
+   */
+  // public static async getDefaultCategories(
+  //   req: any,
+  //   res: Response,
+  // ): Promise<void> {
+  //   try {
+  //     const defaultCategories = CategoriesHelper.getDefaultCategories();
+  //     res.json({ success: true, data: defaultCategories });
+  //   } catch (error: any) {
+  //     console.error("Error fetching default categories:", error);
+  //     res.status(500).json({
+  //       success: false,
+  //       error: "Failed to fetch default categories",
+  //       details: error?.message,
+  //     });
+  //   }
+  // }
+
+  /**
    * POST /categories/batch - Crea categorie in batch
    */
   public static async createCategoriesBatch(
     req: any,
-    res: Response
+    res: Response,
   ): Promise<void> {
     try {
       const userEmail = req.userId;
@@ -304,17 +316,12 @@ export class CategoriesController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(
-          userEmail
-        );
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
@@ -327,10 +334,15 @@ export class CategoriesController {
       }
 
       // Create categories in batch using CategoriesHelper
-      const result = await CategoriesHelper.createCategoriesBatch(
-        spreadsheetId,
-        categories,
-        authClient
+      const result = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          CategoriesHelper.createCategoriesBatch(
+            spreadsheetId,
+            categories,
+            client,
+          ),
       );
 
       res.json({ success: true, data: result });

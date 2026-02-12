@@ -201,6 +201,54 @@ class GoogleHelper {
             }
         });
     }
+    /**
+     * Esegue operazioni strutturali sullo spreadsheet (rinomina sheet, aggiungi sheet, ecc.)
+     * Usa spreadsheets.batchUpdate (NON values.batchUpdate)
+     */
+    static batchUpdateSpreadsheet(auth, spreadsheetId, requests) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!spreadsheetId) {
+                throw new Error('Missing or invalid parameter: spreadsheetId');
+            }
+            if (!requests || requests.length === 0) {
+                throw new Error('Missing or invalid parameter: requests');
+            }
+            try {
+                const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
+                const res = yield sheets.spreadsheets.batchUpdate({
+                    spreadsheetId,
+                    requestBody: { requests },
+                });
+                return res;
+            }
+            catch (error) {
+                console.error('Error in batchUpdateSpreadsheet:', error);
+                throw new Error(`Failed batchUpdate on spreadsheet. Error: ${error}`);
+            }
+        });
+    }
+    /**
+     * Ottiene i metadati dello spreadsheet (inclusi sheetId per ogni tab)
+     */
+    static getSpreadsheetMeta(auth, spreadsheetId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!spreadsheetId) {
+                throw new Error('Missing or invalid parameter: spreadsheetId');
+            }
+            try {
+                const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
+                const res = yield sheets.spreadsheets.get({
+                    spreadsheetId,
+                    fields: 'sheets.properties',
+                });
+                return res.data.sheets || [];
+            }
+            catch (error) {
+                console.error('Error getting spreadsheet meta:', error);
+                throw new Error(`Failed to get spreadsheet metadata. Error: ${error}`);
+            }
+        });
+    }
     static create(auth, userEmail) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!userEmail) {

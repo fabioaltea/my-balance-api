@@ -8,24 +8,23 @@ import {
   ITransactionRequest,
 } from "../../models";
 
-// Mappatura colonne (0-based) stabile del foglio "AllTransactions".
-// Manteniamo i campi esistenti nelle loro posizioni originali per non rompere dati già inseriti:
+// Mappatura colonne (0-based) del foglio "AllTransactions" — Schema v2.
 // A: description (0)
 // B: category (1)
 // C: amount (2)
 // D: date (3)
-// E: status (4)
-// F: location (5)
-// G: transactionId (6)
-// H: movementId (7)
-// I: recurrenceId (8)
-// J: type (9) [nuovo]
-// K: notes (10) [nuovo]
-// L: dateAdded (11)
-// M: dateModified (12)
-// N: dateDeleted (13)
-// O: account (14) [nuovo]
-// P-Z: liberi
+// E: type (4)
+// F: account (5)
+// G: status (6)
+// H: location (7)
+// I: notes (8)
+// J: transactionId (9)
+// K: movementId (10)
+// L: recurrenceId (11)
+// M: recurrencePattern (12)
+// N: dateAdded (13)
+// O: dateModified (14)
+// P: dateDeleted (15)
 const COLS = {
   DESCRIPTION: 0,
   CATEGORY: 1,
@@ -33,21 +32,33 @@ const COLS = {
   DATE: 3,
   TYPE: 4,
   ACCOUNT: 5,
-  TRANSACTION_ID: 6,
-  MOVEMENT_ID: 7,
+  STATUS: 6,
+  LOCATION: 7,
   NOTES: 8,
-  LOCATION: 9,
-  RECURRENCE_ID: 10,
-  DATE_ADDED: 11, // L (index 11)
-  DATE_MODIFIED: 12, // M (index 12)
-  DATE_DELETED: 13, // N (index 13)
-  STATUS: 14,
-  RECURRENCE_PATTERN: 15, // P (index 15) - ISO 8601 duration format
+  TRANSACTION_ID: 9,
+  MOVEMENT_ID: 10,
+  RECURRENCE_ID: 11,
+  RECURRENCE_PATTERN: 12,
+  DATE_ADDED: 13,
+  DATE_MODIFIED: 14,
+  DATE_DELETED: 15,
 } as const;
 
 // Range base usato per operazioni
 const SHEET_RANGE = "AllTransactions!A2:Z";
 const SHEET_NAME = "AllTransactions";
+
+// Interfaccia per filtri opzionali
+export interface ITransactionFilters {
+  from_date?: string; // dd-MM-yyyy format
+  to_date?: string; // dd-MM-yyyy format
+  account?: string;
+  category?: string;
+  type?: "in" | "out";
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export class TransactionsHelper {
   // Pattern riconosciuto se già nel formato desiderato yyyy-MM-dd hh:mm
@@ -353,7 +364,8 @@ export class TransactionsHelper {
 
   public static async listTransactions(
     authClient: any,
-    spreadsheetId: string
+    spreadsheetId: string,
+    filters?: ITransactionFilters
   ): Promise<ITransaction[]> {
     const rows: any[][] = await GoogleHelper.get(
       authClient,
@@ -363,7 +375,7 @@ export class TransactionsHelper {
     if (!rows || rows.length === 0) return [];
 
     // Converte tutte le righe in transactions
-    const transactions: ITransaction[] = [];
+    let transactions: ITransaction[] = [];
     rows.forEach((r, i) => {
       const p = this.rowToTransaction(r, i);
       if (p && p.transaction.status !== "DELETED") {
@@ -371,8 +383,90 @@ export class TransactionsHelper {
       }
     });
 
-    // Raggruppa per movementId
+    // Apply filters if provided
+    if (filters) {
+      transactions = this.applyFilters(transactions, filters);
+    }
+
     return transactions;
+  }
+
+  // Apply filters to transactions in-memory
+  private static applyFilters(
+    transactions: ITransaction[],
+    filters: ITransactionFilters
+  ): ITransaction[] {
+    let filtered = [...transactions];
+
+    // Filter by date range
+    if (filters.from_date) {
+      const fromDate = this.parseDateForFilter(filters.from_date);
+      if (fromDate) {
+        filtered = filtered.filter((t) => {
+          const tDate = this.parseDateForFilter(t.date);
+          return tDate && tDate >= fromDate;
+        });
+      }
+    }
+
+    if (filters.to_date) {
+      const toDate = this.parseDateForFilter(filters.to_date);
+      if (toDate) {
+        filtered = filtered.filter((t) => {
+          const tDate = this.parseDateForFilter(t.date);
+          return tDate && tDate <= toDate;
+        });
+      }
+    }
+
+    // Filter by account
+    if (filters.account) {
+      filtered = filtered.filter((t) => t.account === filters.account);
+    }
+
+    // Filter by category
+    if (filters.category) {
+      filtered = filtered.filter((t) => t.category === filters.category);
+    }
+
+    // Filter by type
+    if (filters.type) {
+      filtered = filtered.filter((t) => t.type === filters.type);
+    }
+
+    // Filter by status
+    if (filters.status) {
+      filtered = filtered.filter((t) => t.status === filters.status);
+    }
+
+    // Apply offset
+    if (filters.offset && filters.offset > 0) {
+      filtered = filtered.slice(filters.offset);
+    }
+
+    // Apply limit only if explicitly provided (for backward compatibility)
+    if (filters.limit !== undefined) {
+      const limit = Math.min(filters.limit, 1000);
+      if (limit > 0) {
+        filtered = filtered.slice(0, limit);
+      }
+    }
+
+    return filtered;
+  }
+
+  // Parse date string in dd-MM-yyyy format to Date object for filtering
+  private static parseDateForFilter(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    
+    // Handle dd-MM-yyyy format
+    const match = dateStr.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (match) {
+      const [, day, month, year] = match;
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    return null;
   }
 
   // GET movimento per movementId
@@ -642,5 +736,70 @@ export class TransactionsHelper {
   private static extractRowNumberFromRange(range: string): string {
     const match = range.match(/(\d+)$/);
     return match ? match[1] : "1";
+  }
+
+  /**
+   * GET /transactions/delta - Returns transactions modified since a specific timestamp
+   * @param authClient - Google auth client
+   * @param spreadsheetId - The spreadsheet ID
+   * @param since - ISO timestamp string (e.g., "2024-12-01T10:30:00")
+   * @returns Transactions modified after the given timestamp
+   */
+  public static async listTransactionsDelta(
+    authClient: any,
+    spreadsheetId: string,
+    since: string
+  ): Promise<ITransaction[]> {
+    const rows: any[][] = await GoogleHelper.get(
+      authClient,
+      spreadsheetId,
+      SHEET_RANGE
+    );
+    if (!rows || rows.length === 0) return [];
+
+    // Parse the since parameter
+    const sinceDate = new Date(since);
+    if (isNaN(sinceDate.getTime())) {
+      throw new Error(
+        "Invalid 'since' parameter. Expected ISO timestamp format (e.g., '2024-12-01T10:30:00' or '2024-12-01T10:30:00Z')."
+      );
+    }
+
+    // Convert all rows to transactions and filter by dateModified
+    const transactions: ITransaction[] = [];
+    rows.forEach((r, i) => {
+      const p = this.rowToTransaction(r, i);
+      if (p && p.transaction.status !== "DELETED") {
+        // Parse dateModified (format: yyyy-MM-dd HH:mm)
+        const dateModified = this.parseMetaDateToDate(p.transaction.dateModified);
+        if (dateModified && dateModified > sinceDate) {
+          transactions.push(p.transaction);
+        }
+      }
+    });
+
+    return transactions;
+  }
+
+  /**
+   * Parse meta date string (yyyy-MM-dd HH:mm) to Date object
+   */
+  private static parseMetaDateToDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    
+    // Handle yyyy-MM-dd HH:mm format
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      return new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      );
+    }
+    
+    return null;
   }
 }

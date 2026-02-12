@@ -5,24 +5,27 @@ import { ITransaction, IAccount, IAccountData } from "../../models";
 const SHEET_NAME = "Accounts";
 const SHEET_RANGE = "Accounts!A2:Z";
 
-// Mappatura colonne del foglio "Accounts" (0-based)
+// Mappatura colonne del foglio "Accounts" (0-based) — Schema v3
 const COLS = {
-  NAME: 0, // A: accountName
-  START_BALANCE: 1, // B: accountStartBalance
-  CURRENT_BALANCE: 2, // C: accountCurBalance (formula)
-  COLOR: 3, // D: accountColor
-  TEXT_COLOR: 4, // E: accountTxtColor
-  IMAGE_URL: 5, // F: accountImgUrl
-  IS_TOTAL: 6, // G: isTotal
+  NAME: 0,        // A: accountName
+  COLOR: 1,       // B: accountColor
+  TEXT_COLOR: 2,   // C: accountTxtColor
+  IMAGE_URL: 3,    // D: accountImgUrl
+  DATE_ADDED: 4,   // E: dateAdded
+  DATE_MODIFIED: 5, // F: dateModified
 } as const;
 
 export class AccountsHelper {
   /**
    * Recupera tutti gli accounts dal sheet "Accounts"
+   * @param spreadsheetId - The spreadsheet ID
+   * @param authClient - Google auth client
+   * @param calculateBalance - If true, calculates balance from transactions (default: true). If false, uses balance from sheet.
    */
   static async getAccounts(
     spreadsheetId: string,
     authClient: any,
+    calculateBalance: boolean = true
   ): Promise<IAccount[]> {
     try {
       const auth = authClient;
@@ -34,13 +37,19 @@ export class AccountsHelper {
 
       if (!rows || rows.length === 0) return [];
 
-      // Recupera anche tutte le transazioni per calcolare i balance reali
-      console.log("📊 Fetching transactions to calculate account balances...");
-      const transactions = await TransactionsHelper.listTransactions(
-        auth,
-        spreadsheetId,
-      );
-      console.log(`📊 Found ${transactions.length} transactions`);
+      let transactions: ITransaction[] = [];
+      
+      // Only fetch transactions if we need to calculate balance
+      if (calculateBalance) {
+        console.log("📊 Fetching transactions to calculate account balances...");
+        transactions = await TransactionsHelper.listTransactions(
+          auth,
+          spreadsheetId,
+        );
+        console.log(`📊 Found ${transactions.length} transactions`);
+      } else {
+        console.log("📊 Using balance from sheet (calculate_balance=false)");
+      }
 
       const accounts: IAccount[] = [];
 
@@ -50,29 +59,27 @@ export class AccountsHelper {
 
       for (let i = startIndex; i < rows.length; i++) {
         const row = rows[i];
-        if (!row || row.length === 0 || row[COLS.IS_TOTAL] === "1") continue;
+        if (!row || row.length === 0) continue;
 
         const account = this.rowToAccount(row, i);
         if (account && !account.name.startsWith("DELETED_")) {
-          // Calcola il balance reale per questo account
-          const calculatedBalance = this.calculateAccountBalance(
-            account.name,
-            transactions,
-          );
+          if (calculateBalance) {
+            // Calcola il balance reale per questo account
+            const calculatedBalance = this.calculateAccountBalance(
+              account.name,
+              transactions,
+            );
 
-          // Sostituisci il balance del sheet con quello calcolato
-          account.balance = this.formatBalance(calculatedBalance);
+            // Sostituisci il balance del sheet con quello calcolato
+            account.balance = this.formatBalance(calculatedBalance);
 
-          console.log(
-            `💰 Account "${account.name}": calculated balance = ${account.balance}`,
-          );
-
+          } 
           accounts.push(account);
         }
       }
 
       console.log(
-        `📊 Returning ${accounts.length} accounts with calculated balances`,
+        `📊 Returning ${accounts.length} accounts`,
       );
       return accounts;
     } catch (error) {
@@ -86,29 +93,20 @@ export class AccountsHelper {
    */
   static async createAccount(
     spreadsheetId: string,
-    refreshToken: string,
+    authClient: any,
     accountData: IAccountData,
   ): Promise<IAccount> {
     try {
-      const auth = { refresh_token: refreshToken };
+      const auth = authClient;
+      const now = this.formatDateTime(new Date());
 
-      // Prima otteniamo il numero di righe per calcolare la posizione
-      const currentRows = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-      );
-      const nextRowNum = (currentRows?.length || 0) + 1;
-
-      // Prepara la riga da inserire seguendo la struttura del sheet
       const newRow = [
-        accountData.name, // A: name
-        "0", // B: start balance
-        `=B${nextRowNum}+SOMMA.SE(AllTransactions!F:F;A${nextRowNum};AllTransactions!C:C)`, // C: formula per balance corrente
-        accountData.color || "#808080", // D: color
-        accountData.textColor || "#ffffff", // E: text color
-        "", // F: image url (vuoto)
-        "0", // G: is total (0 = false)
+        accountData.name,                // A: accountName
+        accountData.color || "#808080",   // B: accountColor
+        accountData.textColor || "#ffffff", // C: accountTxtColor
+        "",                               // D: accountImgUrl
+        now,                              // E: dateAdded
+        now,                              // F: dateModified
       ];
 
       const body = {
@@ -117,15 +115,9 @@ export class AccountsHelper {
         values: [newRow],
       };
 
-      const result = await GoogleHelper.append(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-        body,
-      );
+      await GoogleHelper.append(auth, spreadsheetId, SHEET_RANGE, body);
 
-      // Crea l'oggetto account di risposta
-      const newAccount: IAccount = {
+      return {
         accountId: this.generateId(),
         name: accountData.name,
         description: accountData.description || "",
@@ -133,10 +125,8 @@ export class AccountsHelper {
         color: accountData.color || "#808080",
         textColor: accountData.textColor || "#ffffff",
         status: "ACTIVE",
-        dateAdded: this.formatDateTime(new Date()),
+        dateAdded: now,
       };
-
-      return newAccount;
     } catch (error) {
       console.error("Error creating account:", error);
       throw error;
@@ -148,12 +138,12 @@ export class AccountsHelper {
    */
   static async updateAccount(
     spreadsheetId: string,
-    refreshToken: string,
+    authClient: any,
     accountId: string,
     updateData: Partial<IAccountData>,
   ): Promise<IAccount> {
     try {
-      const auth = { refresh_token: refreshToken };
+      const auth = authClient;
 
       // Prima trova l'account da aggiornare
       const rows: any[][] = await GoogleHelper.get(
@@ -187,24 +177,15 @@ export class AccountsHelper {
       const updatedRow = [...rows[targetRowIndex]];
       if (updateData.name) updatedRow[COLS.NAME] = updateData.name;
       if (updateData.color) updatedRow[COLS.COLOR] = updateData.color;
-      if (updateData.textColor)
-        updatedRow[COLS.TEXT_COLOR] = updateData.textColor;
+      if (updateData.textColor) updatedRow[COLS.TEXT_COLOR] = updateData.textColor;
+      updatedRow[COLS.DATE_MODIFIED] = this.formatDateTime(new Date());
 
-      // Aggiorna il balance solo se fornito (attenzione alle formule)
-      if (updateData.balance) {
-        updatedRow[COLS.START_BALANCE] = updateData.balance;
-      }
+      const rowNumber = targetRowIndex + 2; // +2: skip header row + 1-based
+      const updateRange = `${SHEET_NAME}!A${rowNumber}:F${rowNumber}`;
 
-      const rowNumber = targetRowIndex + 1; // 1-based per Google Sheets
-      const updateRange = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-
-      const updateBody = {
-        majorDimension: "ROWS",
-        range: updateRange,
-        values: [updatedRow],
-      };
-
-      await GoogleHelper.update(auth, spreadsheetId, updateBody);
+      await GoogleHelper.update(auth, spreadsheetId, [
+        { range: updateRange, values: [updatedRow] },
+      ]);
 
       // Ritorna l'account aggiornato
       return {
@@ -228,11 +209,11 @@ export class AccountsHelper {
    */
   static async deleteAccount(
     spreadsheetId: string,
-    refreshToken: string,
+    authClient: any,
     accountId: string,
   ): Promise<void> {
     try {
-      const auth = { refresh_token: refreshToken };
+      const auth = authClient;
 
       // Prima trova l'account da eliminare
       const rows: any[][] = await GoogleHelper.get(
@@ -283,38 +264,26 @@ export class AccountsHelper {
    */
   static async createAccountsBatch(
     spreadsheetId: string,
-    refreshToken: string,
+    authClient: any,
     accounts: IAccountData[],
   ): Promise<IAccount[]> {
     try {
-      const auth = { refresh_token: refreshToken };
+      const auth = authClient;
+      const now = this.formatDateTime(new Date());
 
-      // Prima otteniamo il numero di righe per calcolare la posizione
-      const currentRows = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-      );
-      let nextRowNum = (currentRows?.length || 0) + 1;
-
-      // Prepara tutte le righe da inserire
       const newRows: any[][] = [];
       const resultAccounts: IAccount[] = [];
 
       for (const accountData of accounts) {
-        const newRow = [
-          accountData.name, // A: name
-          "0", // B: start balance
-          `=B${nextRowNum}+SOMMA.SE(AllTransactions!F:F;A${nextRowNum};AllTransactions!C:C)`, // C: formula per balance corrente
-          accountData.color || "#808080", // D: color
-          accountData.textColor || "#ffffff", // E: text color
-          "", // F: image url (vuoto)
-          "0", // G: is total (0 = false)
-        ];
+        newRows.push([
+          accountData.name,                  // A: accountName
+          accountData.color || "#808080",     // B: accountColor
+          accountData.textColor || "#ffffff", // C: accountTxtColor
+          "",                                // D: accountImgUrl
+          now,                               // E: dateAdded
+          now,                               // F: dateModified
+        ]);
 
-        newRows.push(newRow);
-
-        // Crea l'oggetto account di risposta
         resultAccounts.push({
           accountId: this.generateId(),
           name: accountData.name,
@@ -323,13 +292,10 @@ export class AccountsHelper {
           color: accountData.color || "#808080",
           textColor: accountData.textColor || "#ffffff",
           status: "ACTIVE",
-          dateAdded: this.formatDateTime(new Date()),
+          dateAdded: now,
         });
-
-        nextRowNum++; // Incrementa per la formula della prossima riga
       }
 
-      // Esegue l'inserimento batch
       const body = {
         majorDimension: "ROWS",
         range: SHEET_RANGE,
@@ -374,9 +340,7 @@ export class AccountsHelper {
       }
     }
 
-    console.log(
-      `🧮 Final calculated balance for "${accountName}": ${totalBalance}`,
-    );
+  
     return totalBalance;
   }
 
@@ -430,14 +394,12 @@ export class AccountsHelper {
       return {
         accountId: `acc_${rowIndex}_${name.replace(/\s+/g, "_")}`,
         name: name,
-        description: "", // Non abbiamo description nel sheet legacy
-        balance: this.formatBalance(
-          row[COLS.CURRENT_BALANCE] || row[COLS.START_BALANCE] || "0",
-        ),
+        description: "",
+        balance: "€ 0,00", // Balance calcolato dalle transazioni, non dal sheet
         color: row[COLS.COLOR] || "#808080",
         textColor: row[COLS.TEXT_COLOR] || "#ffffff",
-        status: "ACTIVE", // Assumiamo tutti attivi
-        dateAdded: this.formatDateTime(new Date()), // Non abbiamo data nel sheet legacy
+        status: "ACTIVE",
+        dateAdded: row[COLS.DATE_ADDED] || "",
       };
     } catch (error) {
       console.error("Error parsing account row:", error);

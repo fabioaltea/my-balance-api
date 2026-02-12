@@ -6,9 +6,17 @@ import { IAccount } from "../models";
 import crypto from "crypto";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -142,16 +150,22 @@ export class ShortcutController {
       }
 
       // Get session for this user to retrieve Google tokens
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        user.email,
-        "ios", // Assume iOS for shortcut
-      );
+      const deviceType = "ios"; // Assume iOS for shortcut
 
       // Get user's accounts and find the best matching account
-      const accounts = await AccountsHelper.getAccounts(spreadsheetId, authClient);
-      const matchedAccount = ShortcutController.findBestAccountMatch(account, accounts);
+      const accounts = await GoogleAuthHelper.executeWithRetry(
+        user.email,
+        deviceType,
+        async (client) => AccountsHelper.getAccounts(spreadsheetId, client),
+      );
+      const matchedAccount = ShortcutController.findBestAccountMatch(
+        account,
+        accounts,
+      );
 
-      console.log(`🔍 Account matching: input="${account}" -> matched="${matchedAccount}"`);
+      console.log(
+        `🔍 Account matching: input="${account}" -> matched="${matchedAccount}"`,
+      );
 
       // Create movement with "unconfirmed" status
       const movement = {
@@ -174,10 +188,11 @@ export class ShortcutController {
       };
 
       // Save movement to Google Sheets using TransactionsHelper
-      const result = await TransactionsHelper.appendMovement(
-        authClient,
-        spreadsheetId,
-        movement,
+      const result = await GoogleAuthHelper.executeWithRetry(
+        user.email,
+        deviceType,
+        async (client) =>
+          TransactionsHelper.appendMovement(client, spreadsheetId, movement),
       );
 
       // Send push notification if user has a push token
@@ -207,7 +222,8 @@ export class ShortcutController {
         message: "Movement created successfully via shortcut",
       });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "createMovementViaShortcut")) return;
+      if (handleGoogleTokenError(error, res, "createMovementViaShortcut"))
+        return;
       console.error("Error creating movement via shortcut:", error);
       res.status(500).json({
         success: false,
@@ -230,9 +246,7 @@ export class ShortcutController {
     const input = inputAccount.toLowerCase().trim();
 
     // 1. Exact match (case insensitive)
-    const exactMatch = accounts.find(
-      (a) => a.name.toLowerCase() === input,
-    );
+    const exactMatch = accounts.find((a) => a.name.toLowerCase() === input);
     if (exactMatch) return exactMatch.name;
 
     // 2. Partial match (input contains account name or vice versa)

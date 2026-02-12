@@ -220,13 +220,100 @@ class GoogleAuthHelper {
             }
         });
     }
+    /**
+     * Execute a Google API call with automatic retry on authentication errors
+     * Handles token refresh and rotation transparently
+     *
+     * @param userEmail - User email for token management
+     * @param deviceType - Device type for client configuration
+     * @param apiCall - Async function that performs the API call
+     * @returns Result of the API call
+     */
+    static executeWithRetry(userEmail, deviceType, apiCall) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            // Get the auth client (without preventive refresh)
+            let client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+            try {
+                // Try the API call first
+                return yield apiCall(client);
+            }
+            catch (error) {
+                // Check if this is an authentication error that requires token refresh
+                const errorMessage = ((_a = error.message) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || "";
+                const errorCode = error.code;
+                const isAuthError = errorCode === 401 ||
+                    errorCode === 403 ||
+                    errorMessage.includes("invalid_grant") ||
+                    errorMessage.includes("invalid credentials") ||
+                    (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+                    (errorMessage.includes("token") && errorMessage.includes("revoked"));
+                if (!isAuthError) {
+                    // Not an auth error, just throw it
+                    throw error;
+                }
+                console.log(`🔄 Auth error detected for ${userEmail}, attempting token refresh and retry...`);
+                // Use lock to prevent concurrent refresh attempts for the same user
+                const lockKey = `${userEmail}:${deviceType}`;
+                const existingLock = GoogleAuthHelper.refreshLocks.get(lockKey);
+                if (existingLock) {
+                    // Wait for ongoing refresh to complete
+                    yield existingLock;
+                    // Get fresh client after lock is released
+                    client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                    // Retry with refreshed client
+                    return yield apiCall(client);
+                }
+                // Create new lock for this refresh operation
+                const refreshPromise = (() => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        // Create a new helper to perform the refresh
+                        const helper = new GoogleAuthHelper(deviceType);
+                        // Get and decrypt refresh token
+                        const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType);
+                        if (!encryptedToken) {
+                            throw new GoogleTokenError(`No refresh token found for ${userEmail}`, "GOOGLE_TOKEN_NOT_FOUND");
+                        }
+                        const refreshToken = crypto_helper_1.CryptoHelper.decrypt(encryptedToken);
+                        helper.setCredentials(refreshToken);
+                        // Perform the refresh
+                        const refreshResult = yield helper.refreshAccessToken();
+                        // Handle token rotation if Google returned a new refresh token
+                        if (refreshResult.newRefreshToken) {
+                            console.log(`💾 Saving rotated refresh token for ${userEmail} (${deviceType})`);
+                            const encryptedNewToken = crypto_helper_1.CryptoHelper.encrypt(refreshResult.newRefreshToken);
+                            yield db_helper_1.DbHelper.storeGoogleRefreshToken(userEmail, encryptedNewToken, deviceType);
+                            console.log("✅ Rotated refresh token saved");
+                        }
+                    }
+                    catch (refreshError) {
+                        console.error("Failed to refresh token:", refreshError);
+                        throw refreshError;
+                    }
+                    finally {
+                        // Remove lock when done
+                        GoogleAuthHelper.refreshLocks.delete(lockKey);
+                    }
+                }))();
+                // Store the lock
+                GoogleAuthHelper.refreshLocks.set(lockKey, refreshPromise);
+                // Wait for refresh to complete
+                yield refreshPromise;
+                // Get fresh client with refreshed token
+                client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
+                // Retry the API call with refreshed credentials
+                console.log(`♻️  Retrying API call for ${userEmail} with refreshed token`);
+                return yield apiCall(client);
+            }
+        });
+    }
     // ============================================================================
     // STATIC METHODS - Database operations & authenticated client factory
     // ============================================================================
     /**
      * Get an authenticated OAuth2 client for a user (with refresh token from DB)
      * This is the main method for making API calls (Sheets, etc.)
-     * Handles token rotation by saving new refresh tokens to DB
+     * Note: Token refresh happens lazily when API calls fail (handled by retry wrapper)
      */
     static getAuthClientForUser(userEmail_1) {
         return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = "web") {
@@ -241,18 +328,8 @@ class GoogleAuthHelper {
                 // Create helper with the correct device type
                 const helper = new GoogleAuthHelper(deviceType);
                 // Set the refresh token credentials
+                // OAuth2Client will automatically refresh when needed during API calls
                 helper.setCredentials(refreshToken);
-                // Refresh access token to ensure it's valid
-                const refreshResult = yield helper.refreshAccessToken();
-                // If Google returned a new refresh token (token rotation), save it
-                if (refreshResult.newRefreshToken) {
-                    console.log(`💾 Saving rotated Google refresh token for user: ${userEmail}, deviceType: ${deviceType}`);
-                    const encryptedNewToken = crypto_helper_1.CryptoHelper.encrypt(refreshResult.newRefreshToken);
-                    yield db_helper_1.DbHelper.storeGoogleRefreshToken(userEmail, encryptedNewToken, deviceType);
-                    console.log("✅ Rotated Google refresh token saved successfully");
-                    // Update client credentials with new refresh token
-                    helper.setCredentials(refreshResult.newRefreshToken);
-                }
                 return helper.getClient();
             }
             catch (error) {
@@ -302,4 +379,9 @@ class GoogleAuthHelper {
 }
 exports.GoogleAuthHelper = GoogleAuthHelper;
 exports.GoogleOAuthHelper = GoogleAuthHelper;
+// ============================================================================
+// RETRY WRAPPER - Execute API calls with automatic token refresh on auth errors
+// ============================================================================
+// Track ongoing refresh operations per user to avoid concurrent refreshes
+GoogleAuthHelper.refreshLocks = new Map();
 //# sourceMappingURL=auth.helper.js.map

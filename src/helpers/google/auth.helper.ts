@@ -139,7 +139,10 @@ export class GoogleAuthHelper {
       // If redirectUri is provided, use it (needed for web where the URI is dynamic)
       if (params.redirectUri) {
         tokenRequest.redirect_uri = params.redirectUri;
-        console.log("Using custom redirect URI for token exchange:", params.redirectUri);
+        console.log(
+          "Using custom redirect URI for token exchange:",
+          params.redirectUri,
+        );
       }
 
       const { tokens } = await this.client.getToken(tokenRequest);
@@ -279,13 +282,149 @@ export class GoogleAuthHelper {
   }
 
   // ============================================================================
+  // RETRY WRAPPER - Execute API calls with automatic token refresh on auth errors
+  // ============================================================================
+
+  // Track ongoing refresh operations per user to avoid concurrent refreshes
+  private static refreshLocks: Map<string, Promise<void>> = new Map();
+
+  /**
+   * Execute a Google API call with automatic retry on authentication errors
+   * Handles token refresh and rotation transparently
+   *
+   * @param userEmail - User email for token management
+   * @param deviceType - Device type for client configuration
+   * @param apiCall - Async function that performs the API call
+   * @returns Result of the API call
+   */
+  public static async executeWithRetry<T>(
+    userEmail: string,
+    deviceType: DeviceType,
+    apiCall: (client: OAuth2Client) => Promise<T>,
+  ): Promise<T> {
+    // Get the auth client (without preventive refresh)
+    let client = await GoogleAuthHelper.getAuthClientForUser(
+      userEmail,
+      deviceType,
+    );
+
+    try {
+      // Try the API call first
+      return await apiCall(client);
+    } catch (error: any) {
+      // Check if this is an authentication error that requires token refresh
+      const errorMessage = error.message?.toLowerCase() || "";
+      const errorCode = error.code;
+      const isAuthError =
+        errorCode === 401 ||
+        errorCode === 403 ||
+        errorMessage.includes("invalid_grant") ||
+        errorMessage.includes("invalid credentials") ||
+        (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+        (errorMessage.includes("token") && errorMessage.includes("revoked"));
+
+      if (!isAuthError) {
+        // Not an auth error, just throw it
+        throw error;
+      }
+
+      console.log(
+        `🔄 Auth error detected for ${userEmail}, attempting token refresh and retry...`,
+      );
+
+      // Use lock to prevent concurrent refresh attempts for the same user
+      const lockKey = `${userEmail}:${deviceType}`;
+      const existingLock = GoogleAuthHelper.refreshLocks.get(lockKey);
+
+      if (existingLock) {
+        // Wait for ongoing refresh to complete
+        await existingLock;
+        // Get fresh client after lock is released
+        client = await GoogleAuthHelper.getAuthClientForUser(
+          userEmail,
+          deviceType,
+        );
+        // Retry with refreshed client
+        return await apiCall(client);
+      }
+
+      // Create new lock for this refresh operation
+      const refreshPromise = (async () => {
+        try {
+          // Create a new helper to perform the refresh
+          const helper = new GoogleAuthHelper(deviceType);
+
+          // Get and decrypt refresh token
+          const encryptedToken = await DbHelper.getGoogleRefreshToken(
+            userEmail,
+            deviceType,
+          );
+
+          if (!encryptedToken) {
+            throw new GoogleTokenError(
+              `No refresh token found for ${userEmail}`,
+              "GOOGLE_TOKEN_NOT_FOUND",
+            );
+          }
+
+          const refreshToken = CryptoHelper.decrypt(encryptedToken);
+          helper.setCredentials(refreshToken);
+
+          // Perform the refresh
+          const refreshResult = await helper.refreshAccessToken();
+
+          // Handle token rotation if Google returned a new refresh token
+          if (refreshResult.newRefreshToken) {
+            console.log(
+              `💾 Saving rotated refresh token for ${userEmail} (${deviceType})`,
+            );
+            const encryptedNewToken = CryptoHelper.encrypt(
+              refreshResult.newRefreshToken,
+            );
+            await DbHelper.storeGoogleRefreshToken(
+              userEmail,
+              encryptedNewToken,
+              deviceType,
+            );
+            console.log("✅ Rotated refresh token saved");
+          }
+        } catch (refreshError: any) {
+          console.error("Failed to refresh token:", refreshError);
+          throw refreshError;
+        } finally {
+          // Remove lock when done
+          GoogleAuthHelper.refreshLocks.delete(lockKey);
+        }
+      })();
+
+      // Store the lock
+      GoogleAuthHelper.refreshLocks.set(lockKey, refreshPromise);
+
+      // Wait for refresh to complete
+      await refreshPromise;
+
+      // Get fresh client with refreshed token
+      client = await GoogleAuthHelper.getAuthClientForUser(
+        userEmail,
+        deviceType,
+      );
+
+      // Retry the API call with refreshed credentials
+      console.log(
+        `♻️  Retrying API call for ${userEmail} with refreshed token`,
+      );
+      return await apiCall(client);
+    }
+  }
+
+  // ============================================================================
   // STATIC METHODS - Database operations & authenticated client factory
   // ============================================================================
 
   /**
    * Get an authenticated OAuth2 client for a user (with refresh token from DB)
    * This is the main method for making API calls (Sheets, etc.)
-   * Handles token rotation by saving new refresh tokens to DB
+   * Note: Token refresh happens lazily when API calls fail (handled by retry wrapper)
    */
   public static async getAuthClientForUser(
     userEmail: string,
@@ -312,29 +451,8 @@ export class GoogleAuthHelper {
       const helper = new GoogleAuthHelper(deviceType);
 
       // Set the refresh token credentials
+      // OAuth2Client will automatically refresh when needed during API calls
       helper.setCredentials(refreshToken);
-
-      // Refresh access token to ensure it's valid
-      const refreshResult = await helper.refreshAccessToken();
-
-      // If Google returned a new refresh token (token rotation), save it
-      if (refreshResult.newRefreshToken) {
-        console.log(
-          `💾 Saving rotated Google refresh token for user: ${userEmail}, deviceType: ${deviceType}`,
-        );
-        const encryptedNewToken = CryptoHelper.encrypt(
-          refreshResult.newRefreshToken,
-        );
-        await DbHelper.storeGoogleRefreshToken(
-          userEmail,
-          encryptedNewToken,
-          deviceType,
-        );
-        console.log("✅ Rotated Google refresh token saved successfully");
-
-        // Update client credentials with new refresh token
-        helper.setCredentials(refreshResult.newRefreshToken);
-      }
 
       return helper.getClient();
     } catch (error: any) {

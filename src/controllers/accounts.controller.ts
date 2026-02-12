@@ -3,9 +3,17 @@ import { AccountsHelper, TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
+function handleGoogleTokenError(
+  error: any,
+  res: Response,
+  context: string,
+): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
     res.status(401).json({
       success: false,
       error: error.message,
@@ -34,10 +42,6 @@ export class AccountsController {
 
       // Get user's Google auth client with proper credentials
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType,
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -57,10 +61,16 @@ export class AccountsController {
 
       console.log("📊 Reading accounts from spreadsheet:", spreadsheetId);
 
+      // Parse calculate_balance parameter (default: true for backward compatibility)
+      const calculateBalance = req.query.calculate_balance !== "false";
+      console.log("📊 Calculate balance:", calculateBalance);
+
       // Get all accounts using AccountsHelper
-      const accounts = await AccountsHelper.getAccounts(
-        spreadsheetId,
-        authClient,
+      const accounts = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          AccountsHelper.getAccounts(spreadsheetId, client, calculateBalance),
       );
 
       console.log("💰 Accounts fetched successfully:", accounts.length);
@@ -85,10 +95,6 @@ export class AccountsController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType,
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -106,27 +112,18 @@ export class AccountsController {
         return;
       }
 
-      // Get refresh token from auth client
-      const refreshToken = (authClient as any).credentials.refresh_token;
-      if (!refreshToken) {
-        res.status(401).json({
-          success: false,
-          error: "No refresh token found for user",
-        });
-        return;
-      }
-
       // Create new account using AccountsHelper
-      const account = await AccountsHelper.createAccount(
-        spreadsheetId,
-        refreshToken,
-        {
-          name: name || "Unnamed Account",
-          description: description || "",
-          balance: balance || "0,00",
-          color: color || "#808080",
-          textColor: textColor || "#ffffff",
-        },
+      const account = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          AccountsHelper.createAccount(spreadsheetId, client, {
+            name: name || "Unnamed Account",
+            description: description || "",
+            balance: balance || "0,00",
+            color: color || "#808080",
+            textColor: textColor || "#ffffff",
+          }),
       );
 
       res.json({ success: true, data: account });
@@ -158,10 +155,6 @@ export class AccountsController {
 
       // Get user's Google auth client with proper credentials
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType,
-      );
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
@@ -181,24 +174,17 @@ export class AccountsController {
 
       console.log("📊 Updating account in spreadsheet:", spreadsheetId);
 
-      // Get refresh token from auth client
-      const refreshToken = (authClient as any).credentials.refresh_token;
-      if (!refreshToken) {
-        res.status(401).json({
-          success: false,
-          error: "No refresh token found for user",
-        });
-        return;
-      }
-
       // Se è prevista la modifica del nome, recupera prima l'account corrente
       let oldAccountName: string | null = null;
       if (updateData.name) {
-        const accounts = await AccountsHelper.getAccounts(
-          spreadsheetId,
-          authClient,
+        const accounts = await GoogleAuthHelper.executeWithRetry(
+          userEmail,
+          deviceType,
+          async (client) => AccountsHelper.getAccounts(spreadsheetId, client),
         );
-        const currentAccount = accounts.find((acc) => acc.accountId === accountId);
+        const currentAccount = accounts.find(
+          (acc) => acc.accountId === accountId,
+        );
         if (currentAccount && currentAccount.name !== updateData.name) {
           oldAccountName = currentAccount.name;
           console.log(
@@ -208,11 +194,16 @@ export class AccountsController {
       }
 
       // Update account using AccountsHelper
-      const updatedAccount = await AccountsHelper.updateAccount(
-        spreadsheetId,
-        refreshToken,
-        accountId,
-        updateData,
+      const updatedAccount = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          AccountsHelper.updateAccount(
+            spreadsheetId,
+            client,
+            accountId,
+            updateData,
+          ),
       );
 
       // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome
@@ -220,14 +211,20 @@ export class AccountsController {
         console.log(
           `📊 Updating transactions from account "${oldAccountName}" to "${updateData.name}"`,
         );
-        const updatedCount =
-          await TransactionsHelper.updateTransactionsAccountName(
-            authClient,
-            spreadsheetId,
-            oldAccountName,
-            updateData.name,
-          );
-        console.log(`📊 Updated ${updatedCount} transactions with new account name`);
+        const updatedCount = await GoogleAuthHelper.executeWithRetry(
+          userEmail,
+          deviceType,
+          async (client) =>
+            TransactionsHelper.updateTransactionsAccountName(
+              client,
+              spreadsheetId,
+              oldAccountName,
+              updateData.name,
+            ),
+        );
+        console.log(
+          `📊 Updated ${updatedCount} transactions with new account name`,
+        );
       }
 
       console.log("💰 Account updated successfully:", updatedAccount.name);
@@ -268,26 +265,13 @@ export class AccountsController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType,
-      );
-
-      // Get refresh token from auth client
-      const refreshToken = (authClient as any).credentials.refresh_token;
-      if (!refreshToken) {
-        res.status(401).json({
-          success: false,
-          error: "No refresh token found for user",
-        });
-        return;
-      }
 
       // Delete account using AccountsHelper
-      await AccountsHelper.deleteAccount(
-        spreadsheetId,
-        refreshToken,
-        accountId,
+      await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          AccountsHelper.deleteAccount(spreadsheetId, client, accountId),
       );
 
       res.json({ success: true, message: "Account deleted successfully" });
@@ -330,26 +314,13 @@ export class AccountsController {
 
       // Get user's Google auth client
       const deviceType = req.deviceType || "web";
-      const authClient = await GoogleAuthHelper.getAuthClientForUser(
-        userEmail,
-        deviceType,
-      );
-
-      // Get refresh token from auth client
-      const refreshToken = (authClient as any).credentials.refresh_token;
-      if (!refreshToken) {
-        res.status(401).json({
-          success: false,
-          error: "No refresh token found for user",
-        });
-        return;
-      }
 
       // Create accounts batch using AccountsHelper
-      const createdAccounts = await AccountsHelper.createAccountsBatch(
-        spreadsheetId,
-        refreshToken,
-        accounts,
+      const createdAccounts = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          AccountsHelper.createAccountsBatch(spreadsheetId, client, accounts),
       );
 
       res.json({ success: true, data: createdAccounts });

@@ -179,6 +179,56 @@ export class GoogleHelper {
         }
     }
 
+    /**
+     * Esegue operazioni strutturali sullo spreadsheet (rinomina sheet, aggiungi sheet, ecc.)
+     * Usa spreadsheets.batchUpdate (NON values.batchUpdate)
+     */
+    public static async batchUpdateSpreadsheet(
+        auth: any,
+        spreadsheetId: string,
+        requests: any[]
+    ) {
+        if (!spreadsheetId) {
+            throw new Error('Missing or invalid parameter: spreadsheetId');
+        }
+        if (!requests || requests.length === 0) {
+            throw new Error('Missing or invalid parameter: requests');
+        }
+
+        try {
+            const sheets = google.sheets({ version: 'v4', auth });
+            const res = await sheets.spreadsheets.batchUpdate({
+                spreadsheetId,
+                requestBody: { requests },
+            });
+            return res;
+        } catch (error) {
+            console.error('Error in batchUpdateSpreadsheet:', error);
+            throw new Error(`Failed batchUpdate on spreadsheet. Error: ${error}`);
+        }
+    }
+
+    /**
+     * Ottiene i metadati dello spreadsheet (inclusi sheetId per ogni tab)
+     */
+    public static async getSpreadsheetMeta(auth: any, spreadsheetId: string) {
+        if (!spreadsheetId) {
+            throw new Error('Missing or invalid parameter: spreadsheetId');
+        }
+
+        try {
+            const sheets = google.sheets({ version: 'v4', auth });
+            const res = await sheets.spreadsheets.get({
+                spreadsheetId,
+                fields: 'sheets.properties',
+            });
+            return res.data.sheets || [];
+        } catch (error) {
+            console.error('Error getting spreadsheet meta:', error);
+            throw new Error(`Failed to get spreadsheet metadata. Error: ${error}`);
+        }
+    }
+
     public static async create(auth: any, userEmail: any) {
         if (!userEmail) {
             throw new Error('Missing or invalid parameter: userEmail');

@@ -3,6 +3,8 @@ export { TransactionsHelper } from "./transactions.helper";
 export { AccountsHelper } from "./accounts.helper";
 export { CategoriesHelper } from "./categories.helper";
 export { SpreadsheetsHelper } from "./spreadsheets.helper";
+export { AggregationsHelper } from "./aggregations.helper";
+export { MigrationHelper, LATEST_SCHEMA_VERSION } from "./migration.helper";
 
 // Export delle interfacce dai models
 export type { IAccount, IAccountData } from "../../models";

@@ -37,6 +37,16 @@ transactionsRoutes.get(
 );
 
 /**
+ * GET /transactions/delta - Restituisce transazioni modificate da un certo timestamp
+ */
+transactionsRoutes.get(
+  "/delta",
+  transactionsRateLimit,
+  RequireAuthMiddleware.verify,
+  TransactionsController.getTransactionsDelta,
+);
+
+/**
  * POST /transactions - Crea nuova transazione
  */
 transactionsRoutes.post(

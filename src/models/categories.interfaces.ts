@@ -1,14 +1,11 @@
 // Categories interfaces
 
 export interface ICategory {
-  categoryId: string;
   name: string;
-  description: string;
   color: string;
   icon: string;
-  status: string;
   dateAdded?: string;
-  dateDeleted?: string;
+  dateModified?: string;
 }
 
 export interface ICategoryData {
