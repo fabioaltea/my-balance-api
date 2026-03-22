@@ -500,7 +500,7 @@ export class TransactionsHelper {
     return movements.length > 0 ? movements[0] : null;
   }
 
-  // UPDATE movimento completo (gestisce create/update/delete di transactions)
+  // UPDATE movimento completo (update puntuale/soft-delete/create per singola transaction)
   public static async updateMovement(
     authClientClient: any,
     spreadsheetId: string,
@@ -534,52 +534,96 @@ export class TransactionsHelper {
       }
     });
 
+    const now = this.normalizeMetaDate(new Date());
     const updateData: IUpdateTransactionBodyData[] = [];
     const newTransactions: ITransaction[] = [];
 
-    // PRIMA: Soft delete di tutte le transactions esistenti
-    existingTransactionRows.forEach((existing, transactionId) => {
-      const row = [...existing.row];
-      row[COLS.STATUS] = "DELETED";
-      row[COLS.DATE_DELETED] = this.normalizeMetaDate(new Date());
-      row[COLS.DATE_MODIFIED] = this.normalizeMetaDate(new Date());
+    // ID delle transactions presenti nella request (per rilevare quelle eliminate)
+    const requestedTransactionIds = new Set(
+      (movementRequest.transactions || [])
+        .map((t) => t.transactionId)
+        .filter(Boolean) as string[]
+    );
 
-      // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
-      const rowNumber = existing.index + 2;
-      const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-      updateData.push({
-        majorDimension: "ROWS",
-        range: range,
-        values: [row],
-      });
+    // Soft delete delle transactions non più presenti nella request
+    existingTransactionRows.forEach((existing, transactionId) => {
+      if (!requestedTransactionIds.has(transactionId)) {
+        const row = [...existing.row];
+        row[COLS.STATUS] = "DELETED";
+        row[COLS.DATE_DELETED] = now;
+        row[COLS.DATE_MODIFIED] = now;
+
+        // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+        const rowNumber = existing.index + 2;
+        const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+      }
     });
 
-    // SECONDA: Crea tutte le nuove transactions
+    // Processa le transactions della request
     for (const treq of movementRequest.transactions || []) {
-      const transaction: ITransaction = {
-        transactionId: this.generateTransactionId(),
-        movementId: movementId,
-        description: treq.description || movementRequest.description,
-        category: treq.category || movementRequest.category,
-        amount: treq.amount,
-        date: treq.date || movementRequest.date,
-        type:
+      const isExplicitDelete = treq._operation === "delete";
+      const existing =
+        treq.transactionId
+          ? existingTransactionRows.get(treq.transactionId)
+          : undefined;
+
+      if (isExplicitDelete && existing) {
+        // Soft delete esplicita
+        const row = [...existing.row];
+        row[COLS.STATUS] = "DELETED";
+        row[COLS.DATE_DELETED] = now;
+        row[COLS.DATE_MODIFIED] = now;
+        const rowNumber = existing.index + 2;
+        const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+      } else if (existing && !isExplicitDelete) {
+        // UPDATE puntuale della transaction esistente
+        const row = [...existing.row];
+        row[COLS.DESCRIPTION] = treq.description || movementRequest.description;
+        row[COLS.CATEGORY] = treq.category || movementRequest.category;
+        row[COLS.AMOUNT] = treq.amount;
+        row[COLS.DATE] = treq.date || movementRequest.date;
+        row[COLS.TYPE] =
           treq.type ||
           movementRequest.type ||
-          this.normalizeType("", treq.amount),
-        account: treq.account || "",
-        notes: treq.notes || movementRequest.notes || "",
-        location: treq.location || movementRequest.location || "",
-        recurrenceId: movementRequest.recurrenceId || "",
-        recurrencePattern: movementRequest.recurrencePattern || "",
-        dateAdded: this.normalizeMetaDate(new Date()),
-        dateModified: this.normalizeMetaDate(new Date()),
-        status: movementRequest.status || "Confirmed",
-      };
-      newTransactions.push(transaction);
+          this.normalizeType("", treq.amount);
+        row[COLS.ACCOUNT] = treq.account || "";
+        row[COLS.NOTES] = treq.notes || movementRequest.notes || "";
+        row[COLS.LOCATION] = treq.location || movementRequest.location || "";
+        row[COLS.STATUS] = movementRequest.status || row[COLS.STATUS];
+        row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId || "";
+        row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern || "";
+        row[COLS.DATE_MODIFIED] = now;
+        const rowNumber = existing.index + 2;
+        const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+      } else if (!isExplicitDelete) {
+        // CREATE: nuova transaction
+        newTransactions.push({
+          transactionId: this.generateTransactionId(),
+          movementId,
+          description: treq.description || movementRequest.description,
+          category: treq.category || movementRequest.category,
+          amount: treq.amount,
+          date: treq.date || movementRequest.date,
+          type:
+            treq.type ||
+            movementRequest.type ||
+            this.normalizeType("", treq.amount),
+          account: treq.account || "",
+          notes: treq.notes || movementRequest.notes || "",
+          location: treq.location || movementRequest.location || "",
+          recurrenceId: movementRequest.recurrenceId || "",
+          recurrencePattern: movementRequest.recurrencePattern || "",
+          dateAdded: now,
+          dateModified: now,
+          status: movementRequest.status || "Confirmed",
+        });
+      }
     }
 
-    // Esegui updates
+    // Esegui updates (soft delete + aggiornamenti puntuali)
     const results: any[] = [];
     if (updateData.length > 0) {
       results.push(
@@ -592,13 +636,12 @@ export class TransactionsHelper {
       const values = newTransactions.map((t) =>
         this.transactionToRowValidated(t)
       );
-      const body = { values };
       results.push(
         await GoogleHelper.append(
           authClientClient,
           spreadsheetId,
           SHEET_RANGE,
-          body
+          { values }
         )
       );
     }

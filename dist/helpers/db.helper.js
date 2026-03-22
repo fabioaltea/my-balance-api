@@ -637,6 +637,25 @@ class DbHelper {
             }
         });
     }
+    /**
+     * Set setup_complete flag for a user+product
+     */
+    static setSetupComplete(userEmail_1) {
+        return __awaiter(this, arguments, void 0, function* (userEmail, setupComplete = true, productName = "MyBalance") {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE user_products SET setup_complete = $1
+         WHERE user_email = $2 AND product_name = $3`, [setupComplete, userEmail, productName]);
+            }
+            catch (error) {
+                console.error("Error setting setup complete:", error);
+                throw new Error("Error setting setup complete");
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
     // === WAITLIST METHODS ===
     /**
      * Add email to waitlist

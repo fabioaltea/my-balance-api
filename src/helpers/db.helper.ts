@@ -692,6 +692,29 @@ export class DbHelper {
     }
   }
 
+  /**
+   * Set setup_complete flag for a user+product
+   */
+  public static async setSetupComplete(
+    userEmail: string,
+    setupComplete: boolean = true,
+    productName: string = "MyBalance",
+  ): Promise<void> {
+    const client = await DbHelper._pool.connect();
+    try {
+      await client.query(
+        `UPDATE user_products SET setup_complete = $1
+         WHERE user_email = $2 AND product_name = $3`,
+        [setupComplete, userEmail, productName],
+      );
+    } catch (error) {
+      console.error("Error setting setup complete:", error);
+      throw new Error("Error setting setup complete");
+    } finally {
+      client.release();
+    }
+  }
+
   // === WAITLIST METHODS ===
 
   /**
