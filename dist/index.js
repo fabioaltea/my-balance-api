@@ -608,6 +608,20 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
         });
     }
 }));
+app.post("/spreadsheet/complete-setup", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userEmail = req.userId;
+        yield db_helper_1.DbHelper.setSetupComplete(userEmail, true);
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error("Error completing setup:", error);
+        res.status(500).json({
+            error: "Failed to complete setup",
+            details: error.message,
+        });
+    }
+}));
 app.post("/spreadsheet/migrate", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userEmail = req.userId;

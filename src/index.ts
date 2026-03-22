@@ -735,6 +735,24 @@ app.get(
 );
 
 app.post(
+  "/spreadsheet/complete-setup",
+  RequireAuthMiddleware.verify,
+  async (req: any, res: any) => {
+    try {
+      const userEmail = req.userId;
+      await DbHelper.setSetupComplete(userEmail, true);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error completing setup:", error);
+      res.status(500).json({
+        error: "Failed to complete setup",
+        details: error.message,
+      });
+    }
+  },
+);
+
+app.post(
   "/spreadsheet/migrate",
   RequireAuthMiddleware.verify,
   async (req: any, res: any) => {
