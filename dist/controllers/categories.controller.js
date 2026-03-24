@@ -158,6 +158,11 @@ class CategoriesController {
     static updateCategory(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                console.log("🏷️ =============");
+                console.log("🏷️ PUT /categories/:categoryId endpoint hit!");
+                console.log("🏷️ User ID:", req.userId);
+                console.log("🏷️ Category ID:", req.params.categoryId);
+                console.log("🏷️ =============");
                 const userEmail = req.userId;
                 const { categoryId } = req.params;
                 const updateData = req.body;
@@ -176,10 +181,25 @@ class CategoriesController {
                     });
                     return;
                 }
+                // Se è prevista la modifica del nome, salva il vecchio nome per aggiornare le transazioni
+                const oldCategoryName = categoryId;
+                const nameChanged = updateData.name && updateData.name !== oldCategoryName;
+                if (nameChanged) {
+                    console.log(`🏷️ Category name change detected: "${oldCategoryName}" -> "${updateData.name}"`);
+                }
                 // Update category using CategoriesHelper
                 const updatedCategory = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
                     return mybalance_1.CategoriesHelper.updateCategory(spreadsheetId, categoryId, updateData, client);
                 }));
+                // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome categoria
+                if (nameChanged) {
+                    console.log(`🏷️ Updating transactions from category "${oldCategoryName}" to "${updateData.name}"`);
+                    const updatedCount = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                        return mybalance_1.TransactionsHelper.updateTransactionsCategoryName(client, spreadsheetId, oldCategoryName, updateData.name);
+                    }));
+                    console.log(`🏷️ Updated ${updatedCount} transactions with new category name`);
+                }
+                console.log("🏷️ Category updated successfully:", updatedCategory.name);
                 res.json({ success: true, data: updatedCategory });
             }
             catch (error) {
