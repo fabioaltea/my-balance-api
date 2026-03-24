@@ -774,6 +774,49 @@ export class TransactionsHelper {
   }
 
   /**
+   * Aggiorna il nome della categoria in tutte le transazioni che lo contengono
+   */
+  public static async updateTransactionsCategoryName(
+    authClient: any,
+    spreadsheetId: string,
+    oldCategoryName: string,
+    newCategoryName: string
+  ): Promise<number> {
+    const rows: any[][] = await GoogleHelper.get(
+      authClient,
+      spreadsheetId,
+      SHEET_RANGE
+    );
+    if (!rows || rows.length === 0) return 0;
+
+    const updateData: IUpdateTransactionBodyData[] = [];
+    const now = this.normalizeMetaDate(new Date());
+
+    rows.forEach((r, i) => {
+      if (r[COLS.CATEGORY] === oldCategoryName && r[COLS.STATUS] !== "DELETED") {
+        const row = [...r];
+        row[COLS.CATEGORY] = newCategoryName;
+        row[COLS.DATE_MODIFIED] = now;
+
+        const rowNumber = i + 2;
+        const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+        updateData.push({
+          majorDimension: "ROWS",
+          range: range,
+          values: [row],
+        });
+      }
+    });
+
+    if (updateData.length === 0) {
+      return 0;
+    }
+
+    await GoogleHelper.update(authClient, spreadsheetId, updateData);
+    return updateData.length;
+  }
+
+  /**
    * Estrae il numero di riga da un range di Google Sheets
    */
   private static extractRowNumberFromRange(range: string): string {

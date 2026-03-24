@@ -624,6 +624,37 @@ class TransactionsHelper {
         });
     }
     /**
+     * Aggiorna il nome della categoria in tutte le transazioni che lo contengono
+     */
+    static updateTransactionsCategoryName(authClient, spreadsheetId, oldCategoryName, newCategoryName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const rows = yield google_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
+            if (!rows || rows.length === 0)
+                return 0;
+            const updateData = [];
+            const now = this.normalizeMetaDate(new Date());
+            rows.forEach((r, i) => {
+                if (r[COLS.CATEGORY] === oldCategoryName && r[COLS.STATUS] !== "DELETED") {
+                    const row = [...r];
+                    row[COLS.CATEGORY] = newCategoryName;
+                    row[COLS.DATE_MODIFIED] = now;
+                    const rowNumber = i + 2;
+                    const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                    updateData.push({
+                        majorDimension: "ROWS",
+                        range: range,
+                        values: [row],
+                    });
+                }
+            });
+            if (updateData.length === 0) {
+                return 0;
+            }
+            yield google_1.GoogleHelper.update(authClient, spreadsheetId, updateData);
+            return updateData.length;
+        });
+    }
+    /**
      * Estrae il numero di riga da un range di Google Sheets
      */
     static extractRowNumberFromRange(range) {

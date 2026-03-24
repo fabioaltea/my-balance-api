@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CategoriesHelper } from "../helpers/mybalance";
+import { CategoriesHelper, TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
 
 // Helper to handle Google token errors and return appropriate HTTP status
@@ -180,6 +180,12 @@ export class CategoriesController {
    */
   public static async updateCategory(req: any, res: Response): Promise<void> {
     try {
+      console.log("🏷️ =============");
+      console.log("🏷️ PUT /categories/:categoryId endpoint hit!");
+      console.log("🏷️ User ID:", req.userId);
+      console.log("🏷️ Category ID:", req.params.categoryId);
+      console.log("🏷️ =============");
+
       const userEmail = req.userId;
       const { categoryId } = req.params;
       const updateData = req.body;
@@ -203,6 +209,16 @@ export class CategoriesController {
         return;
       }
 
+      // Se è prevista la modifica del nome, salva il vecchio nome per aggiornare le transazioni
+      const oldCategoryName = categoryId;
+      const nameChanged = updateData.name && updateData.name !== oldCategoryName;
+
+      if (nameChanged) {
+        console.log(
+          `🏷️ Category name change detected: "${oldCategoryName}" -> "${updateData.name}"`,
+        );
+      }
+
       // Update category using CategoriesHelper
       const updatedCategory = await GoogleAuthHelper.executeWithRetry(
         userEmail,
@@ -216,6 +232,28 @@ export class CategoriesController {
           ),
       );
 
+      // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome categoria
+      if (nameChanged) {
+        console.log(
+          `🏷️ Updating transactions from category "${oldCategoryName}" to "${updateData.name}"`,
+        );
+        const updatedCount = await GoogleAuthHelper.executeWithRetry(
+          userEmail,
+          deviceType,
+          async (client) =>
+            TransactionsHelper.updateTransactionsCategoryName(
+              client,
+              spreadsheetId,
+              oldCategoryName,
+              updateData.name,
+            ),
+        );
+        console.log(
+          `🏷️ Updated ${updatedCount} transactions with new category name`,
+        );
+      }
+
+      console.log("🏷️ Category updated successfully:", updatedCategory.name);
       res.json({ success: true, data: updatedCategory });
     } catch (error: any) {
       if (handleGoogleTokenError(error, res, "updateCategory")) return;
