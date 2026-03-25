@@ -198,6 +198,51 @@ class MovementsController {
         });
     }
     /**
+     * POST /movements/batch - Aggiorna multipli movements in batch
+     */
+    static updateMovementsBatch(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const userEmail = req.userId;
+                const deviceType = req.deviceType || "web";
+                const { movements = [] } = req.body;
+                let spreadsheetId = req.query.spreadsheet_id;
+                if (!spreadsheetId) {
+                    spreadsheetId =
+                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                }
+                if (!spreadsheetId) {
+                    res.status(400).json({
+                        success: false,
+                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                    });
+                    return;
+                }
+                if (!Array.isArray(movements) || movements.length === 0) {
+                    res.status(400).json({
+                        success: false,
+                        error: "movements must be a non-empty array",
+                    });
+                    return;
+                }
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
+                    return mybalance_1.TransactionsHelper.updateMovementsBatch(client, spreadsheetId, movements);
+                }));
+                res.json({ success: true, data: result });
+            }
+            catch (error) {
+                if (handleGoogleTokenError(error, res, "updateMovementsBatch"))
+                    return;
+                console.error("Error updating movements batch:", error);
+                res.status(500).json({
+                    success: false,
+                    error: "Failed to update movements batch",
+                    details: error === null || error === void 0 ? void 0 : error.message,
+                });
+            }
+        });
+    }
+    /**
      * DELETE /movements/:movementId - Elimina movement
      */
     static deleteMovement(req, res) {

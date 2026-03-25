@@ -435,23 +435,85 @@ class TransactionsHelper {
             const now = this.normalizeMetaDate(new Date());
             const updateData = [];
             const newTransactions = [];
+            const hasTransactionsPayload = Array.isArray(movementRequest.transactions);
             // ID delle transactions presenti nella request (per rilevare quelle eliminate)
             const requestedTransactionIds = new Set((movementRequest.transactions || [])
                 .map((t) => t.transactionId)
                 .filter(Boolean));
             // Soft delete delle transactions non più presenti nella request
-            existingTransactionRows.forEach((existing, transactionId) => {
-                if (!requestedTransactionIds.has(transactionId)) {
+            if (hasTransactionsPayload) {
+                existingTransactionRows.forEach((existing, transactionId) => {
+                    if (!requestedTransactionIds.has(transactionId)) {
+                        const row = [...existing.row];
+                        row[COLS.STATUS] = "DELETED";
+                        row[COLS.DATE_DELETED] = now;
+                        row[COLS.DATE_MODIFIED] = now;
+                        // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
+                        const rowNumber = existing.index + 2;
+                        const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+                    }
+                });
+            }
+            if (!hasTransactionsPayload) {
+                existingTransactionRows.forEach((existing) => {
                     const row = [...existing.row];
-                    row[COLS.STATUS] = "DELETED";
-                    row[COLS.DATE_DELETED] = now;
+                    let hasChanges = false;
+                    if (movementRequest.description !== undefined &&
+                        movementRequest.description !== row[COLS.DESCRIPTION]) {
+                        row[COLS.DESCRIPTION] = movementRequest.description;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.category !== undefined &&
+                        movementRequest.category !== row[COLS.CATEGORY]) {
+                        row[COLS.CATEGORY] = movementRequest.category;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.date !== undefined &&
+                        movementRequest.date !== row[COLS.DATE]) {
+                        row[COLS.DATE] = movementRequest.date;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.type !== undefined &&
+                        movementRequest.type !== row[COLS.TYPE]) {
+                        row[COLS.TYPE] = movementRequest.type;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.notes !== undefined &&
+                        movementRequest.notes !== row[COLS.NOTES]) {
+                        row[COLS.NOTES] = movementRequest.notes;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.location !== undefined &&
+                        movementRequest.location !== row[COLS.LOCATION]) {
+                        row[COLS.LOCATION] = movementRequest.location;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.status !== undefined &&
+                        movementRequest.status !== row[COLS.STATUS]) {
+                        row[COLS.STATUS] = movementRequest.status;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.recurrenceId !== undefined &&
+                        movementRequest.recurrenceId !== row[COLS.RECURRENCE_ID]) {
+                        row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId;
+                        hasChanges = true;
+                    }
+                    if (movementRequest.recurrencePattern !== undefined &&
+                        movementRequest.recurrencePattern !== row[COLS.RECURRENCE_PATTERN]) {
+                        row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern;
+                        hasChanges = true;
+                    }
+                    if (!hasChanges) {
+                        return;
+                    }
                     row[COLS.DATE_MODIFIED] = now;
                     // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
                     const rowNumber = existing.index + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                     updateData.push({ majorDimension: "ROWS", range, values: [row] });
-                }
-            });
+                });
+            }
             // Processa le transactions della request
             for (const treq of movementRequest.transactions || []) {
                 const isExplicitDelete = treq._operation === "delete";
@@ -524,6 +586,56 @@ class TransactionsHelper {
                 results.push(yield google_1.GoogleHelper.append(authClientClient, spreadsheetId, SHEET_RANGE, { values }));
             }
             return results;
+        });
+    }
+    static updateMovementsBatch(authClientClient, spreadsheetId, movementUpdates) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (movementUpdates.length === 0) {
+                return { updatedMovements: 0, updatedTransactions: 0 };
+            }
+            const rows = yield google_1.GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
+            if (!rows)
+                throw new Error("Foglio vuoto");
+            const updatesByMovementId = new Map(movementUpdates
+                .filter((update) => update.movementId)
+                .map((update) => [update.movementId, update]));
+            const now = this.normalizeMetaDate(new Date());
+            const updateData = [];
+            const touchedMovementIds = new Set();
+            rows.forEach((row, index) => {
+                const movementId = row[COLS.MOVEMENT_ID];
+                const update = updatesByMovementId.get(movementId);
+                if (!update || row[COLS.STATUS] === "DELETED") {
+                    return;
+                }
+                const nextRow = [...row];
+                let hasChanges = false;
+                if (update.location !== undefined &&
+                    update.location !== row[COLS.LOCATION]) {
+                    nextRow[COLS.LOCATION] = update.location;
+                    hasChanges = true;
+                }
+                if (!hasChanges) {
+                    return;
+                }
+                nextRow[COLS.DATE_MODIFIED] = now;
+                const rowNumber = index + 2;
+                const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+                updateData.push({
+                    majorDimension: "ROWS",
+                    range,
+                    values: [nextRow],
+                });
+                touchedMovementIds.add(movementId);
+            });
+            if (updateData.length === 0) {
+                return { updatedMovements: 0, updatedTransactions: 0 };
+            }
+            yield google_1.GoogleHelper.update(authClientClient, spreadsheetId, updateData);
+            return {
+                updatedMovements: touchedMovementIds.size,
+                updatedTransactions: updateData.length,
+            };
         });
     }
     // DELETE (soft delete: status = DELETED + dateDeleted per tutte le transactions)
@@ -634,7 +746,8 @@ class TransactionsHelper {
             const updateData = [];
             const now = this.normalizeMetaDate(new Date());
             rows.forEach((r, i) => {
-                if (r[COLS.CATEGORY] === oldCategoryName && r[COLS.STATUS] !== "DELETED") {
+                if (r[COLS.CATEGORY] === oldCategoryName &&
+                    r[COLS.STATUS] !== "DELETED") {
                     const row = [...r];
                     row[COLS.CATEGORY] = newCategoryName;
                     row[COLS.DATE_MODIFIED] = now;

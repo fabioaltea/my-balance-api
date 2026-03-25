@@ -69,6 +69,15 @@ export interface IMovementRequest {
   transactions: ITransactionRequest[]; // Le transactions da creare/aggiornare
 }
 
+export interface IMovementBatchUpdateItem {
+  movementId: string;
+  location?: string;
+}
+
+export interface IMovementBatchUpdateRequest {
+  movements: IMovementBatchUpdateItem[];
+}
+
 // Request body per una singola transaction
 export interface ITransactionRequest {
   transactionId?: string; // Se presente, è un update

@@ -37,6 +37,10 @@ movementsRoutes.get("/", movementsRateLimit, (req, res, next) => {
  */
 movementsRoutes.post("/", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.createMovement);
 /**
+ * POST /movements/batch - Aggiorna multipli movements in batch
+ */
+movementsRoutes.post("/batch", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovementsBatch);
+/**
  * GET /movements/:movementId - Recupera singolo movement
  */
 movementsRoutes.get("/:movementId", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.getMovement);
