@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { TransactionsHelper } from "../helpers/mybalance";
 import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+import type { IMovementBatchUpdateRequest } from "../models/transactions.interfaces";
 
 // Helper to handle Google token errors and return appropriate HTTP status
 function handleGoogleTokenError(
@@ -231,6 +232,64 @@ export class MovementsController {
       res.status(500).json({
         success: false,
         error: "Failed to update movement",
+        details: error?.message,
+      });
+    }
+  }
+
+  /**
+   * POST /movements/batch - Aggiorna multipli movements in batch
+   */
+  public static async updateMovementsBatch(
+    req: any,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const userEmail = req.userId;
+      const deviceType = req.deviceType || "web";
+      const { movements = [] } = req.body as IMovementBatchUpdateRequest;
+
+      let spreadsheetId = req.query.spreadsheet_id;
+      if (!spreadsheetId) {
+        spreadsheetId =
+          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+      }
+
+      if (!spreadsheetId) {
+        res.status(400).json({
+          success: false,
+          error:
+            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+        });
+        return;
+      }
+
+      if (!Array.isArray(movements) || movements.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: "movements must be a non-empty array",
+        });
+        return;
+      }
+
+      const result = await GoogleAuthHelper.executeWithRetry(
+        userEmail,
+        deviceType,
+        async (client) =>
+          TransactionsHelper.updateMovementsBatch(
+            client,
+            spreadsheetId,
+            movements,
+          ),
+      );
+
+      res.json({ success: true, data: result });
+    } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "updateMovementsBatch")) return;
+      console.error("Error updating movements batch:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update movements batch",
         details: error?.message,
       });
     }

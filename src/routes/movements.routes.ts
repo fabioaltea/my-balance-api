@@ -47,6 +47,16 @@ movementsRoutes.post(
 );
 
 /**
+ * POST /movements/batch - Aggiorna multipli movements in batch
+ */
+movementsRoutes.post(
+  "/batch",
+  movementsRateLimit,
+  RequireAuthMiddleware.verify,
+  MovementsController.updateMovementsBatch,
+);
+
+/**
  * GET /movements/:movementId - Recupera singolo movement
  */
 movementsRoutes.get(
