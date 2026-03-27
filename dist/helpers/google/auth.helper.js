@@ -185,7 +185,7 @@ class GoogleAuthHelper {
      */
     refreshAccessToken() {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
+            var _a, _b;
             try {
                 // getAccessToken() internally refreshes if needed
                 const { token, res } = yield this.client.getAccessToken();
@@ -207,18 +207,61 @@ class GoogleAuthHelper {
             catch (error) {
                 console.error("Error refreshing access token:", error);
                 // Check for specific Google errors that indicate token is invalid
-                const errorMessage = ((_c = error.message) === null || _c === void 0 ? void 0 : _c.toLowerCase()) || "";
+                const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
+                const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
                 const isTokenInvalid = errorMessage.includes("invalid_grant") ||
                     errorMessage.includes("token has been expired or revoked") ||
                     errorMessage.includes("token has been revoked") ||
                     errorMessage.includes("invalid credentials") ||
-                    error.code === 401;
+                    GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus !== null && errorStatus !== void 0 ? errorStatus : -1);
                 if (isTokenInvalid) {
                     throw new GoogleTokenError("Google refresh token is invalid or revoked. User must re-authenticate.", "GOOGLE_TOKEN_REVOKED");
                 }
                 throw new GoogleTokenError(`Failed to refresh access token: ${error.message}`, "GOOGLE_TOKEN_REFRESH_FAILED");
             }
         });
+    }
+    static extractErrorMessage(error) {
+        var _a, _b, _c, _d;
+        return [
+            error === null || error === void 0 ? void 0 : error.message,
+            (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.error_description,
+            (_d = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.error,
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+    }
+    static extractErrorStatus(error) {
+        var _a, _b, _c;
+        const rawStatus = (_c = (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) !== null && _b !== void 0 ? _b : error === null || error === void 0 ? void 0 : error.status) !== null && _c !== void 0 ? _c : error === null || error === void 0 ? void 0 : error.code;
+        if (typeof rawStatus === "number") {
+            return rawStatus;
+        }
+        if (typeof rawStatus === "string") {
+            const parsedStatus = Number(rawStatus);
+            return Number.isNaN(parsedStatus) ? undefined : parsedStatus;
+        }
+        return undefined;
+    }
+    static isAuthError(error) {
+        const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
+        const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
+        return (GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus !== null && errorStatus !== void 0 ? errorStatus : -1) ||
+            errorMessage.includes("unauthorized_client") ||
+            errorMessage.includes("invalid_grant") ||
+            errorMessage.includes("invalid credentials") ||
+            (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+            (errorMessage.includes("token") && errorMessage.includes("revoked")));
+    }
+    static toGoogleTokenError(error, fallbackMessage) {
+        if (error instanceof GoogleTokenError) {
+            return error;
+        }
+        const status = GoogleAuthHelper.extractErrorStatus(error);
+        const message = (error === null || error === void 0 ? void 0 : error.message) || fallbackMessage;
+        const code = status === 403 ? "GOOGLE_AUTH_FORBIDDEN" : "GOOGLE_TOKEN_INVALID";
+        return new GoogleTokenError(message, code);
     }
     /**
      * Execute a Google API call with automatic retry on authentication errors
@@ -231,7 +274,6 @@ class GoogleAuthHelper {
      */
     static executeWithRetry(userEmail, deviceType, apiCall) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             // Get the auth client (without preventive refresh)
             let client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
             try {
@@ -240,14 +282,7 @@ class GoogleAuthHelper {
             }
             catch (error) {
                 // Check if this is an authentication error that requires token refresh
-                const errorMessage = ((_a = error.message) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || "";
-                const errorCode = error.code;
-                const isAuthError = errorCode === 401 ||
-                    errorCode === 403 ||
-                    errorMessage.includes("invalid_grant") ||
-                    errorMessage.includes("invalid credentials") ||
-                    (errorMessage.includes("token") && errorMessage.includes("expired")) ||
-                    (errorMessage.includes("token") && errorMessage.includes("revoked"));
+                const isAuthError = GoogleAuthHelper.isAuthError(error);
                 if (!isAuthError) {
                     // Not an auth error, just throw it
                     throw error;
@@ -262,7 +297,15 @@ class GoogleAuthHelper {
                     // Get fresh client after lock is released
                     client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                     // Retry with refreshed client
-                    return yield apiCall(client);
+                    try {
+                        return yield apiCall(client);
+                    }
+                    catch (retryError) {
+                        if (GoogleAuthHelper.isAuthError(retryError)) {
+                            throw GoogleAuthHelper.toGoogleTokenError(retryError, "Google authentication failed after token refresh. User must re-authenticate.");
+                        }
+                        throw retryError;
+                    }
                 }
                 // Create new lock for this refresh operation
                 const refreshPromise = (() => __awaiter(this, void 0, void 0, function* () {
@@ -303,7 +346,15 @@ class GoogleAuthHelper {
                 client = yield GoogleAuthHelper.getAuthClientForUser(userEmail, deviceType);
                 // Retry the API call with refreshed credentials
                 console.log(`♻️  Retrying API call for ${userEmail} with refreshed token`);
-                return yield apiCall(client);
+                try {
+                    return yield apiCall(client);
+                }
+                catch (retryError) {
+                    if (GoogleAuthHelper.isAuthError(retryError)) {
+                        throw GoogleAuthHelper.toGoogleTokenError(retryError, "Google authentication failed after token refresh. User must re-authenticate.");
+                    }
+                    throw retryError;
+                }
             }
         });
     }
@@ -379,6 +430,7 @@ class GoogleAuthHelper {
 }
 exports.GoogleAuthHelper = GoogleAuthHelper;
 exports.GoogleOAuthHelper = GoogleAuthHelper;
+GoogleAuthHelper.AUTH_ERROR_STATUSES = new Set([401, 403]);
 // ============================================================================
 // RETRY WRAPPER - Execute API calls with automatic token refresh on auth errors
 // ============================================================================

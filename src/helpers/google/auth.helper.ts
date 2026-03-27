@@ -36,6 +36,7 @@ export interface RefreshResult {
 export class GoogleAuthHelper {
   private client: OAuth2Client;
   private deviceType: DeviceType;
+  private static readonly AUTH_ERROR_STATUSES = new Set([401, 403]);
 
   // ============================================================================
   // CONSTRUCTOR & CLIENT INITIALIZATION
@@ -259,13 +260,14 @@ export class GoogleAuthHelper {
       console.error("Error refreshing access token:", error);
 
       // Check for specific Google errors that indicate token is invalid
-      const errorMessage = error.message?.toLowerCase() || "";
+      const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
+      const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
       const isTokenInvalid =
         errorMessage.includes("invalid_grant") ||
         errorMessage.includes("token has been expired or revoked") ||
         errorMessage.includes("token has been revoked") ||
         errorMessage.includes("invalid credentials") ||
-        error.code === 401;
+        GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus ?? -1);
 
       if (isTokenInvalid) {
         throw new GoogleTokenError(
@@ -287,6 +289,59 @@ export class GoogleAuthHelper {
 
   // Track ongoing refresh operations per user to avoid concurrent refreshes
   private static refreshLocks: Map<string, Promise<void>> = new Map();
+
+  private static extractErrorMessage(error: any): string {
+    return [
+      error?.message,
+      error?.response?.data?.error_description,
+      error?.response?.data?.error,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+  }
+
+  private static extractErrorStatus(error: any): number | undefined {
+    const rawStatus = error?.response?.status ?? error?.status ?? error?.code;
+
+    if (typeof rawStatus === "number") {
+      return rawStatus;
+    }
+
+    if (typeof rawStatus === "string") {
+      const parsedStatus = Number(rawStatus);
+      return Number.isNaN(parsedStatus) ? undefined : parsedStatus;
+    }
+
+    return undefined;
+  }
+
+  private static isAuthError(error: any): boolean {
+    const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
+    const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
+
+    return (
+      GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus ?? -1) ||
+      errorMessage.includes("unauthorized_client") ||
+      errorMessage.includes("invalid_grant") ||
+      errorMessage.includes("invalid credentials") ||
+      (errorMessage.includes("token") && errorMessage.includes("expired")) ||
+      (errorMessage.includes("token") && errorMessage.includes("revoked"))
+    );
+  }
+
+  private static toGoogleTokenError(error: any, fallbackMessage: string): GoogleTokenError {
+    if (error instanceof GoogleTokenError) {
+      return error;
+    }
+
+    const status = GoogleAuthHelper.extractErrorStatus(error);
+    const message = error?.message || fallbackMessage;
+    const code =
+      status === 403 ? "GOOGLE_AUTH_FORBIDDEN" : "GOOGLE_TOKEN_INVALID";
+
+    return new GoogleTokenError(message, code);
+  }
 
   /**
    * Execute a Google API call with automatic retry on authentication errors
@@ -313,15 +368,7 @@ export class GoogleAuthHelper {
       return await apiCall(client);
     } catch (error: any) {
       // Check if this is an authentication error that requires token refresh
-      const errorMessage = error.message?.toLowerCase() || "";
-      const errorCode = error.code;
-      const isAuthError =
-        errorCode === 401 ||
-        errorCode === 403 ||
-        errorMessage.includes("invalid_grant") ||
-        errorMessage.includes("invalid credentials") ||
-        (errorMessage.includes("token") && errorMessage.includes("expired")) ||
-        (errorMessage.includes("token") && errorMessage.includes("revoked"));
+      const isAuthError = GoogleAuthHelper.isAuthError(error);
 
       if (!isAuthError) {
         // Not an auth error, just throw it
@@ -345,7 +392,17 @@ export class GoogleAuthHelper {
           deviceType,
         );
         // Retry with refreshed client
-        return await apiCall(client);
+        try {
+          return await apiCall(client);
+        } catch (retryError: any) {
+          if (GoogleAuthHelper.isAuthError(retryError)) {
+            throw GoogleAuthHelper.toGoogleTokenError(
+              retryError,
+              "Google authentication failed after token refresh. User must re-authenticate.",
+            );
+          }
+          throw retryError;
+        }
       }
 
       // Create new lock for this refresh operation
@@ -413,7 +470,17 @@ export class GoogleAuthHelper {
       console.log(
         `♻️  Retrying API call for ${userEmail} with refreshed token`,
       );
-      return await apiCall(client);
+      try {
+        return await apiCall(client);
+      } catch (retryError: any) {
+        if (GoogleAuthHelper.isAuthError(retryError)) {
+          throw GoogleAuthHelper.toGoogleTokenError(
+            retryError,
+            "Google authentication failed after token refresh. User must re-authenticate.",
+          );
+        }
+        throw retryError;
+      }
     }
   }
 

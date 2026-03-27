@@ -3,7 +3,11 @@ dotenv.config({ path: ".env.local" });
 
 import express from "express";
 import process from "process";
-import { GoogleHelper, GoogleAuthHelper } from "./helpers/google";
+import {
+  GoogleHelper,
+  GoogleAuthHelper,
+  GoogleTokenError,
+} from "./helpers/google";
 import cors from "cors";
 import {
   TransactionsHelper,
@@ -29,6 +33,25 @@ import { shortcutRoutes } from "./routes/shortcut.routes";
 import { aggregationsRoutes } from "./routes/aggregations.routes";
 import { RequireAuthMiddleware } from "./middleware/requireAuth.middleware";
 import { JwtHelper } from "./helpers/jwt.helper";
+
+function handleGoogleTokenError(error: any, res: any, context: string): boolean {
+  if (error instanceof GoogleTokenError) {
+    console.error(
+      `❌ Google token error in ${context}:`,
+      error.message,
+      error.code,
+    );
+    res.status(401).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      requiresReauth: true,
+    });
+    return true;
+  }
+
+  return false;
+}
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -235,6 +258,7 @@ app.get("/get", RequireAuthMiddleware.verify, async (req: any, res: any) => {
     );
     res.json({ success: true, data: items });
   } catch (error: any) {
+    if (handleGoogleTokenError(error, res, "legacyGet")) return;
     console.error("Error in get:", error);
     res.status(500).json({
       success: false,
@@ -274,6 +298,7 @@ app.post(
       );
       res.json({ success: true, data: items });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "legacyUpdate")) return;
       console.error("Error in update:", error);
       res.status(500).json({
         success: false,
@@ -348,6 +373,7 @@ app.post(
 
       res.json({ success: true, data: "Movement added successfully" });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "legacyAddMovement")) return;
       console.error("Error adding movement:", error);
       res.status(500).json({
         success: false,
@@ -389,6 +415,7 @@ app.post(
       );
       res.json({ success: true, data: items });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "legacyAppend")) return;
       console.error("Error in append:", error);
       res.status(500).json({
         success: false,
@@ -656,6 +683,7 @@ app.post(
 
       res.json({ success: true, data: { spreadsheetId } });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "createSpreadsheet")) return;
       console.error("Error creating spreadsheet:", error);
       res.status(500).json({
         error: "Failed to create spreadsheet",
@@ -686,6 +714,7 @@ app.post(
         message: "Spreadsheet initialized successfully",
       });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "initializeSpreadsheet")) return;
       console.error("Error initializing spreadsheet:", error);
       res.status(500).json({
         error: "Failed to initialize spreadsheet",
@@ -725,6 +754,7 @@ app.get(
 
       res.json({ success: true, data: validation });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "validateSpreadsheet")) return;
       console.error("Error validating spreadsheet:", error);
       res.status(500).json({
         error: "Failed to validate spreadsheet",
@@ -772,6 +802,7 @@ app.post(
         data: result,
       });
     } catch (error: any) {
+      if (handleGoogleTokenError(error, res, "executeMigration")) return;
       console.error("Error executing migration:", error);
       res.status(500).json({
         success: false,

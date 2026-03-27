@@ -47,6 +47,17 @@ const googleapis_1 = require("googleapis");
 const dotenv = __importStar(require("dotenv"));
 const template_1 = require("../../assets/template");
 dotenv.config({ path: '.env.local' });
+function createGoogleSheetsError(message, error) {
+    const wrappedError = new Error(`${message}. Error: ${(error === null || error === void 0 ? void 0 : error.message) || String(error)}`);
+    Object.assign(wrappedError, {
+        code: error === null || error === void 0 ? void 0 : error.code,
+        status: error === null || error === void 0 ? void 0 : error.status,
+        response: error === null || error === void 0 ? void 0 : error.response,
+        errors: error === null || error === void 0 ? void 0 : error.errors,
+        cause: error,
+    });
+    return wrappedError;
+}
 class GoogleHelper {
     static authenticate(req) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -132,7 +143,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error fetching items:', error);
-                throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+                throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
             }
         });
     }
@@ -165,7 +176,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error fetching items:', error);
-                throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+                throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
             }
         });
     }
@@ -197,7 +208,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error fetching items:', error);
-                throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+                throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
             }
         });
     }
@@ -223,7 +234,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error in batchUpdateSpreadsheet:', error);
-                throw new Error(`Failed batchUpdate on spreadsheet. Error: ${error}`);
+                throw createGoogleSheetsError('Failed batchUpdate on spreadsheet', error);
             }
         });
     }
@@ -245,7 +256,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error getting spreadsheet meta:', error);
-                throw new Error(`Failed to get spreadsheet metadata. Error: ${error}`);
+                throw createGoogleSheetsError('Failed to get spreadsheet metadata', error);
             }
         });
     }
@@ -263,7 +274,7 @@ class GoogleHelper {
             }
             catch (error) {
                 console.error('Error fetching items:', error);
-                throw new Error(`Failed to fetch items from Google Sheets. Error: ${error}`);
+                throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
             }
         });
     }

@@ -65,6 +65,19 @@ const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const jwt_helper_1 = require("./helpers/jwt.helper");
+function handleGoogleTokenError(error, res, context) {
+    if (error instanceof google_1.GoogleTokenError) {
+        console.error(`❌ Google token error in ${context}:`, error.message, error.code);
+        res.status(401).json({
+            success: false,
+            error: error.message,
+            code: error.code,
+            requiresReauth: true,
+        });
+        return true;
+    }
+    return false;
+}
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
 // Parse allowed origins from env (comma-separated) or use defaults
@@ -236,6 +249,8 @@ app.get("/get", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res
         res.json({ success: true, data: items });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "legacyGet"))
+            return;
         console.error("Error in get:", error);
         res.status(500).json({
             success: false,
@@ -264,6 +279,8 @@ app.post("/update", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         res.json({ success: true, data: items });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "legacyUpdate"))
+            return;
         console.error("Error in update:", error);
         res.status(500).json({
             success: false,
@@ -317,6 +334,8 @@ app.post("/addMovement", requireAuth_middleware_1.RequireAuthMiddleware.verify, 
         res.json({ success: true, data: "Movement added successfully" });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "legacyAddMovement"))
+            return;
         console.error("Error adding movement:", error);
         res.status(500).json({
             success: false,
@@ -345,6 +364,8 @@ app.post("/append", requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
         res.json({ success: true, data: items });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "legacyAppend"))
+            return;
         console.error("Error in append:", error);
         res.status(500).json({
             success: false,
@@ -551,6 +572,8 @@ app.post("/spreadsheet/create", requireAuth_middleware_1.RequireAuthMiddleware.v
         res.json({ success: true, data: { spreadsheetId } });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "createSpreadsheet"))
+            return;
         console.error("Error creating spreadsheet:", error);
         res.status(500).json({
             error: "Failed to create spreadsheet",
@@ -575,6 +598,8 @@ app.post("/spreadsheet/initialize", requireAuth_middleware_1.RequireAuthMiddlewa
         });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "initializeSpreadsheet"))
+            return;
         console.error("Error initializing spreadsheet:", error);
         res.status(500).json({
             error: "Failed to initialize spreadsheet",
@@ -601,6 +626,8 @@ app.get("/spreadsheet/validate", requireAuth_middleware_1.RequireAuthMiddleware.
         res.json({ success: true, data: validation });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "validateSpreadsheet"))
+            return;
         console.error("Error validating spreadsheet:", error);
         res.status(500).json({
             error: "Failed to validate spreadsheet",
@@ -634,6 +661,8 @@ app.post("/spreadsheet/migrate", requireAuth_middleware_1.RequireAuthMiddleware.
         });
     }
     catch (error) {
+        if (handleGoogleTokenError(error, res, "executeMigration"))
+            return;
         console.error("Error executing migration:", error);
         res.status(500).json({
             success: false,
