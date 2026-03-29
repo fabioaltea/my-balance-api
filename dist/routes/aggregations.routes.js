@@ -16,17 +16,17 @@ const aggregationsRateLimit = (0, express_rate_limit_1.default)({
     max: 30, // Limit each IP to 30 requests per minute
     message: {
         success: false,
-        error: "Too many requests, please try again later",
-        code: "RATE_LIMIT_EXCEEDED",
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
 // All aggregations routes require authentication
-console.log("🔧 Setting up AGGREGATIONS routes...");
+console.log('🔧 Setting up AGGREGATIONS routes...');
 /**
  * GET /aggregations/monthly - Restituisce aggregazioni mensili
  */
-console.log("🔧 Defining GET /aggregations/monthly route...");
-aggregationsRoutes.get("/monthly", aggregationsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, aggregations_controller_1.AggregationsController.getMonthlyAggregations);
+console.log('🔧 Defining GET /aggregations/monthly route...');
+aggregationsRoutes.get('/monthly', aggregationsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, aggregations_controller_1.AggregationsController.getMonthlyAggregations);
 //# sourceMappingURL=aggregations.routes.js.map

@@ -1,15 +1,15 @@
-import { GoogleHelper } from "../google";
-import { ICategory, ICategoryData } from "../../models";
+import { GoogleHelper } from '../google';
+import { ICategory, ICategoryData } from '../../models';
 
-const SHEET_NAME = "Categories";
-const SHEET_RANGE = "Categories!A2:Z";
+const SHEET_NAME = 'Categories';
+const SHEET_RANGE = 'Categories!A2:Z';
 
 // Mappatura colonne del foglio "Categories" (0-based) — Schema v3
 const COLS = {
-  NAME: 0,          // A: categoryName
-  COLOR: 1,          // B: categoryColor
-  ICON: 2,          // C: categoryIcon
-  DATE_ADDED: 3,    // G: dateAdded
+  NAME: 0, // A: categoryName
+  COLOR: 1, // B: categoryColor
+  ICON: 2, // C: categoryIcon
+  DATE_ADDED: 3, // G: dateAdded
   DATE_MODIFIED: 4, // H: dateModified
 } as const;
 
@@ -17,17 +17,10 @@ export class CategoriesHelper {
   /**
    * Recupera tutte le categorie dal sheet "Categories"
    */
-  static async getCategories(
-    spreadsheetId: string,
-    authClient: any
-  ): Promise<ICategory[]> {
+  static async getCategories(spreadsheetId: string, authClient: any): Promise<ICategory[]> {
     try {
       const auth = authClient;
-      const rows: any[][] = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE
-      );
+      const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
 
       if (!rows || rows.length === 0) return [];
 
@@ -35,27 +28,21 @@ export class CategoriesHelper {
 
       // Salta la prima riga se contiene headers
       const startIndex =
-        rows[0] &&
-        (rows[0][COLS.NAME] === "categoryName" || rows[0][COLS.NAME] === "name")
-          ? 1
-          : 0;
+        rows[0] && (rows[0][COLS.NAME] === 'categoryName' || rows[0][COLS.NAME] === 'name') ? 1 : 0;
 
       for (let i = startIndex; i < rows.length; i++) {
         const row = rows[i];
         if (!row || row.length === 0) continue;
 
         const category = this.rowToCategory(row, i);
-        if (
-          category &&
-          !category.name.startsWith("DELETED_")
-        ) {
+        if (category && !category.name.startsWith('DELETED_')) {
           categories.push(category);
         }
       }
 
       return categories;
     } catch (error) {
-      console.error("Error getting categories:", error);
+      console.error('Error getting categories:', error);
       throw error;
     }
   }
@@ -66,7 +53,7 @@ export class CategoriesHelper {
   static async createCategory(
     spreadsheetId: string,
     categoryData: ICategoryData,
-    authClient: any
+    authClient: any,
   ): Promise<ICategory> {
     try {
       const auth = authClient;
@@ -75,15 +62,15 @@ export class CategoriesHelper {
 
       // Prepara la riga seguendo il layout COLS (v3)
       const newRow = [
-        categoryData.name,                // A: categoryName
-        categoryData.color || "#808080",   // B: categoryColor
-        categoryData.icon || "",           // C: categoryIcon
-        now,                               // D: dateAdded
-        now,                               // E: dateModified
+        categoryData.name, // A: categoryName
+        categoryData.color || '#808080', // B: categoryColor
+        categoryData.icon || '', // C: categoryIcon
+        now, // D: dateAdded
+        now, // E: dateModified
       ];
 
       const body = {
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range: SHEET_RANGE,
         values: [newRow],
       };
@@ -92,12 +79,12 @@ export class CategoriesHelper {
 
       return {
         name: categoryData.name,
-        color: categoryData.color || "#808080",
-        icon: categoryData.icon || "",
+        color: categoryData.color || '#808080',
+        icon: categoryData.icon || '',
         dateAdded: this.formatDateTime(new Date()),
       };
     } catch (error) {
-      console.error("Error creating category:", error);
+      console.error('Error creating category:', error);
       throw error;
     }
   }
@@ -109,13 +96,13 @@ export class CategoriesHelper {
     spreadsheetId: string,
     categoryName: string,
     updateData: Partial<ICategoryData>,
-    authClient: any
+    authClient: any,
   ): Promise<ICategory> {
     try {
       const auth = authClient;
 
       const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
-      if (!rows) throw new Error("Sheet vuoto");
+      if (!rows) throw new Error('Sheet vuoto');
 
       let targetRowIndex = -1;
       let existingCategory: ICategory | null = null;
@@ -152,7 +139,7 @@ export class CategoriesHelper {
         icon: updateData.icon || existingCategory.icon,
       };
     } catch (error) {
-      console.error("Error updating category:", error);
+      console.error('Error updating category:', error);
       throw error;
     }
   }
@@ -163,13 +150,13 @@ export class CategoriesHelper {
   static async deleteCategory(
     spreadsheetId: string,
     categoryName: string,
-    authClient: any
+    authClient: any,
   ): Promise<void> {
     try {
       const auth = authClient;
 
       const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
-      if (!rows) throw new Error("Sheet vuoto");
+      if (!rows) throw new Error('Sheet vuoto');
 
       let targetRowIndex = -1;
 
@@ -194,7 +181,7 @@ export class CategoriesHelper {
         { range: updateRange, values: [updatedRow] },
       ]);
     } catch (error) {
-      console.error("Error deleting category:", error);
+      console.error('Error deleting category:', error);
       throw error;
     }
   }
@@ -205,7 +192,7 @@ export class CategoriesHelper {
   static async createCategoriesBatch(
     spreadsheetId: string,
     categories: ICategoryData[],
-    authClient: any
+    authClient: any,
   ): Promise<ICategory[]> {
     try {
       const auth = authClient;
@@ -216,23 +203,23 @@ export class CategoriesHelper {
 
       for (const categoryData of categories) {
         newRows.push([
-          categoryData.name,                // A: categoryName
-          categoryData.color || "#808080",   // B: categoryColor
-          categoryData.icon || "",           // C: categoryIcon
-          now,                               // D: dateAdded
-          now,                               // E: dateModified
+          categoryData.name, // A: categoryName
+          categoryData.color || '#808080', // B: categoryColor
+          categoryData.icon || '', // C: categoryIcon
+          now, // D: dateAdded
+          now, // E: dateModified
         ]);
 
         resultCategories.push({
           name: categoryData.name,
-          color: categoryData.color || "#808080",
-          icon: categoryData.icon || "",
+          color: categoryData.color || '#808080',
+          icon: categoryData.icon || '',
           dateAdded: now,
         });
       }
 
       const body = {
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range: SHEET_RANGE,
         values: newRows,
       };
@@ -241,7 +228,7 @@ export class CategoriesHelper {
 
       return resultCategories;
     } catch (error) {
-      console.error("Error creating categories batch:", error);
+      console.error('Error creating categories batch:', error);
       throw error;
     }
   }
@@ -329,33 +316,31 @@ export class CategoriesHelper {
     try {
       if (!row || row.length === 0) return null;
 
-      const name = row[COLS.NAME] ? String(row[COLS.NAME]).trim() : "";
-      if (!name || name === "categoryName" || name === "name") return null; // Skip header or empty
+      const name = row[COLS.NAME] ? String(row[COLS.NAME]).trim() : '';
+      if (!name || name === 'categoryName' || name === 'name') return null; // Skip header or empty
 
       return {
         name: name,
-        color: row[COLS.COLOR] || "#808080",
-        icon: row[COLS.ICON] || "tag",
+        color: row[COLS.COLOR] || '#808080',
+        icon: row[COLS.ICON] || 'tag',
         dateAdded: this.formatDateTime(new Date()), // Non abbiamo data nel sheet legacy
       };
     } catch (error) {
-      console.error("Error parsing category row:", error);
+      console.error('Error parsing category row:', error);
       return null;
     }
   }
 
   private static generateId(): string {
-    return "cat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    return 'cat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
   private static formatDateTime(date: Date): string {
-    return `${date.getDate().toString().padStart(2, "0")}-${(
-      date.getMonth() + 1
-    )
+    return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1)
       .toString()
-      .padStart(2, "0")}-${date.getFullYear()} ${date
+      .padStart(2, '0')}-${date.getFullYear()} ${date
       .getHours()
       .toString()
-      .padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+      .padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   }
 }

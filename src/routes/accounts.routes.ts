@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { AccountsController } from "../controllers/accounts.controller";
-import { RequireAuthMiddleware } from "../middleware/requireAuth.middleware";
-import rateLimit from "express-rate-limit";
+import { Router } from 'express';
+import { AccountsController } from '../controllers/accounts.controller';
+import { RequireAuthMiddleware } from '../middleware/requireAuth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const accountsRoutes = Router();
 
@@ -11,25 +11,25 @@ const accountsRateLimit = rateLimit({
   max: 30, // Limit each IP to 30 requests per minute
   message: {
     success: false,
-    error: "Too many requests, please try again later",
-    code: "RATE_LIMIT_EXCEEDED",
+    error: 'Too many requests, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // All accounts routes require authentication
-console.log("🔧 Setting up ACCOUNTS routes...");
+console.log('🔧 Setting up ACCOUNTS routes...');
 
 /**
  * GET /accounts - Recupera tutti gli accounts
  */
-console.log("🔧 Defining GET /accounts route...");
+console.log('🔧 Defining GET /accounts route...');
 accountsRoutes.get(
-  "/",
+  '/',
   accountsRateLimit,
   (req, res, next) => {
-    console.log("🔧 GET /accounts route hit - before auth middleware");
+    console.log('🔧 GET /accounts route hit - before auth middleware');
     next();
   },
   RequireAuthMiddleware.verify,
@@ -39,12 +39,12 @@ accountsRoutes.get(
 /**
  * POST /accounts - Crea nuovo account
  */
-console.log("🔧 Defining POST /accounts route...");
+console.log('🔧 Defining POST /accounts route...');
 accountsRoutes.post(
-  "/",
+  '/',
   accountsRateLimit,
   (req, res, next) => {
-    console.log("🔧 POST /accounts route hit - before auth middleware");
+    console.log('🔧 POST /accounts route hit - before auth middleware');
     next();
   },
   RequireAuthMiddleware.verify,
@@ -55,7 +55,7 @@ accountsRoutes.post(
  * PUT /accounts/:accountId - Aggiorna account esistente
  */
 accountsRoutes.put(
-  "/:accountId",
+  '/:accountId',
   accountsRateLimit,
   RequireAuthMiddleware.verify,
   AccountsController.updateAccount,
@@ -65,7 +65,7 @@ accountsRoutes.put(
  * DELETE /accounts/:accountId - Elimina account
  */
 accountsRoutes.delete(
-  "/:accountId",
+  '/:accountId',
   accountsRateLimit,
   RequireAuthMiddleware.verify,
   AccountsController.deleteAccount,
@@ -75,7 +75,7 @@ accountsRoutes.delete(
  * POST /accounts/batch - Crea multipli accounts in batch
  */
 accountsRoutes.post(
-  "/batch",
+  '/batch',
   accountsRateLimit,
   RequireAuthMiddleware.verify,
   AccountsController.createAccountsBatch,

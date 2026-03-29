@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { MovementsController } from "../controllers/movements.controller";
-import { RequireAuthMiddleware } from "../middleware/requireAuth.middleware";
-import rateLimit from "express-rate-limit";
+import { Router } from 'express';
+import { MovementsController } from '../controllers/movements.controller';
+import { RequireAuthMiddleware } from '../middleware/requireAuth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const movementsRoutes = Router();
 
@@ -11,25 +11,25 @@ const movementsRateLimit = rateLimit({
   max: 50, // Limit each IP to 50 requests per minute
   message: {
     success: false,
-    error: "Too many requests, please try again later",
-    code: "RATE_LIMIT_EXCEEDED",
+    error: 'Too many requests, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // All movements routes require authentication
-console.log("🔧 Setting up MOVEMENTS routes...");
+console.log('🔧 Setting up MOVEMENTS routes...');
 
 /**
  * GET /movements - Recupera tutti i movements
  */
-console.log("🔧 Defining GET /movements route...");
+console.log('🔧 Defining GET /movements route...');
 movementsRoutes.get(
-  "/",
+  '/',
   movementsRateLimit,
   (req, res, next) => {
-    console.log("🔧 GET /movements route hit - before auth middleware");
+    console.log('🔧 GET /movements route hit - before auth middleware');
     next();
   },
   RequireAuthMiddleware.verify,
@@ -40,7 +40,7 @@ movementsRoutes.get(
  * POST /movements - Crea nuovo movement
  */
 movementsRoutes.post(
-  "/",
+  '/',
   movementsRateLimit,
   RequireAuthMiddleware.verify,
   MovementsController.createMovement,
@@ -50,7 +50,7 @@ movementsRoutes.post(
  * POST /movements/batch - Aggiorna multipli movements in batch
  */
 movementsRoutes.post(
-  "/batch",
+  '/batch',
   movementsRateLimit,
   RequireAuthMiddleware.verify,
   MovementsController.updateMovementsBatch,
@@ -60,7 +60,7 @@ movementsRoutes.post(
  * GET /movements/:movementId - Recupera singolo movement
  */
 movementsRoutes.get(
-  "/:movementId",
+  '/:movementId',
   movementsRateLimit,
   RequireAuthMiddleware.verify,
   MovementsController.getMovement,
@@ -70,7 +70,7 @@ movementsRoutes.get(
  * PUT /movements/:movementId - Aggiorna movement esistente
  */
 movementsRoutes.put(
-  "/:movementId",
+  '/:movementId',
   movementsRateLimit,
   RequireAuthMiddleware.verify,
   MovementsController.updateMovement,
@@ -80,7 +80,7 @@ movementsRoutes.put(
  * DELETE /movements/:movementId - Elimina movement
  */
 movementsRoutes.delete(
-  "/:movementId",
+  '/:movementId',
   movementsRateLimit,
   RequireAuthMiddleware.verify,
   MovementsController.deleteMovement,

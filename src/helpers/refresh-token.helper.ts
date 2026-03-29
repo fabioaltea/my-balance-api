@@ -1,5 +1,5 @@
-import crypto from "crypto";
-import { RefreshTokenData } from "../models";
+import crypto from 'crypto';
+import { RefreshTokenData } from '../models';
 
 export class RefreshTokenHelper {
   private static readonly TOKEN_LENGTH = 32; // 32 bytes = 256 bits
@@ -9,7 +9,7 @@ export class RefreshTokenHelper {
    * Generate a cryptographically secure refresh token
    */
   public static generateRefreshToken(): RefreshTokenData {
-    const raw = crypto.randomBytes(this.TOKEN_LENGTH).toString("base64url");
+    const raw = crypto.randomBytes(this.TOKEN_LENGTH).toString('base64url');
     const hash = this.hashToken(raw);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + this.TTL_DAYS);
@@ -29,7 +29,7 @@ export class RefreshTokenHelper {
       const computedHash = this.hashToken(raw);
       return this.constantTimeEquals(computedHash, hash);
     } catch (error) {
-      console.error("Error verifying refresh token:", error);
+      console.error('Error verifying refresh token:', error);
       return false;
     }
   }
@@ -38,7 +38,7 @@ export class RefreshTokenHelper {
    * Hash token using SHA-256
    */
   private static hashToken(token: string): string {
-    return crypto.createHash("sha256").update(token).digest("hex");
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   /**
@@ -68,9 +68,6 @@ export class RefreshTokenHelper {
    * Generate device-specific token salt (optional enhancement)
    */
   public static generateDeviceSalt(deviceId: string): string {
-    return crypto
-      .createHash("sha256")
-      .update(`device:${deviceId}`)
-      .digest("hex");
+    return crypto.createHash('sha256').update(`device:${deviceId}`).digest('hex');
   }
 }

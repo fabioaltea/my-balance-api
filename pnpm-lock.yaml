@@ -93,6 +93,9 @@ importers:
       '@types/pg':
         specifier: ^8.11.13
         version: 8.15.4
+      prettier:
+        specifier: ^3.5.3
+        version: 3.8.1
 
 packages:
 
@@ -1008,6 +1011,11 @@ packages:
 
   pre-commit@1.2.2:
     resolution: {integrity: sha512-qokTiqxD6GjODy5ETAIgzsRgnBWWQHQH2ghy86PU7mIn/wuWeTwF3otyNQZxWBwVn8XNr8Tdzj/QfUXpH+gRZA==}
+
+  prettier@3.8.1:
+    resolution: {integrity: sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   process-nextick-args@2.0.1:
     resolution: {integrity: sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==}
@@ -2347,6 +2355,8 @@ snapshots:
       cross-spawn: 5.1.0
       spawn-sync: 1.0.15
       which: 1.2.14
+
+  prettier@3.8.1: {}
 
   process-nextick-args@2.0.1: {}
 

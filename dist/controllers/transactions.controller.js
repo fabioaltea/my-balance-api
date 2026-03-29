@@ -33,28 +33,27 @@ class TransactionsController {
     static getTransactions(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("🔄 =============");
-                console.log("🔄 GET /transactions endpoint hit!");
-                console.log("🔄 User ID:", req.userId);
-                console.log("🔄 Device Type:", req.deviceType);
-                console.log("🔄 Query params:", req.query);
-                console.log("🔄 =============");
+                console.log('🔄 =============');
+                console.log('🔄 GET /transactions endpoint hit!');
+                console.log('🔄 User ID:', req.userId);
+                console.log('🔄 Device Type:', req.deviceType);
+                console.log('🔄 Query params:', req.query);
+                console.log('🔄 =============');
                 const userEmail = req.userId;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
-                console.log("🔄 Loading transactions for spreadsheet:", spreadsheetId);
+                console.log('🔄 Loading transactions for spreadsheet:', spreadsheetId);
                 // Parse query filters (all optional for backward compatibility)
                 const filters = {};
                 if (req.query.from_date)
@@ -96,16 +95,16 @@ class TransactionsController {
                 const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
                     return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId, Object.keys(filters).length > 0 ? filters : undefined);
                 }));
-                console.log("🔄 Transactions loaded successfully:", allTransactions.length);
+                console.log('🔄 Transactions loaded successfully:', allTransactions.length);
                 res.json({ success: true, data: allTransactions });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "getTransactions"))
+                if (handleGoogleTokenError(error, res, 'getTransactions'))
                     return;
-                console.error("❌ Error fetching transactions:", error);
+                console.error('❌ Error fetching transactions:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to fetch transactions",
+                    error: 'Failed to fetch transactions',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -119,32 +118,29 @@ class TransactionsController {
             try {
                 const userEmail = req.userId;
                 const transactionData = req.body;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "No spreadsheet ID provided and no default spreadsheet configured",
+                        error: 'No spreadsheet ID provided and no default spreadsheet configured',
                     });
                     return;
                 }
                 // Create transaction with automatic retry on auth errors
-                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, transactionData);
-                }));
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, transactionData); }));
                 res.json({ success: true, data: result });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "createTransaction"))
+                if (handleGoogleTokenError(error, res, 'createTransaction'))
                     return;
-                console.error("Error creating transaction:", error);
+                console.error('Error creating transaction:', error);
                 res.status(500).json({
-                    error: "Failed to create transaction",
+                    error: 'Failed to create transaction',
                     details: error.message,
                 });
             }
@@ -159,17 +155,16 @@ class TransactionsController {
                 const userEmail = req.userId;
                 const { transactionId } = req.params;
                 const updateData = req.body;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "No spreadsheet ID provided and no default spreadsheet configured",
+                        error: 'No spreadsheet ID provided and no default spreadsheet configured',
                     });
                     return;
                 }
@@ -178,11 +173,11 @@ class TransactionsController {
                 res.json({ success: true, data: updatedTransaction });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "updateTransaction"))
+                if (handleGoogleTokenError(error, res, 'updateTransaction'))
                     return;
-                console.error("Error updating transaction:", error);
+                console.error('Error updating transaction:', error);
                 res.status(500).json({
-                    error: "Failed to update transaction",
+                    error: 'Failed to update transaction',
                     details: error.message,
                 });
             }
@@ -196,32 +191,29 @@ class TransactionsController {
             try {
                 const userEmail = req.userId;
                 const { transactionId } = req.params;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "No spreadsheet ID provided and no default spreadsheet configured",
+                        error: 'No spreadsheet ID provided and no default spreadsheet configured',
                     });
                     return;
                 }
                 // Delete transaction with automatic retry on auth errors
-                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, transactionId);
-                }));
-                res.json({ success: true, message: "Transaction deleted successfully" });
+                yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, transactionId); }));
+                res.json({ success: true, message: 'Transaction deleted successfully' });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "deleteTransaction"))
+                if (handleGoogleTokenError(error, res, 'deleteTransaction'))
                     return;
-                console.error("Error deleting transaction:", error);
+                console.error('Error deleting transaction:', error);
                 res.status(500).json({
-                    error: "Failed to delete transaction",
+                    error: 'Failed to delete transaction',
                     details: error.message,
                 });
             }
@@ -235,17 +227,16 @@ class TransactionsController {
             try {
                 const userEmail = req.userId;
                 const { transactionId } = req.params;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "No spreadsheet ID provided and no default spreadsheet configured",
+                        error: 'No spreadsheet ID provided and no default spreadsheet configured',
                     });
                     return;
                 }
@@ -254,18 +245,18 @@ class TransactionsController {
                 if (!transaction) {
                     res.status(404).json({
                         success: false,
-                        error: "Transaction not found",
+                        error: 'Transaction not found',
                     });
                     return;
                 }
                 res.json({ success: true, data: transaction });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "getTransaction"))
+                if (handleGoogleTokenError(error, res, 'getTransaction'))
                     return;
-                console.error("Error fetching transaction:", error);
+                console.error('Error fetching transaction:', error);
                 res.status(500).json({
-                    error: "Failed to fetch transaction",
+                    error: 'Failed to fetch transaction',
                     details: error.message,
                 });
             }
@@ -286,35 +277,32 @@ class TransactionsController {
                     });
                     return;
                 }
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "No spreadsheet ID provided and no default spreadsheet configured",
+                        error: 'No spreadsheet ID provided and no default spreadsheet configured',
                     });
                     return;
                 }
                 console.log(`🔄 Loading transactions delta since: ${since}`);
                 // Get transactions modified since timestamp with automatic retry on auth errors
-                const deltaTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.listTransactionsDelta(client, spreadsheetId, since);
-                }));
+                const deltaTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.listTransactionsDelta(client, spreadsheetId, since); }));
                 console.log(`🔄 Delta transactions loaded: ${deltaTransactions.length} items`);
                 res.json({ success: true, data: deltaTransactions });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "getTransactionsDelta"))
+                if (handleGoogleTokenError(error, res, 'getTransactionsDelta'))
                     return;
-                console.error("Error fetching transaction delta:", error);
+                console.error('Error fetching transaction delta:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to fetch transaction delta",
+                    error: 'Failed to fetch transaction delta',
                     details: error.message,
                 });
             }

@@ -8,13 +8,13 @@ export interface IGetBody {
 export interface IUpdateBody {
   spreadsheetId: string;
   requestBody: {
-    valueInputOption: "RAW" | "USER_ENTERED";
+    valueInputOption: 'RAW' | 'USER_ENTERED';
     data: IUpdateBodyData[];
   };
 }
 
 export interface IUpdateBodyData {
-  majorDimension: "ROWS" | "COLUMNS";
+  majorDimension: 'ROWS' | 'COLUMNS';
   range: string;
   values: any[];
 }
@@ -23,5 +23,5 @@ export interface IAppendBody {
   spreadsheetId: string;
   range: string;
   requestBody: {};
-  valueInputOption: "RAW" | "USER_ENTERED";
+  valueInputOption: 'RAW' | 'USER_ENTERED';
 }

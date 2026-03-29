@@ -33,20 +33,19 @@ class MovementsController {
     static getMovements(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("🔄 GET /movements endpoint hit!");
+                console.log('🔄 GET /movements endpoint hit!');
                 const userEmail = req.userId;
                 // Get user's Google auth client
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
@@ -55,12 +54,12 @@ class MovementsController {
                 res.json({ success: true, data: movements });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "getMovements"))
+                if (handleGoogleTokenError(error, res, 'getMovements'))
                     return;
-                console.error("Error fetching movements:", error);
+                console.error('Error fetching movements:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to fetch movements",
+                    error: 'Failed to fetch movements',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -75,17 +74,16 @@ class MovementsController {
                 const userEmail = req.userId;
                 const { movementId } = req.params;
                 // Get user's Google auth client
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
@@ -94,19 +92,19 @@ class MovementsController {
                 if (!movement) {
                     res.status(404).json({
                         success: false,
-                        error: "Movement not found",
+                        error: 'Movement not found',
                     });
                     return;
                 }
                 res.json({ success: true, data: movement });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "getMovement"))
+                if (handleGoogleTokenError(error, res, 'getMovement'))
                     return;
-                console.error("Error fetching movement:", error);
+                console.error('Error fetching movement:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to fetch movement",
+                    error: 'Failed to fetch movement',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -121,33 +119,30 @@ class MovementsController {
                 const userEmail = req.userId;
                 const movementData = req.body;
                 // Get user's Google auth client
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
                 // Create movement using TransactionsHelper
-                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movementData);
-                }));
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movementData); }));
                 res.json({ success: true, data: result });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "createMovement"))
+                if (handleGoogleTokenError(error, res, 'createMovement'))
                     return;
-                console.error("Error creating movement:", error);
+                console.error('Error creating movement:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to create movement",
+                    error: 'Failed to create movement',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -163,35 +158,32 @@ class MovementsController {
                 const { movementId } = req.params;
                 const updateData = req.body;
                 // Get user's Google auth client
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
                 // Update movement using TransactionsHelper
                 // Ensure movementId from URL is included in the request
                 const movementRequest = Object.assign(Object.assign({}, updateData), { movementId: movementId });
-                const updatedMovement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.updateMovement(client, spreadsheetId, movementRequest);
-                }));
+                const updatedMovement = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.updateMovement(client, spreadsheetId, movementRequest); }));
                 res.json({ success: true, data: updatedMovement });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "updateMovement"))
+                if (handleGoogleTokenError(error, res, 'updateMovement'))
                     return;
-                console.error("Error updating movement:", error);
+                console.error('Error updating movement:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to update movement",
+                    error: 'Failed to update movement',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -204,39 +196,36 @@ class MovementsController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const userEmail = req.userId;
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 const { movements = [] } = req.body;
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
                 if (!Array.isArray(movements) || movements.length === 0) {
                     res.status(400).json({
                         success: false,
-                        error: "movements must be a non-empty array",
+                        error: 'movements must be a non-empty array',
                     });
                     return;
                 }
-                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.updateMovementsBatch(client, spreadsheetId, movements);
-                }));
+                const result = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.updateMovementsBatch(client, spreadsheetId, movements); }));
                 res.json({ success: true, data: result });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "updateMovementsBatch"))
+                if (handleGoogleTokenError(error, res, 'updateMovementsBatch'))
                     return;
-                console.error("Error updating movements batch:", error);
+                console.error('Error updating movements batch:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to update movements batch",
+                    error: 'Failed to update movements batch',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }
@@ -251,31 +240,30 @@ class MovementsController {
                 const userEmail = req.userId;
                 const { movementId } = req.params;
                 // Get user's Google auth client
-                const deviceType = req.deviceType || "web";
+                const deviceType = req.deviceType || 'web';
                 // Get spreadsheet ID - either from query or user's default
                 let spreadsheetId = req.query.spreadsheet_id;
                 if (!spreadsheetId) {
-                    spreadsheetId =
-                        yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+                    spreadsheetId = yield google_1.GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
                 }
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "Missing spreadsheet_id in query params and no default spreadsheet configured",
+                        error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
                     });
                     return;
                 }
                 // Delete movement using TransactionsHelper
                 yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.deleteMovement(client, spreadsheetId, movementId); }));
-                res.json({ success: true, message: "Movement deleted successfully" });
+                res.json({ success: true, message: 'Movement deleted successfully' });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "deleteMovement"))
+                if (handleGoogleTokenError(error, res, 'deleteMovement'))
                     return;
-                console.error("Error deleting movement:", error);
+                console.error('Error deleting movement:', error);
                 res.status(500).json({
                     success: false,
-                    error: "Failed to delete movement",
+                    error: 'Failed to delete movement',
                     details: error === null || error === void 0 ? void 0 : error.message,
                 });
             }

@@ -1,7 +1,7 @@
-import { GoogleHelper } from "../google";
-import { GoogleAuthHelper } from "../google/auth.helper";
-import { DbHelper } from "../db.helper";
-import { DeviceType } from "../../models";
+import { GoogleHelper } from '../google';
+import { GoogleAuthHelper } from '../google/auth.helper';
+import { DbHelper } from '../db.helper';
+import { DeviceType } from '../../models';
 
 export const LATEST_SCHEMA_VERSION = 3;
 
@@ -12,11 +12,7 @@ interface Migration {
   fromVersion: number;
   toVersion: number;
   description: string;
-  execute: (
-    spreadsheetId: string,
-    userEmail: string,
-    deviceType: DeviceType,
-  ) => Promise<void>;
+  execute: (spreadsheetId: string, userEmail: string, deviceType: DeviceType) => Promise<void>;
 }
 
 /**
@@ -26,33 +22,46 @@ interface Migration {
  * v2: desc(0) cat(1) amt(2) date(3) type(4) account(5) status(6) location(7) notes(8) txId(9) mvId(10) recId(11) recPattern(12) dateAdded(13) dateMod(14) dateDel(15)
  */
 const V1_TO_V2_COL_MAP: Record<number, number> = {
-  0: 0,   // description → description
-  1: 1,   // category → category
-  2: 2,   // amount → amount
-  3: 3,   // date → date
-  4: 4,   // type → type
-  5: 5,   // account → account
-  6: 9,   // transactionId → transactionId (spostato)
-  7: 10,  // movementId → movementId (spostato)
-  8: 8,   // notes → notes
-  9: 7,   // location → location (spostato)
+  0: 0, // description → description
+  1: 1, // category → category
+  2: 2, // amount → amount
+  3: 3, // date → date
+  4: 4, // type → type
+  5: 5, // account → account
+  6: 9, // transactionId → transactionId (spostato)
+  7: 10, // movementId → movementId (spostato)
+  8: 8, // notes → notes
+  9: 7, // location → location (spostato)
   10: 11, // recurrenceId → recurrenceId (spostato)
   11: 13, // dateAdded → dateAdded (spostato)
   12: 14, // dateModified → dateModified (spostato)
   13: 15, // dateDeleted → dateDeleted (spostato)
-  14: 6,  // status → status (spostato)
+  14: 6, // status → status (spostato)
 };
 
 const V2_COL_COUNT = 16; // incluso recurrencePattern
 
 const V2_HEADERS = [
-  "description", "category", "amount", "date", "type", "account",
-  "status", "location", "notes", "transactionId", "movementId",
-  "recurrenceId", "recurrencePattern", "dateAdded", "dateModified", "dateDeleted",
+  'description',
+  'category',
+  'amount',
+  'date',
+  'type',
+  'account',
+  'status',
+  'location',
+  'notes',
+  'transactionId',
+  'movementId',
+  'recurrenceId',
+  'recurrencePattern',
+  'dateAdded',
+  'dateModified',
+  'dateDeleted',
 ];
 
-const SHEET_NAME = "AllTransactions";
-const OLD_SHEET_NAME = "AllTransactions_old";
+const SHEET_NAME = 'AllTransactions';
+const OLD_SHEET_NAME = 'AllTransactions_old';
 
 /**
  * Trova lo sheetId numerico di un tab dal suo nome
@@ -68,9 +77,7 @@ async function getSheetId(
     deviceType,
     async (client) => GoogleHelper.getSpreadsheetMeta(client, spreadsheetId),
   );
-  const match = sheetsMeta.find(
-    (s: any) => s.properties?.title === sheetName,
-  );
+  const match = sheetsMeta.find((s: any) => s.properties?.title === sheetName);
   return match?.properties?.sheetId ?? null;
 }
 
@@ -87,13 +94,9 @@ async function getSheetId(
 const migrationV1toV2: Migration = {
   fromVersion: 1,
   toVersion: 2,
-  description: "Riordino colonne AllTransactions + aggiunta recurrencePattern",
-  execute: async (
-    spreadsheetId: string,
-    userEmail: string,
-    deviceType: DeviceType,
-  ) => {
-    console.log("🔄 Executing migration v1 → v2 (rename+copy)");
+  description: 'Riordino colonne AllTransactions + aggiunta recurrencePattern',
+  execute: async (spreadsheetId: string, userEmail: string, deviceType: DeviceType) => {
+    console.log('🔄 Executing migration v1 → v2 (rename+copy)');
 
     // --- Retry-safe: controlla se esiste già _old da un tentativo precedente ---
     const oldSheetId = await getSheetId(userEmail, deviceType, spreadsheetId, OLD_SHEET_NAME);
@@ -105,120 +108,102 @@ const migrationV1toV2: Migration = {
       // Entrambi esistono: il tentativo precedente ha già rinominato e creato il nuovo,
       // ma potrebbe non aver finito di copiare. Usiamo _old come sorgente
       // e cancelliamo il nuovo vuoto per ricrearlo
-      console.log("⚠️ Found existing AllTransactions_old — resuming previous attempt");
-      await GoogleAuthHelper.executeWithRetry(
-        userEmail,
-        deviceType,
-        async (client) =>
-          GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
-            { deleteSheet: { sheetId: currentSheetId } },
-          ]),
+      console.log('⚠️ Found existing AllTransactions_old — resuming previous attempt');
+      await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+        GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
+          { deleteSheet: { sheetId: currentSheetId } },
+        ]),
       );
       sourceSheetName = OLD_SHEET_NAME;
     } else if (oldSheetId !== null && currentSheetId === null) {
       // Solo _old esiste (caso raro): usalo come sorgente
-      console.log("⚠️ Only AllTransactions_old found — resuming");
+      console.log('⚠️ Only AllTransactions_old found — resuming');
       sourceSheetName = OLD_SHEET_NAME;
     } else if (currentSheetId === null) {
-      throw new Error("AllTransactions sheet not found in spreadsheet");
+      throw new Error('AllTransactions sheet not found in spreadsheet');
     } else {
       // Caso normale: rinomina AllTransactions → AllTransactions_old
-      console.log("🔄 Renaming AllTransactions → AllTransactions_old");
-      await GoogleAuthHelper.executeWithRetry(
-        userEmail,
-        deviceType,
-        async (client) =>
-          GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
-            {
-              updateSheetProperties: {
-                properties: { sheetId: currentSheetId, title: OLD_SHEET_NAME },
-                fields: "title",
-              },
+      console.log('🔄 Renaming AllTransactions → AllTransactions_old');
+      await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+        GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
+          {
+            updateSheetProperties: {
+              properties: { sheetId: currentSheetId, title: OLD_SHEET_NAME },
+              fields: 'title',
             },
-          ]),
+          },
+        ]),
       );
       sourceSheetName = OLD_SHEET_NAME;
     }
 
     // --- Crea nuovo tab AllTransactions ---
-    console.log("🔄 Creating new AllTransactions sheet");
-    await GoogleAuthHelper.executeWithRetry(
-      userEmail,
-      deviceType,
-      async (client) =>
-        GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
-          {
-            addSheet: {
-              properties: { title: SHEET_NAME, index: 0 },
-            },
+    console.log('🔄 Creating new AllTransactions sheet');
+    await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+      GoogleHelper.batchUpdateSpreadsheet(client, spreadsheetId, [
+        {
+          addSheet: {
+            properties: { title: SHEET_NAME, index: 0 },
           },
-        ]),
+        },
+      ]),
     );
 
     // --- Leggi dati dal vecchio tab ---
     let rows: any[][] | undefined;
     try {
-      rows = await GoogleAuthHelper.executeWithRetry(
-        userEmail,
-        deviceType,
-        async (client) =>
-          GoogleHelper.get(client, spreadsheetId, `${sourceSheetName}!A1:Z`),
+      rows = await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+        GoogleHelper.get(client, spreadsheetId, `${sourceSheetName}!A1:Z`),
       );
     } catch {
-      console.log("⚠️ Source sheet vuoto o non accessibile, skip dati");
+      console.log('⚠️ Source sheet vuoto o non accessibile, skip dati');
       rows = undefined;
     }
 
     // --- Scrivi header v2 ---
-    await GoogleAuthHelper.executeWithRetry(
-      userEmail,
-      deviceType,
-      async (client) =>
-        GoogleHelper.update(client, spreadsheetId, [
-          { range: `${SHEET_NAME}!A1:P1`, values: [V2_HEADERS] },
-        ]),
+    await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+      GoogleHelper.update(client, spreadsheetId, [
+        { range: `${SHEET_NAME}!A1:P1`, values: [V2_HEADERS] },
+      ]),
     );
 
     // --- Mappa e scrivi dati ---
     if (rows && rows.length > 0) {
       // Salta la prima riga se è un header
-      const firstCell = String(rows[0][0] || "").toLowerCase();
-      const dataRows = firstCell === "description" ? rows.slice(1) : rows;
+      const firstCell = String(rows[0][0] || '').toLowerCase();
+      const dataRows = firstCell === 'description' ? rows.slice(1) : rows;
 
       if (dataRows.length > 0) {
         const migratedRows = dataRows.map((row) => {
-          const newRow: any[] = new Array(V2_COL_COUNT).fill("");
+          const newRow: any[] = new Array(V2_COL_COUNT).fill('');
           for (const [v1Idx, v2Idx] of Object.entries(V1_TO_V2_COL_MAP)) {
             const sourceIdx = parseInt(v1Idx);
             if (sourceIdx < row.length) {
-              newRow[v2Idx] = row[sourceIdx] ?? "";
+              newRow[v2Idx] = row[sourceIdx] ?? '';
             }
           }
           return newRow;
         });
 
         // Scrivi dalla riga 2 (dopo gli header) usando update (non append)
-        await GoogleAuthHelper.executeWithRetry(
-          userEmail,
-          deviceType,
-          async (client) =>
-            GoogleHelper.update(client, spreadsheetId, [
-              {
-                range: `${SHEET_NAME}!A2:P${migratedRows.length + 1}`,
-                values: migratedRows,
-              },
-            ]),
+        await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+          GoogleHelper.update(client, spreadsheetId, [
+            {
+              range: `${SHEET_NAME}!A2:P${migratedRows.length + 1}`,
+              values: migratedRows,
+            },
+          ]),
         );
 
         console.log(`✅ Migrated ${migratedRows.length} data rows to new AllTransactions`);
       } else {
-        console.log("ℹ️ No data rows to migrate (only header)");
+        console.log('ℹ️ No data rows to migrate (only header)');
       }
     } else {
-      console.log("ℹ️ No data to migrate");
+      console.log('ℹ️ No data to migrate');
     }
 
-    console.log("✅ Migration v1 → v2 completed (AllTransactions_old preserved)");
+    console.log('✅ Migration v1 → v2 completed (AllTransactions_old preserved)');
   },
 };
 
@@ -265,7 +250,7 @@ async function migrateSheet(
         {
           updateSheetProperties: {
             properties: { sheetId: currentSheetId, title: oldName },
-            fields: "title",
+            fields: 'title',
           },
         },
       ]),
@@ -299,16 +284,16 @@ async function migrateSheet(
 
   if (rows && rows.length > 0) {
     const detect = headerDetectCell || String(newHeaders[0]).toLowerCase();
-    const firstCell = String(rows[0][0] || "").toLowerCase();
+    const firstCell = String(rows[0][0] || '').toLowerCase();
     const dataRows = firstCell === detect ? rows.slice(1) : rows;
 
     if (dataRows.length > 0) {
       const migratedRows = dataRows.map((row) => {
-        const newRow: any[] = new Array(newColCount).fill("");
+        const newRow: any[] = new Array(newColCount).fill('');
         for (const [srcIdx, dstIdx] of Object.entries(colMap)) {
           const s = parseInt(srcIdx);
           if (s < row.length) {
-            newRow[dstIdx] = row[s] ?? "";
+            newRow[dstIdx] = row[s] ?? '';
           }
         }
         return newRow;
@@ -346,7 +331,12 @@ const ACCOUNTS_V2_TO_V3_COL_MAP: Record<number, number> = {
   // dateAdded(4), dateModified(5) → new, default ""
 };
 const ACCOUNTS_V3_HEADERS = [
-  "accountName", "accountColor", "accountTxtColor", "accountImgUrl", "dateAdded", "dateModified",
+  'accountName',
+  'accountColor',
+  'accountTxtColor',
+  'accountImgUrl',
+  'dateAdded',
+  'dateModified',
 ];
 const ACCOUNTS_V3_COL_COUNT = 6;
 
@@ -363,38 +353,47 @@ const CATEGORIES_V2_TO_V3_COL_MAP: Record<number, number> = {
   // dateAdded(3), dateModified(4) → new, default ""
 };
 const CATEGORIES_V3_HEADERS = [
-  "categoryName", "categoryColor", "categoryIconUrl", "dateAdded", "dateModified",
+  'categoryName',
+  'categoryColor',
+  'categoryIconUrl',
+  'dateAdded',
+  'dateModified',
 ];
 const CATEGORIES_V3_COL_COUNT = 5;
 
 const migrationV2toV3: Migration = {
   fromVersion: 2,
   toVersion: 3,
-  description: "Accounts: rimozione balance/isTotal + dateAdded/dateModified. Categories: rimozione type + dateAdded/dateModified",
+  description:
+    'Accounts: rimozione balance/isTotal + dateAdded/dateModified. Categories: rimozione type + dateAdded/dateModified',
   execute: async (spreadsheetId, userEmail, deviceType) => {
-    console.log("🔄 Executing migration v2 → v3 (rename+copy)");
+    console.log('🔄 Executing migration v2 → v3 (rename+copy)');
 
     // Migra Accounts
     await migrateSheet(
-      spreadsheetId, userEmail, deviceType,
-      "Accounts",
+      spreadsheetId,
+      userEmail,
+      deviceType,
+      'Accounts',
       ACCOUNTS_V3_HEADERS,
       ACCOUNTS_V2_TO_V3_COL_MAP,
       ACCOUNTS_V3_COL_COUNT,
-      "accountname",
+      'accountname',
     );
 
     // Migra Categories
     await migrateSheet(
-      spreadsheetId, userEmail, deviceType,
-      "Categories",
+      spreadsheetId,
+      userEmail,
+      deviceType,
+      'Categories',
       CATEGORIES_V3_HEADERS,
       CATEGORIES_V2_TO_V3_COL_MAP,
       CATEGORIES_V3_COL_COUNT,
-      "categoryname",
+      'categoryname',
     );
 
-    console.log("✅ Migration v2 → v3 completed");
+    console.log('✅ Migration v2 → v3 completed');
   },
 };
 
@@ -430,7 +429,7 @@ export class MigrationHelper {
 
     const spreadsheetId = userProduct?.spreadsheet_id;
     if (!spreadsheetId) {
-      throw new Error("No spreadsheet configured for user in user_products");
+      throw new Error('No spreadsheet configured for user in user_products');
     }
 
     console.log(

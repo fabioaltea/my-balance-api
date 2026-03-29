@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { TransactionsController } from "../controllers/transactions.controller";
-import { RequireAuthMiddleware } from "../middleware/requireAuth.middleware";
-import rateLimit from "express-rate-limit";
+import { Router } from 'express';
+import { TransactionsController } from '../controllers/transactions.controller';
+import { RequireAuthMiddleware } from '../middleware/requireAuth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const transactionsRoutes = Router();
 
@@ -11,25 +11,25 @@ const transactionsRateLimit = rateLimit({
   max: 50, // Limit each IP to 50 requests per minute
   message: {
     success: false,
-    error: "Too many requests, please try again later",
-    code: "RATE_LIMIT_EXCEEDED",
+    error: 'Too many requests, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // All transactions routes require authentication
-console.log("🔧 Setting up TRANSACTIONS routes...");
+console.log('🔧 Setting up TRANSACTIONS routes...');
 
 /**
  * GET /transactions - Restituisce tutte le transazioni
  */
-console.log("🔧 Defining GET /transactions route...");
+console.log('🔧 Defining GET /transactions route...');
 transactionsRoutes.get(
-  "/",
+  '/',
   transactionsRateLimit,
   (req, res, next) => {
-    console.log("🔧 GET /transactions route hit - before auth middleware");
+    console.log('🔧 GET /transactions route hit - before auth middleware');
     next();
   },
   RequireAuthMiddleware.verify,
@@ -40,7 +40,7 @@ transactionsRoutes.get(
  * GET /transactions/delta - Restituisce transazioni modificate da un certo timestamp
  */
 transactionsRoutes.get(
-  "/delta",
+  '/delta',
   transactionsRateLimit,
   RequireAuthMiddleware.verify,
   TransactionsController.getTransactionsDelta,
@@ -50,7 +50,7 @@ transactionsRoutes.get(
  * POST /transactions - Crea nuova transazione
  */
 transactionsRoutes.post(
-  "/",
+  '/',
   transactionsRateLimit,
   RequireAuthMiddleware.verify,
   TransactionsController.createTransaction,
@@ -60,7 +60,7 @@ transactionsRoutes.post(
  * GET /transactions/:transactionId - Recupera singola transazione
  */
 transactionsRoutes.get(
-  "/:transactionId",
+  '/:transactionId',
   transactionsRateLimit,
   RequireAuthMiddleware.verify,
   TransactionsController.getTransaction,
@@ -70,7 +70,7 @@ transactionsRoutes.get(
  * PUT /transactions/:transactionId - Aggiorna transazione esistente
  */
 transactionsRoutes.put(
-  "/:transactionId",
+  '/:transactionId',
   transactionsRateLimit,
   RequireAuthMiddleware.verify,
   TransactionsController.updateTransaction,
@@ -80,7 +80,7 @@ transactionsRoutes.put(
  * DELETE /transactions/:transactionId - Elimina transazione
  */
 transactionsRoutes.delete(
-  "/:transactionId",
+  '/:transactionId',
   transactionsRateLimit,
   RequireAuthMiddleware.verify,
   TransactionsController.deleteTransaction,

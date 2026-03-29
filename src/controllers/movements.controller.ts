@@ -1,20 +1,12 @@
-import { Request, Response } from "express";
-import { TransactionsHelper } from "../helpers/mybalance";
-import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
-import type { IMovementBatchUpdateRequest } from "../models/transactions.interfaces";
+import { Request, Response } from 'express';
+import { TransactionsHelper } from '../helpers/mybalance';
+import { GoogleAuthHelper, GoogleTokenError } from '../helpers/google';
+import type { IMovementBatchUpdateRequest } from '../models/transactions.interfaces';
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(
-  error: any,
-  res: Response,
-  context: string,
-): boolean {
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(
-      `❌ Google token error in ${context}:`,
-      error.message,
-      error.code,
-    );
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
     res.status(401).json({
       success: false,
       error: error.message,
@@ -32,24 +24,22 @@ export class MovementsController {
    */
   public static async getMovements(req: any, res: Response): Promise<void> {
     try {
-      console.log("🔄 GET /movements endpoint hit!");
+      console.log('🔄 GET /movements endpoint hit!');
       const userEmail = req.userId;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -58,17 +48,16 @@ export class MovementsController {
       const movements = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          TransactionsHelper.listMovements(client, spreadsheetId),
+        async (client) => TransactionsHelper.listMovements(client, spreadsheetId),
       );
 
       res.json({ success: true, data: movements });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "getMovements")) return;
-      console.error("Error fetching movements:", error);
+      if (handleGoogleTokenError(error, res, 'getMovements')) return;
+      console.error('Error fetching movements:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to fetch movements",
+        error: 'Failed to fetch movements',
         details: error?.message,
       });
     }
@@ -83,20 +72,18 @@ export class MovementsController {
       const { movementId } = req.params;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -105,25 +92,24 @@ export class MovementsController {
       const movement = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          TransactionsHelper.getMovement(client, spreadsheetId, movementId),
+        async (client) => TransactionsHelper.getMovement(client, spreadsheetId, movementId),
       );
 
       if (!movement) {
         res.status(404).json({
           success: false,
-          error: "Movement not found",
+          error: 'Movement not found',
         });
         return;
       }
 
       res.json({ success: true, data: movement });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "getMovement")) return;
-      console.error("Error fetching movement:", error);
+      if (handleGoogleTokenError(error, res, 'getMovement')) return;
+      console.error('Error fetching movement:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to fetch movement",
+        error: 'Failed to fetch movement',
         details: error?.message,
       });
     }
@@ -138,20 +124,18 @@ export class MovementsController {
       const movementData = req.body;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -160,21 +144,16 @@ export class MovementsController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          TransactionsHelper.appendMovement(
-            client,
-            spreadsheetId,
-            movementData,
-          ),
+        async (client) => TransactionsHelper.appendMovement(client, spreadsheetId, movementData),
       );
 
       res.json({ success: true, data: result });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "createMovement")) return;
-      console.error("Error creating movement:", error);
+      if (handleGoogleTokenError(error, res, 'createMovement')) return;
+      console.error('Error creating movement:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to create movement",
+        error: 'Failed to create movement',
         details: error?.message,
       });
     }
@@ -190,20 +169,18 @@ export class MovementsController {
       const updateData = req.body;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -217,21 +194,16 @@ export class MovementsController {
       const updatedMovement = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          TransactionsHelper.updateMovement(
-            client,
-            spreadsheetId,
-            movementRequest,
-          ),
+        async (client) => TransactionsHelper.updateMovement(client, spreadsheetId, movementRequest),
       );
 
       res.json({ success: true, data: updatedMovement });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "updateMovement")) return;
-      console.error("Error updating movement:", error);
+      if (handleGoogleTokenError(error, res, 'updateMovement')) return;
+      console.error('Error updating movement:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to update movement",
+        error: 'Failed to update movement',
         details: error?.message,
       });
     }
@@ -240,26 +212,21 @@ export class MovementsController {
   /**
    * POST /movements/batch - Aggiorna multipli movements in batch
    */
-  public static async updateMovementsBatch(
-    req: any,
-    res: Response,
-  ): Promise<void> {
+  public static async updateMovementsBatch(req: any, res: Response): Promise<void> {
     try {
       const userEmail = req.userId;
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
       const { movements = [] } = req.body as IMovementBatchUpdateRequest;
 
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -267,7 +234,7 @@ export class MovementsController {
       if (!Array.isArray(movements) || movements.length === 0) {
         res.status(400).json({
           success: false,
-          error: "movements must be a non-empty array",
+          error: 'movements must be a non-empty array',
         });
         return;
       }
@@ -275,21 +242,16 @@ export class MovementsController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          TransactionsHelper.updateMovementsBatch(
-            client,
-            spreadsheetId,
-            movements,
-          ),
+        async (client) => TransactionsHelper.updateMovementsBatch(client, spreadsheetId, movements),
       );
 
       res.json({ success: true, data: result });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "updateMovementsBatch")) return;
-      console.error("Error updating movements batch:", error);
+      if (handleGoogleTokenError(error, res, 'updateMovementsBatch')) return;
+      console.error('Error updating movements batch:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to update movements batch",
+        error: 'Failed to update movements batch',
         details: error?.message,
       });
     }
@@ -304,39 +266,34 @@ export class MovementsController {
       const { movementId } = req.params;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
 
       // Delete movement using TransactionsHelper
-      await GoogleAuthHelper.executeWithRetry(
-        userEmail,
-        deviceType,
-        async (client) =>
-          TransactionsHelper.deleteMovement(client, spreadsheetId, movementId),
+      await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+        TransactionsHelper.deleteMovement(client, spreadsheetId, movementId),
       );
 
-      res.json({ success: true, message: "Movement deleted successfully" });
+      res.json({ success: true, message: 'Movement deleted successfully' });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "deleteMovement")) return;
-      console.error("Error deleting movement:", error);
+      if (handleGoogleTokenError(error, res, 'deleteMovement')) return;
+      console.error('Error deleting movement:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to delete movement",
+        error: 'Failed to delete movement',
         details: error?.message,
       });
     }

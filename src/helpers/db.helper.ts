@@ -1,18 +1,18 @@
-import { Pool } from "pg";
-import CryptoJS from "crypto-js";
-import base64url from "base64url/dist/base64url";
+import { Pool } from 'pg';
+import CryptoJS from 'crypto-js';
+import base64url from 'base64url/dist/base64url';
 import {
   CreateUserRequest,
   UpdateUserRequest,
   CreateSessionRequest,
   UpdateSessionRequest,
-} from "../models";
+} from '../models';
 
 // Enable SSL only for production databases (Neon, etc.)
 const useSSL =
-  process.env.DATABASE_URL?.includes("neon.tech") ||
-  process.env.DATABASE_URL?.includes("sslmode=require") ||
-  process.env.NODE_ENV === "production";
+  process.env.DATABASE_URL?.includes('neon.tech') ||
+  process.env.DATABASE_URL?.includes('sslmode=require') ||
+  process.env.NODE_ENV === 'production';
 
 export class DbHelper {
   private static _pool = new Pool({
@@ -23,7 +23,7 @@ export class DbHelper {
   public static async getData() {
     const client = await DbHelper._pool.connect();
     try {
-      const { rows } = await client.query("SELECT * FROM users");
+      const { rows } = await client.query('SELECT * FROM users');
       return rows;
     } finally {
       client.release();
@@ -34,7 +34,7 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        "SELECT token, spreadsheet_id FROM users WHERE user_email = $1 AND pin = $2",
+        'SELECT token, spreadsheet_id FROM users WHERE user_email = $1 AND pin = $2',
         [userEmail, pin],
       );
       if (rows.length < 1) {
@@ -43,8 +43,8 @@ export class DbHelper {
         return rows[0];
       }
     } catch (error) {
-      console.error("Error retrieving credentials:", error);
-      throw new Error("Error retrieving credentials");
+      console.error('Error retrieving credentials:', error);
+      throw new Error('Error retrieving credentials');
     } finally {
       client.release();
     }
@@ -58,17 +58,14 @@ export class DbHelper {
         [challenge, userEmail],
       );
     } catch (error) {
-      console.error("Error saving credentials:", error);
-      throw new Error("Error saving credentials");
+      console.error('Error saving credentials:', error);
+      throw new Error('Error saving credentials');
     } finally {
       client.release();
     }
   }
 
-  public static async getUserCredentials(
-    userEmail: string,
-    clientCredentialId: string,
-  ) {
+  public static async getUserCredentials(userEmail: string, clientCredentialId: string) {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
@@ -86,8 +83,8 @@ export class DbHelper {
         }));
       }
     } catch (error) {
-      console.error("Error retrieving credentials:", error);
-      throw new Error("Error retrieving credentials");
+      console.error('Error retrieving credentials:', error);
+      throw new Error('Error retrieving credentials');
     } finally {
       client.release();
     }
@@ -96,13 +93,13 @@ export class DbHelper {
   public static async saveUserToken(userEmail: string, token: string) {
     const client = await DbHelper._pool.connect();
     try {
-      const r = await client.query(
-        `UPDATE users SET token = $1 WHERE user_email = $2`,
-        [token, userEmail],
-      );
+      const r = await client.query(`UPDATE users SET token = $1 WHERE user_email = $2`, [
+        token,
+        userEmail,
+      ]);
     } catch (error) {
-      console.error("Error saving user token:", error);
-      throw new Error("Error saving user token");
+      console.error('Error saving user token:', error);
+      throw new Error('Error saving user token');
     } finally {
       client.release();
     }
@@ -121,15 +118,15 @@ export class DbHelper {
         [credentialID, credentialPublicKey, counter, userEmail],
       );
     } catch (error) {
-      console.error("Error saving credentials:", error);
-      throw new Error("Error saving credentials");
+      console.error('Error saving credentials:', error);
+      throw new Error('Error saving credentials');
     } finally {
       client.release();
     }
   }
 
   public static async getAuthChallenge(userEmail: string) {
-    console.log("DbHelper.getAuthChallenge called for user:", userEmail);
+    console.log('DbHelper.getAuthChallenge called for user:', userEmail);
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
@@ -142,8 +139,8 @@ export class DbHelper {
         return rows[0];
       }
     } catch (error) {
-      console.error("Error getting Auth challengeq:", error);
-      throw new Error("Error getting Auth challenge");
+      console.error('Error getting Auth challengeq:', error);
+      throw new Error('Error getting Auth challenge');
     } finally {
       client.release();
     }
@@ -157,8 +154,8 @@ export class DbHelper {
         [userEmail, spreadsheetId],
       );
     } catch (error) {
-      console.error("Error inserting user:", error);
-      throw new Error("Error inserting user");
+      console.error('Error inserting user:', error);
+      throw new Error('Error inserting user');
     } finally {
       client.release();
     }
@@ -167,22 +164,16 @@ export class DbHelper {
   public static async updateUserLastAccess(userEmail: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET last_access = NOW() WHERE user_email = $1`,
-        [userEmail],
-      );
+      await client.query(`UPDATE users SET last_access = NOW() WHERE user_email = $1`, [userEmail]);
     } catch (error) {
-      console.error("Error updating user last access:", error);
-      throw new Error("Error updating user last access");
+      console.error('Error updating user last access:', error);
+      throw new Error('Error updating user last access');
     } finally {
       client.release();
     }
   }
 
-  public static decryptToken(
-    encryptedToken: string,
-    secretKey: string,
-  ): string {
+  public static decryptToken(encryptedToken: string, secretKey: string): string {
     const bytes = CryptoJS.AES.decrypt(encryptedToken, secretKey);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     return decrypted;
@@ -210,8 +201,8 @@ export class DbHelper {
       );
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
-      console.error("Error getting user by email:", error);
-      throw new Error("Error getting user by email");
+      console.error('Error getting user by email:', error);
+      throw new Error('Error getting user by email');
     } finally {
       client.release();
     }
@@ -231,8 +222,8 @@ export class DbHelper {
       );
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
-      console.error("Error getting user by ID:", error);
-      throw new Error("Error getting user by ID");
+      console.error('Error getting user by ID:', error);
+      throw new Error('Error getting user by ID');
     } finally {
       client.release();
     }
@@ -252,8 +243,8 @@ export class DbHelper {
       );
       return rows[0];
     } catch (error) {
-      console.error("Error creating user:", error);
-      throw new Error("Error creating user");
+      console.error('Error creating user:', error);
+      throw new Error('Error creating user');
     } finally {
       client.release();
     }
@@ -262,10 +253,7 @@ export class DbHelper {
   /**
    * Update user information
    */
-  public static async updateUser(
-    userEmail: string,
-    userData: UpdateUserRequest,
-  ) {
+  public static async updateUser(userEmail: string, userData: UpdateUserRequest) {
     const client = await DbHelper._pool.connect();
     try {
       const updateFields: string[] = [];
@@ -293,14 +281,12 @@ export class DbHelper {
       values.push(userEmail);
 
       await client.query(
-        `UPDATE users SET ${updateFields.join(
-          ", ",
-        )} WHERE user_email = $${paramIndex}`,
+        `UPDATE users SET ${updateFields.join(', ')} WHERE user_email = $${paramIndex}`,
         values,
       );
     } catch (error) {
-      console.error("Error updating user:", error);
-      throw new Error("Error updating user");
+      console.error('Error updating user:', error);
+      throw new Error('Error updating user');
     } finally {
       client.release();
     }
@@ -313,7 +299,7 @@ export class DbHelper {
   public static async storeGoogleRefreshToken(
     userEmail: string,
     encryptedToken: string,
-    deviceType: "web" | "ios" | "android" = "web",
+    deviceType: 'web' | 'ios' | 'android' = 'web',
   ) {
     const client = await DbHelper._pool.connect();
     try {
@@ -325,8 +311,8 @@ export class DbHelper {
         [userEmail, deviceType, encryptedToken],
       );
     } catch (error) {
-      console.error("Error storing Google refresh token:", error);
-      throw new Error("Error storing Google refresh token");
+      console.error('Error storing Google refresh token:', error);
+      throw new Error('Error storing Google refresh token');
     } finally {
       client.release();
     }
@@ -337,7 +323,7 @@ export class DbHelper {
    */
   public static async getGoogleRefreshToken(
     userEmail: string,
-    deviceType: "web" | "ios" | "android" = "web",
+    deviceType: 'web' | 'ios' | 'android' = 'web',
   ): Promise<string | null> {
     const client = await DbHelper._pool.connect();
     try {
@@ -349,8 +335,8 @@ export class DbHelper {
 
       return rows[0]?.google_refresh_token || null;
     } catch (error) {
-      console.error("Error getting Google refresh token:", error);
-      throw new Error("Error getting Google refresh token");
+      console.error('Error getting Google refresh token:', error);
+      throw new Error('Error getting Google refresh token');
     } finally {
       client.release();
     }
@@ -359,9 +345,7 @@ export class DbHelper {
   /**
    * Create session
    */
-  public static async createSession(
-    sessionData: CreateSessionRequest,
-  ): Promise<string> {
+  public static async createSession(sessionData: CreateSessionRequest): Promise<string> {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
@@ -372,13 +356,13 @@ export class DbHelper {
           sessionData.userEmail,
           sessionData.deviceId,
           JSON.stringify(sessionData.scopes),
-          sessionData.deviceType || "web",
+          sessionData.deviceType || 'web',
         ],
       );
       return rows[0].id;
     } catch (error) {
-      console.error("Error creating session:", error);
-      throw new Error("Error creating session");
+      console.error('Error creating session:', error);
+      throw new Error('Error creating session');
     } finally {
       client.release();
     }
@@ -402,18 +386,13 @@ export class DbHelper {
         // Parse scopes - handle both string and already-parsed array
         let parsedScopes = [];
         try {
-          if (typeof row.scopes === "string") {
+          if (typeof row.scopes === 'string') {
             parsedScopes = JSON.parse(row.scopes);
           } else if (Array.isArray(row.scopes)) {
             parsedScopes = row.scopes;
           }
         } catch (error) {
-          console.error(
-            "Error parsing scopes:",
-            error,
-            "Raw value:",
-            row.scopes,
-          );
+          console.error('Error parsing scopes:', error, 'Raw value:', row.scopes);
           parsedScopes = [];
         }
 
@@ -424,8 +403,8 @@ export class DbHelper {
       }
       return null;
     } catch (error) {
-      console.error("Error getting session:", error);
-      throw new Error("Error getting session");
+      console.error('Error getting session:', error);
+      throw new Error('Error getting session');
     } finally {
       client.release();
     }
@@ -434,10 +413,7 @@ export class DbHelper {
   /**
    * Update session
    */
-  public static async updateSession(
-    sessionId: string,
-    updateData: UpdateSessionRequest,
-  ) {
+  public static async updateSession(sessionId: string, updateData: UpdateSessionRequest) {
     const client = await DbHelper._pool.connect();
     try {
       const updateFields: string[] = [];
@@ -460,14 +436,12 @@ export class DbHelper {
       values.push(sessionId);
 
       await client.query(
-        `UPDATE sessions SET ${updateFields.join(
-          ", ",
-        )} WHERE id = $${paramIndex}`,
+        `UPDATE sessions SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`,
         values,
       );
     } catch (error) {
-      console.error("Error updating session:", error);
-      throw new Error("Error updating session");
+      console.error('Error updating session:', error);
+      throw new Error('Error updating session');
     } finally {
       client.release();
     }
@@ -479,12 +453,10 @@ export class DbHelper {
   public static async revokeSession(deviceId: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(`DELETE FROM sessions WHERE device_id = $1`, [
-        deviceId,
-      ]);
+      await client.query(`DELETE FROM sessions WHERE device_id = $1`, [deviceId]);
     } catch (error) {
-      console.error("Error revoking session:", error);
-      throw new Error("Error revoking session");
+      console.error('Error revoking session:', error);
+      throw new Error('Error revoking session');
     } finally {
       client.release();
     }
@@ -493,19 +465,16 @@ export class DbHelper {
   /**
    * Update WebAuthn counter
    */
-  public static async updateWebAuthnCounter(
-    userId: string,
-    newCounter: number,
-  ) {
+  public static async updateWebAuthnCounter(userId: string, newCounter: number) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET webauthn_counter = $1 WHERE id = $2`,
-        [newCounter, userId],
-      );
+      await client.query(`UPDATE users SET webauthn_counter = $1 WHERE id = $2`, [
+        newCounter,
+        userId,
+      ]);
     } catch (error) {
-      console.error("Error updating WebAuthn counter:", error);
-      throw new Error("Error updating WebAuthn counter");
+      console.error('Error updating WebAuthn counter:', error);
+      throw new Error('Error updating WebAuthn counter');
     } finally {
       client.release();
     }
@@ -517,12 +486,10 @@ export class DbHelper {
   public static async cleanOldSessions() {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `DELETE FROM sessions WHERE created_at < NOW() - INTERVAL '30 days'`,
-      );
+      await client.query(`DELETE FROM sessions WHERE created_at < NOW() - INTERVAL '30 days'`);
     } catch (error) {
-      console.error("Error cleaning old sessions:", error);
-      throw new Error("Error cleaning old sessions");
+      console.error('Error cleaning old sessions:', error);
+      throw new Error('Error cleaning old sessions');
     } finally {
       client.release();
     }
@@ -536,13 +503,13 @@ export class DbHelper {
   public static async updateShortcutKey(email: string, shortcutKey: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET shortcut_key = $1 WHERE user_email = $2`,
-        [shortcutKey, email],
-      );
+      await client.query(`UPDATE users SET shortcut_key = $1 WHERE user_email = $2`, [
+        shortcutKey,
+        email,
+      ]);
     } catch (error) {
-      console.error("Error updating shortcut key:", error);
-      throw new Error("Error updating shortcut key");
+      console.error('Error updating shortcut key:', error);
+      throw new Error('Error updating shortcut key');
     } finally {
       client.release();
     }
@@ -562,8 +529,8 @@ export class DbHelper {
       );
       return rows.length > 0 ? rows[0] : null;
     } catch (error) {
-      console.error("Error getting user by shortcut key:", error);
-      throw new Error("Error getting user by shortcut key");
+      console.error('Error getting user by shortcut key:', error);
+      throw new Error('Error getting user by shortcut key');
     } finally {
       client.release();
     }
@@ -577,13 +544,13 @@ export class DbHelper {
   public static async savePushToken(email: string, pushToken: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET push_token = $1 WHERE user_email = $2`,
-        [pushToken, email],
-      );
+      await client.query(`UPDATE users SET push_token = $1 WHERE user_email = $2`, [
+        pushToken,
+        email,
+      ]);
     } catch (error) {
-      console.error("Error saving push token:", error);
-      throw new Error("Error saving push token");
+      console.error('Error saving push token:', error);
+      throw new Error('Error saving push token');
     } finally {
       client.release();
     }
@@ -595,13 +562,10 @@ export class DbHelper {
   public static async removePushToken(email: string) {
     const client = await DbHelper._pool.connect();
     try {
-      await client.query(
-        `UPDATE users SET push_token = NULL WHERE user_email = $1`,
-        [email],
-      );
+      await client.query(`UPDATE users SET push_token = NULL WHERE user_email = $1`, [email]);
     } catch (error) {
-      console.error("Error removing push token:", error);
-      throw new Error("Error removing push token");
+      console.error('Error removing push token:', error);
+      throw new Error('Error removing push token');
     } finally {
       client.release();
     }
@@ -614,7 +578,7 @@ export class DbHelper {
    */
   public static async getUserProduct(
     userEmail: string,
-    productName: string = "MyBalance",
+    productName: string = 'MyBalance',
   ): Promise<{ spreadsheet_id: string; schema_version: number } | null> {
     const client = await DbHelper._pool.connect();
     try {
@@ -625,8 +589,8 @@ export class DbHelper {
       );
       return rows[0] ?? null;
     } catch (error) {
-      console.error("Error getting user product:", error);
-      throw new Error("Error getting user product");
+      console.error('Error getting user product:', error);
+      throw new Error('Error getting user product');
     } finally {
       client.release();
     }
@@ -637,7 +601,7 @@ export class DbHelper {
    */
   public static async getSchemaVersion(
     userEmail: string,
-    productName: string = "MyBalance",
+    productName: string = 'MyBalance',
   ): Promise<number> {
     const product = await this.getUserProduct(userEmail, productName);
     return product?.schema_version ?? 1;
@@ -649,7 +613,7 @@ export class DbHelper {
   public static async updateSchemaVersion(
     userEmail: string,
     schemaVersion: number,
-    productName: string = "MyBalance",
+    productName: string = 'MyBalance',
   ): Promise<void> {
     const client = await DbHelper._pool.connect();
     try {
@@ -659,8 +623,8 @@ export class DbHelper {
         [schemaVersion, userEmail, productName],
       );
     } catch (error) {
-      console.error("Error updating schema version:", error);
-      throw new Error("Error updating schema version");
+      console.error('Error updating schema version:', error);
+      throw new Error('Error updating schema version');
     } finally {
       client.release();
     }
@@ -673,7 +637,7 @@ export class DbHelper {
     userEmail: string,
     spreadsheetId: string,
     schemaVersion: number,
-    productName: string = "MyBalance",
+    productName: string = 'MyBalance',
   ): Promise<void> {
     const client = await DbHelper._pool.connect();
     try {
@@ -685,8 +649,8 @@ export class DbHelper {
         [userEmail, productName, spreadsheetId, schemaVersion],
       );
     } catch (error) {
-      console.error("Error upserting user product:", error);
-      throw new Error("Error upserting user product");
+      console.error('Error upserting user product:', error);
+      throw new Error('Error upserting user product');
     } finally {
       client.release();
     }
@@ -698,7 +662,7 @@ export class DbHelper {
   public static async setSetupComplete(
     userEmail: string,
     setupComplete: boolean = true,
-    productName: string = "MyBalance",
+    productName: string = 'MyBalance',
   ): Promise<void> {
     const client = await DbHelper._pool.connect();
     try {
@@ -708,8 +672,8 @@ export class DbHelper {
         [setupComplete, userEmail, productName],
       );
     } catch (error) {
-      console.error("Error setting setup complete:", error);
-      throw new Error("Error setting setup complete");
+      console.error('Error setting setup complete:', error);
+      throw new Error('Error setting setup complete');
     } finally {
       client.release();
     }
@@ -722,7 +686,7 @@ export class DbHelper {
    */
   public static async addToWaitlist(
     email: string,
-    source: string = "landing",
+    source: string = 'landing',
   ): Promise<{ id: string; email: string; created_at: Date }> {
     const client = await DbHelper._pool.connect();
     try {
@@ -735,8 +699,8 @@ export class DbHelper {
       );
       return rows[0];
     } catch (error) {
-      console.error("Error adding to waitlist:", error);
-      throw new Error("Error adding to waitlist");
+      console.error('Error adding to waitlist:', error);
+      throw new Error('Error adding to waitlist');
     } finally {
       client.release();
     }
@@ -748,14 +712,11 @@ export class DbHelper {
   public static async isEmailInWaitlist(email: string): Promise<boolean> {
     const client = await DbHelper._pool.connect();
     try {
-      const { rows } = await client.query(
-        `SELECT id FROM waitlist WHERE email = $1`,
-        [email],
-      );
+      const { rows } = await client.query(`SELECT id FROM waitlist WHERE email = $1`, [email]);
       return rows.length > 0;
     } catch (error) {
-      console.error("Error checking waitlist:", error);
-      throw new Error("Error checking waitlist");
+      console.error('Error checking waitlist:', error);
+      throw new Error('Error checking waitlist');
     } finally {
       client.release();
     }

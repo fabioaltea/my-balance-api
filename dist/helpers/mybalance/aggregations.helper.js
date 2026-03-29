@@ -39,7 +39,7 @@ class AggregationsHelper {
                 var _a;
                 // Skip transactions with status "recurrent" (template) or "unconfirmed"
                 const status = (_a = transaction.status) === null || _a === void 0 ? void 0 : _a.toLowerCase();
-                if (status === "recurrent" || status === "unconfirmed") {
+                if (status === 'recurrent' || status === 'unconfirmed') {
                     return;
                 }
                 // Parse transaction date (dd-MM-yyyy format)
@@ -61,11 +61,11 @@ class AggregationsHelper {
                     return;
                 // Update aggregation based on transaction type
                 // Type field takes precedence for categorization
-                if (transaction.type === "in") {
+                if (transaction.type === 'in') {
                     // Income: add absolute value
                     aggregations[yearMonth].income += Math.abs(amount);
                 }
-                else if (transaction.type === "out") {
+                else if (transaction.type === 'out') {
                     // Expense: add absolute value
                     aggregations[yearMonth].expense += Math.abs(amount);
                 }
@@ -110,33 +110,33 @@ class AggregationsHelper {
      * Parse amount string to number
      */
     static parseAmount(amountStr) {
-        if (typeof amountStr === "number")
+        if (typeof amountStr === 'number')
             return amountStr;
         if (!amountStr)
             return 0;
         let raw = String(amountStr).trim();
         // Remove currency symbols and spaces
-        raw = raw.replace(/[€\s]/g, "");
-        const hasComma = raw.includes(",");
-        const hasDot = raw.includes(".");
+        raw = raw.replace(/[€\s]/g, '');
+        const hasComma = raw.includes(',');
+        const hasDot = raw.includes('.');
         if (hasComma && hasDot) {
             // If both exist, the last separator is the decimal one
-            const lastComma = raw.lastIndexOf(",");
-            const lastDot = raw.lastIndexOf(".");
+            const lastComma = raw.lastIndexOf(',');
+            const lastDot = raw.lastIndexOf('.');
             if (lastComma > lastDot) {
                 // EU format: "." thousands, "," decimal
-                raw = raw.replace(/\./g, "").replace(/,/g, ".");
+                raw = raw.replace(/\./g, '').replace(/,/g, '.');
             }
             else {
                 // US format: "," thousands, "." decimal
-                raw = raw.replace(/,/g, "");
+                raw = raw.replace(/,/g, '');
             }
         }
         else if (hasComma && !hasDot) {
             // Only comma -> decimal
-            raw = raw.replace(/,/g, ".");
+            raw = raw.replace(/,/g, '.');
         }
-        const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+        const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
         return isNaN(parsed) ? 0 : parsed;
     }
 }

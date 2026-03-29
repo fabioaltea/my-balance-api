@@ -16,40 +16,40 @@ const accountsRateLimit = (0, express_rate_limit_1.default)({
     max: 30, // Limit each IP to 30 requests per minute
     message: {
         success: false,
-        error: "Too many requests, please try again later",
-        code: "RATE_LIMIT_EXCEEDED",
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
 // All accounts routes require authentication
-console.log("🔧 Setting up ACCOUNTS routes...");
+console.log('🔧 Setting up ACCOUNTS routes...');
 /**
  * GET /accounts - Recupera tutti gli accounts
  */
-console.log("🔧 Defining GET /accounts route...");
-accountsRoutes.get("/", accountsRateLimit, (req, res, next) => {
-    console.log("🔧 GET /accounts route hit - before auth middleware");
+console.log('🔧 Defining GET /accounts route...');
+accountsRoutes.get('/', accountsRateLimit, (req, res, next) => {
+    console.log('🔧 GET /accounts route hit - before auth middleware');
     next();
 }, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.getAccounts);
 /**
  * POST /accounts - Crea nuovo account
  */
-console.log("🔧 Defining POST /accounts route...");
-accountsRoutes.post("/", accountsRateLimit, (req, res, next) => {
-    console.log("🔧 POST /accounts route hit - before auth middleware");
+console.log('🔧 Defining POST /accounts route...');
+accountsRoutes.post('/', accountsRateLimit, (req, res, next) => {
+    console.log('🔧 POST /accounts route hit - before auth middleware');
     next();
 }, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.createAccount);
 /**
  * PUT /accounts/:accountId - Aggiorna account esistente
  */
-accountsRoutes.put("/:accountId", accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.updateAccount);
+accountsRoutes.put('/:accountId', accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.updateAccount);
 /**
  * DELETE /accounts/:accountId - Elimina account
  */
-accountsRoutes.delete("/:accountId", accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.deleteAccount);
+accountsRoutes.delete('/:accountId', accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.deleteAccount);
 /**
  * POST /accounts/batch - Crea multipli accounts in batch
  */
-accountsRoutes.post("/batch", accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.createAccountsBatch);
+accountsRoutes.post('/batch', accountsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, accounts_controller_1.AccountsController.createAccountsBatch);
 //# sourceMappingURL=accounts.routes.js.map

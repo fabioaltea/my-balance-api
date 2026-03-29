@@ -19,4 +19,4 @@ export interface ExchangeCodeParams {
   redirectUri?: string; // Optional - used for web to override default redirect URI
 }
 
-export type DeviceType = "web" | "ios" | "android";
+export type DeviceType = 'web' | 'ios' | 'android';

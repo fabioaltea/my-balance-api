@@ -1,19 +1,11 @@
-import { Request, Response } from "express";
-import { CategoriesHelper, TransactionsHelper } from "../helpers/mybalance";
-import { GoogleAuthHelper, GoogleTokenError } from "../helpers/google";
+import { Request, Response } from 'express';
+import { CategoriesHelper, TransactionsHelper } from '../helpers/mybalance';
+import { GoogleAuthHelper, GoogleTokenError } from '../helpers/google';
 
 // Helper to handle Google token errors and return appropriate HTTP status
-function handleGoogleTokenError(
-  error: any,
-  res: Response,
-  context: string,
-): boolean {
+function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
   if (error instanceof GoogleTokenError) {
-    console.error(
-      `❌ Google token error in ${context}:`,
-      error.message,
-      error.code,
-    );
+    console.error(`❌ Google token error in ${context}:`, error.message, error.code);
     res.status(401).json({
       success: false,
       error: error.message,
@@ -31,24 +23,22 @@ export class CategoriesController {
    */
   public static async getCategories(req: any, res: Response): Promise<void> {
     try {
-      console.log("🔄 GET /categories endpoint hit!");
+      console.log('🔄 GET /categories endpoint hit!');
       const userEmail = req.userId;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -62,11 +52,11 @@ export class CategoriesController {
 
       res.json({ success: true, data: categories });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "getCategories")) return;
-      console.error("Error fetching categories:", error);
+      if (handleGoogleTokenError(error, res, 'getCategories')) return;
+      console.error('Error fetching categories:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to fetch categories",
+        error: 'Failed to fetch categories',
         details: error?.message,
       });
     }
@@ -81,20 +71,18 @@ export class CategoriesController {
       const { categoryId } = req.params;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -111,18 +99,18 @@ export class CategoriesController {
       if (!category) {
         res.status(404).json({
           success: false,
-          error: "Category not found",
+          error: 'Category not found',
         });
         return;
       }
 
       res.json({ success: true, data: category });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "getCategory")) return;
-      console.error("Error fetching category:", error);
+      if (handleGoogleTokenError(error, res, 'getCategory')) return;
+      console.error('Error fetching category:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to fetch category",
+        error: 'Failed to fetch category',
         details: error?.message,
       });
     }
@@ -137,20 +125,18 @@ export class CategoriesController {
       const categoryData = req.body;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -159,17 +145,16 @@ export class CategoriesController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          CategoriesHelper.createCategory(spreadsheetId, categoryData, client),
+        async (client) => CategoriesHelper.createCategory(spreadsheetId, categoryData, client),
       );
 
       res.json({ success: true, data: result });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "createCategory")) return;
-      console.error("Error creating category:", error);
+      if (handleGoogleTokenError(error, res, 'createCategory')) return;
+      console.error('Error creating category:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to create category",
+        error: 'Failed to create category',
         details: error?.message,
       });
     }
@@ -180,31 +165,29 @@ export class CategoriesController {
    */
   public static async updateCategory(req: any, res: Response): Promise<void> {
     try {
-      console.log("🏷️ =============");
-      console.log("🏷️ PUT /categories/:categoryId endpoint hit!");
-      console.log("🏷️ User ID:", req.userId);
-      console.log("🏷️ Category ID:", req.params.categoryId);
-      console.log("🏷️ =============");
+      console.log('🏷️ =============');
+      console.log('🏷️ PUT /categories/:categoryId endpoint hit!');
+      console.log('🏷️ User ID:', req.userId);
+      console.log('🏷️ Category ID:', req.params.categoryId);
+      console.log('🏷️ =============');
 
       const userEmail = req.userId;
       const { categoryId } = req.params;
       const updateData = req.body;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -224,12 +207,7 @@ export class CategoriesController {
         userEmail,
         deviceType,
         async (client) =>
-          CategoriesHelper.updateCategory(
-            spreadsheetId,
-            categoryId,
-            updateData,
-            client,
-          ),
+          CategoriesHelper.updateCategory(spreadsheetId, categoryId, updateData, client),
       );
 
       // Se il nome è cambiato, aggiorna tutte le transazioni con il nuovo nome categoria
@@ -248,19 +226,17 @@ export class CategoriesController {
               updateData.name,
             ),
         );
-        console.log(
-          `🏷️ Updated ${updatedCount} transactions with new category name`,
-        );
+        console.log(`🏷️ Updated ${updatedCount} transactions with new category name`);
       }
 
-      console.log("🏷️ Category updated successfully:", updatedCategory.name);
+      console.log('🏷️ Category updated successfully:', updatedCategory.name);
       res.json({ success: true, data: updatedCategory });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "updateCategory")) return;
-      console.error("Error updating category:", error);
+      if (handleGoogleTokenError(error, res, 'updateCategory')) return;
+      console.error('Error updating category:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to update category",
+        error: 'Failed to update category',
         details: error?.message,
       });
     }
@@ -275,39 +251,34 @@ export class CategoriesController {
       const { categoryId } = req.params;
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
 
       // Delete category using CategoriesHelper
-      await GoogleAuthHelper.executeWithRetry(
-        userEmail,
-        deviceType,
-        async (client) =>
-          CategoriesHelper.deleteCategory(spreadsheetId, categoryId, client),
+      await GoogleAuthHelper.executeWithRetry(userEmail, deviceType, async (client) =>
+        CategoriesHelper.deleteCategory(spreadsheetId, categoryId, client),
       );
 
-      res.json({ success: true, message: "Category deleted successfully" });
+      res.json({ success: true, message: 'Category deleted successfully' });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "deleteCategory")) return;
-      console.error("Error deleting category:", error);
+      if (handleGoogleTokenError(error, res, 'deleteCategory')) return;
+      console.error('Error deleting category:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to delete category",
+        error: 'Failed to delete category',
         details: error?.message,
       });
     }
@@ -336,10 +307,7 @@ export class CategoriesController {
   /**
    * POST /categories/batch - Crea categorie in batch
    */
-  public static async createCategoriesBatch(
-    req: any,
-    res: Response,
-  ): Promise<void> {
+  public static async createCategoriesBatch(req: any, res: Response): Promise<void> {
     try {
       const userEmail = req.userId;
       const { categories } = req.body;
@@ -347,26 +315,24 @@ export class CategoriesController {
       if (!categories || !Array.isArray(categories)) {
         res.status(400).json({
           success: false,
-          error: "Missing or invalid categories array",
+          error: 'Missing or invalid categories array',
         });
         return;
       }
 
       // Get user's Google auth client
-      const deviceType = req.deviceType || "web";
+      const deviceType = req.deviceType || 'web';
 
       // Get spreadsheet ID - either from query or user's default
       let spreadsheetId = req.query.spreadsheet_id;
       if (!spreadsheetId) {
-        spreadsheetId =
-          await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
+        spreadsheetId = await GoogleAuthHelper.getSpreadsheetIdForUser(userEmail);
       }
 
       if (!spreadsheetId) {
         res.status(400).json({
           success: false,
-          error:
-            "Missing spreadsheet_id in query params and no default spreadsheet configured",
+          error: 'Missing spreadsheet_id in query params and no default spreadsheet configured',
         });
         return;
       }
@@ -375,21 +341,16 @@ export class CategoriesController {
       const result = await GoogleAuthHelper.executeWithRetry(
         userEmail,
         deviceType,
-        async (client) =>
-          CategoriesHelper.createCategoriesBatch(
-            spreadsheetId,
-            categories,
-            client,
-          ),
+        async (client) => CategoriesHelper.createCategoriesBatch(spreadsheetId, categories, client),
       );
 
       res.json({ success: true, data: result });
     } catch (error: any) {
-      if (handleGoogleTokenError(error, res, "createCategoriesBatch")) return;
-      console.error("Error creating categories batch:", error);
+      if (handleGoogleTokenError(error, res, 'createCategoriesBatch')) return;
+      console.error('Error creating categories batch:', error);
       res.status(500).json({
         success: false,
-        error: "Failed to create categories batch",
+        error: 'Failed to create categories batch',
         details: error?.message,
       });
     }

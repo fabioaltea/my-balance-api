@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { ShortcutController } from "../controllers/shortcut.controller";
-import { RequireAuthMiddleware } from "../middleware/requireAuth.middleware";
-import rateLimit from "express-rate-limit";
+import { Router } from 'express';
+import { ShortcutController } from '../controllers/shortcut.controller';
+import { RequireAuthMiddleware } from '../middleware/requireAuth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const shortcutRoutes = Router();
 
@@ -11,20 +11,20 @@ const shortcutRateLimit = rateLimit({
   max: 30, // Limit each IP to 30 requests per minute
   message: {
     success: false,
-    error: "Too many requests, please try again later",
-    code: "RATE_LIMIT_EXCEEDED",
+    error: 'Too many requests, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-console.log("🔧 Setting up SHORTCUT routes...");
+console.log('🔧 Setting up SHORTCUT routes...');
 
 /**
  * POST /shortcut/generate - Generate new shortcut key (requires JWT auth)
  */
 shortcutRoutes.post(
-  "/generate",
+  '/generate',
   shortcutRateLimit,
   RequireAuthMiddleware.verify,
   ShortcutController.generateShortcutKey,
@@ -34,7 +34,7 @@ shortcutRoutes.post(
  * GET /shortcut/key - Get current shortcut key (requires JWT auth)
  */
 shortcutRoutes.get(
-  "/key",
+  '/key',
   shortcutRateLimit,
   RequireAuthMiddleware.verify,
   ShortcutController.getShortcutKey,
@@ -43,10 +43,6 @@ shortcutRoutes.get(
 /**
  * POST /shortcut/movement - Create movement via shortcut (uses x-shortcutkey header)
  */
-shortcutRoutes.post(
-  "/movement",
-  shortcutRateLimit,
-  ShortcutController.createMovementViaShortcut,
-);
+shortcutRoutes.post('/movement', shortcutRateLimit, ShortcutController.createMovementViaShortcut);
 
 export { shortcutRoutes };

@@ -1,10 +1,10 @@
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import { JwtPayload, AccessTokenPayload } from "../models";
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { JwtPayload, AccessTokenPayload } from '../models';
 
 export class JwtHelper {
-  private static readonly ACCESS_TOKEN_TTL = "10m"; // 10 minutes
-  private static readonly REFRESH_TOKEN_TTL = "30d"; // 30 days
+  private static readonly ACCESS_TOKEN_TTL = '10m'; // 10 minutes
+  private static readonly REFRESH_TOKEN_TTL = '30d'; // 30 days
 
   // Cache for generated keys (only used if env vars are not set)
   private static _cachedKeys: { privateKey: string; publicKey: string } | null = null;
@@ -27,7 +27,9 @@ export class JwtHelper {
 
     // Fallback: generate keys once and cache them (for development only)
     if (!this._cachedKeys) {
-      console.warn('⚠️ JWT keys not found in environment, generating temporary keys. This is NOT recommended for production!');
+      console.warn(
+        '⚠️ JWT keys not found in environment, generating temporary keys. This is NOT recommended for production!',
+      );
       this._cachedKeys = this.generateKeyPair();
     }
 
@@ -38,15 +40,15 @@ export class JwtHelper {
    * Generate RSA key pair (for development only)
    */
   private static generateKeyPair() {
-    const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
       modulusLength: 2048,
       publicKeyEncoding: {
-        type: "spki",
-        format: "pem",
+        type: 'spki',
+        format: 'pem',
       },
       privateKeyEncoding: {
-        type: "pkcs8",
-        format: "pem",
+        type: 'pkcs8',
+        format: 'pem',
       },
     });
 
@@ -59,16 +61,16 @@ export class JwtHelper {
   public static signAccessToken(payload: AccessTokenPayload): string {
     const { privateKey } = this.getKeys();
 
-    const tokenPayload: Omit<JwtPayload, "iat" | "exp"> = {
+    const tokenPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
       ...payload,
-      type: "access",
+      type: 'access',
     };
 
     return jwt.sign(tokenPayload, privateKey, {
-      algorithm: "RS256",
+      algorithm: 'RS256',
       expiresIn: this.ACCESS_TOKEN_TTL,
-      issuer: "mybalance-api",
-      audience: "mybalance-client",
+      issuer: 'mybalance-api',
+      audience: 'mybalance-client',
     });
   }
 
@@ -78,16 +80,16 @@ export class JwtHelper {
   public static signRefreshToken(payload: AccessTokenPayload): string {
     const { privateKey } = this.getKeys();
 
-    const tokenPayload: Omit<JwtPayload, "iat" | "exp"> = {
+    const tokenPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
       ...payload,
-      type: "refresh",
+      type: 'refresh',
     };
 
     return jwt.sign(tokenPayload, privateKey, {
-      algorithm: "RS256",
+      algorithm: 'RS256',
       expiresIn: this.REFRESH_TOKEN_TTL,
-      issuer: "mybalance-api",
-      audience: "mybalance-client",
+      issuer: 'mybalance-api',
+      audience: 'mybalance-client',
     });
   }
 
@@ -99,19 +101,19 @@ export class JwtHelper {
 
     try {
       const decoded = jwt.verify(token, publicKey, {
-        algorithms: ["RS256"],
-        issuer: "mybalance-api",
-        audience: "mybalance-client",
+        algorithms: ['RS256'],
+        issuer: 'mybalance-api',
+        audience: 'mybalance-client',
       }) as JwtPayload;
 
-      if (decoded.type !== "access") {
-        throw new Error("Invalid token type");
+      if (decoded.type !== 'access') {
+        throw new Error('Invalid token type');
       }
 
       return decoded;
     } catch (error: any) {
-      console.error("JWT verification failed:", error.message);
-      throw new Error("Invalid or expired access token");
+      console.error('JWT verification failed:', error.message);
+      throw new Error('Invalid or expired access token');
     }
   }
 
@@ -124,19 +126,19 @@ export class JwtHelper {
 
     try {
       const decoded = jwt.verify(token, publicKey, {
-        algorithms: ["RS256"],
-        issuer: "mybalance-api",
-        audience: "mybalance-client",
+        algorithms: ['RS256'],
+        issuer: 'mybalance-api',
+        audience: 'mybalance-client',
       }) as JwtPayload;
 
-      if (decoded.type !== "refresh") {
-        console.error("JWT verification failed: Invalid token type");
+      if (decoded.type !== 'refresh') {
+        console.error('JWT verification failed: Invalid token type');
         return null;
       }
 
       return decoded;
     } catch (error: any) {
-      console.error("JWT verification failed:", error.message);
+      console.error('JWT verification failed:', error.message);
       return null;
     }
   }
@@ -144,10 +146,8 @@ export class JwtHelper {
   /**
    * Extract token from Authorization header
    */
-  public static extractTokenFromHeader(
-    authHeader: string | undefined
-  ): string | null {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  public static extractTokenFromHeader(authHeader: string | undefined): string | null {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return null;
     }
 

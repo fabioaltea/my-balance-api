@@ -1,4 +1,4 @@
-import { GoogleHelper } from "../google";
+import { GoogleHelper } from '../google';
 import {
   ITransaction,
   IMovement,
@@ -6,7 +6,7 @@ import {
   IUpdateTransactionBodyData,
   IMovementRequest,
   ITransactionRequest,
-} from "../../models";
+} from '../../models';
 
 // Mappatura colonne (0-based) del foglio "AllTransactions" — Schema v2.
 // A: description (0)
@@ -45,8 +45,8 @@ const COLS = {
 } as const;
 
 // Range base usato per operazioni
-const SHEET_RANGE = "AllTransactions!A2:Z";
-const SHEET_NAME = "AllTransactions";
+const SHEET_RANGE = 'AllTransactions!A2:Z';
+const SHEET_NAME = 'AllTransactions';
 
 // Interfaccia per filtri opzionali
 export interface ITransactionFilters {
@@ -54,7 +54,7 @@ export interface ITransactionFilters {
   to_date?: string; // dd-MM-yyyy format
   account?: string;
   category?: string;
-  type?: "in" | "out";
+  type?: 'in' | 'out';
   status?: string;
   limit?: number;
   offset?: number;
@@ -66,12 +66,10 @@ export class TransactionsHelper {
   private static DATE_ONLY_REGEX = /^\d{2}-\d{2}-\d{4}$/; // movement date
 
   private static pad(n: number): string {
-    return n < 10 ? "0" + n : String(n);
+    return n < 10 ? '0' + n : String(n);
   }
   private static formatDateOnly(dt: Date): string {
-    return `${this.pad(dt.getDate())}-${this.pad(
-      dt.getMonth() + 1,
-    )}-${dt.getFullYear()}`;
+    return `${this.pad(dt.getDate())}-${this.pad(dt.getMonth() + 1)}-${dt.getFullYear()}`;
   }
   private static formatDateTime(dt: Date): string {
     return `${dt.getFullYear()}-${this.pad(dt.getMonth() + 1)}-${this.pad(
@@ -86,27 +84,15 @@ export class TransactionsHelper {
   // 3. Altrimenti deduce da amount: negativo => out, positivo => in
   // 4. Se non deducibile ritorna stringa vuota
   private static normalizeType(type: any, amount: any): string {
-    const raw = (type == null ? "" : String(type)).trim().toLowerCase();
-    if (
-      raw === "in" ||
-      raw === "entrata" ||
-      raw === "income" ||
-      raw === "deposit"
-    )
-      return "in";
-    if (
-      raw === "out" ||
-      raw === "expense" ||
-      raw === "uscita" ||
-      raw === "withdraw"
-    )
-      return "out";
+    const raw = (type == null ? '' : String(type)).trim().toLowerCase();
+    if (raw === 'in' || raw === 'entrata' || raw === 'income' || raw === 'deposit') return 'in';
+    if (raw === 'out' || raw === 'expense' || raw === 'uscita' || raw === 'withdraw') return 'out';
     const num = this.parseAmountToNumber(amount);
     if (!isNaN(num)) {
-      if (num < 0) return "out";
-      if (num >= 0) return "in";
+      if (num < 0) return 'out';
+      if (num >= 0) return 'in';
     }
-    return ""; // neutro se impossibile
+    return ''; // neutro se impossibile
   }
 
   // Prova a interpretare qualunque formato di data plausibile e convertirlo in dd/MM/yyyy hh:mm.
@@ -120,14 +106,14 @@ export class TransactionsHelper {
     // dd/MM/yyyy
     const dmYSlash = /^(\d{2})\/(\d{2})\/(\d{4})$/;
     if (dmYSlash.test(raw)) {
-      const [d, m, y] = raw.split("/");
+      const [d, m, y] = raw.split('/');
       return `${d}-${m}-${y}`;
     }
 
     // yyyy-MM-dd
     const yMd = /^(\d{4})-(\d{2})-(\d{2})$/;
     if (yMd.test(raw)) {
-      const [y, m, d] = raw.split("-");
+      const [y, m, d] = raw.split('-');
       return `${d}-${m}-${y}`;
     }
 
@@ -146,9 +132,9 @@ export class TransactionsHelper {
 
   // Normalizza meta date (dateAdded / dateModified / dateDeleted) -> dd-MM-yyyy hh:mm
   private static normalizeMetaDate(input: any): string {
-    if (input === null || input === undefined) return "";
+    if (input === null || input === undefined) return '';
     const raw = String(input).trim();
-    if (raw === "") return ""; // stringa vuota rimane vuota
+    if (raw === '') return ''; // stringa vuota rimane vuota
     if (this.DATE_TIME_REGEX.test(raw)) return raw; // già ok
 
     // dd-MM-yyyy senza tempo
@@ -159,14 +145,14 @@ export class TransactionsHelper {
     // dd/MM/yyyy
     const dmYSlash = /^(\d{2})\/(\d{2})\/(\d{4})$/;
     if (dmYSlash.test(raw)) {
-      const [d, m, y] = raw.split("/");
+      const [d, m, y] = raw.split('/');
       return `${d}-${m}-${y} 00:00`;
     }
 
     // yyyy-MM-dd (senza tempo)
     const yMd = /^(\d{4})-(\d{2})-(\d{2})$/;
     if (yMd.test(raw)) {
-      const [y, m, d] = raw.split("-");
+      const [y, m, d] = raw.split('-');
       return `${d}-${m}-${y} 00:00`;
     }
 
@@ -187,73 +173,67 @@ export class TransactionsHelper {
     if (amount === null || amount === undefined) return NaN;
     let raw = String(amount).trim();
     // Rimuovi simboli di valuta e spazi
-    raw = raw.replace(/[€\s]/g, "");
+    raw = raw.replace(/[€\s]/g, '');
 
-    const hasComma = raw.includes(",");
-    const hasDot = raw.includes(".");
+    const hasComma = raw.includes(',');
+    const hasDot = raw.includes('.');
 
     if (hasComma && hasDot) {
       // Determina il separatore decimale come l'ultimo tra , e .
-      const lastComma = raw.lastIndexOf(",");
-      const lastDot = raw.lastIndexOf(".");
+      const lastComma = raw.lastIndexOf(',');
+      const lastDot = raw.lastIndexOf('.');
       if (lastComma > lastDot) {
         // EU: . migliaia, , decimali
-        raw = raw.replace(/\./g, "").replace(/,/g, ".");
+        raw = raw.replace(/\./g, '').replace(/,/g, '.');
       } else {
         // US: , migliaia, . decimali
-        raw = raw.replace(/,/g, "");
+        raw = raw.replace(/,/g, '');
       }
     } else if (hasComma && !hasDot) {
       // Solo la virgola come decimale
-      raw = raw.replace(/,/g, ".");
+      raw = raw.replace(/,/g, '.');
     } else if (hasDot && !hasComma) {
       // Solo il punto come decimale
       // Nessuna trasformazione necessaria
     }
 
-    raw = raw.replace(/[^0-9.\-]/g, "");
+    raw = raw.replace(/[^0-9.\-]/g, '');
     const num = parseFloat(raw);
     return isNaN(num) ? NaN : num;
   }
 
   private static formatAmount(amount: any): string {
     const num = this.parseAmountToNumber(amount);
-    if (isNaN(num)) return "";
+    if (isNaN(num)) return '';
     return num.toFixed(2); // sempre due decimali
   }
 
   private static cleanString(v?: string): string {
-    return v ? v.trim() : "";
+    return v ? v.trim() : '';
   }
 
   // Converte una riga Google Sheets in ITransaction
-  private static rowToTransaction(
-    row: any[],
-    rowIndex: number,
-  ): ITransactionRowParseResult | null {
+  private static rowToTransaction(row: any[], rowIndex: number): ITransactionRowParseResult | null {
     try {
       const transactionId = row[COLS.TRANSACTION_ID];
       if (!transactionId) return null; // riga vuota / non valida
       const transaction: ITransaction = {
-        description: this.cleanString(row[COLS.DESCRIPTION]) || "",
-        category: this.cleanString(row[COLS.CATEGORY]) || "",
-        amount: this.cleanString(row[COLS.AMOUNT]) || "", // Mantiene la stringa originale
+        description: this.cleanString(row[COLS.DESCRIPTION]) || '',
+        category: this.cleanString(row[COLS.CATEGORY]) || '',
+        amount: this.cleanString(row[COLS.AMOUNT]) || '', // Mantiene la stringa originale
         date: this.normalizeMovementDate(row[COLS.DATE]),
-        type: this.normalizeType(
-          row[COLS.TYPE],
-          this.parseAmountToNumber(row[COLS.AMOUNT]),
-        ),
-        account: this.cleanString(row[COLS.ACCOUNT]) || "",
+        type: this.normalizeType(row[COLS.TYPE], this.parseAmountToNumber(row[COLS.AMOUNT])),
+        account: this.cleanString(row[COLS.ACCOUNT]) || '',
         transactionId: transactionId,
-        movementId: this.cleanString(row[COLS.MOVEMENT_ID]) || "",
-        notes: this.cleanString(row[COLS.NOTES]) || "",
-        location: this.cleanString(row[COLS.LOCATION]) || "",
-        recurrenceId: this.cleanString(row[COLS.RECURRENCE_ID]) || "",
-        recurrencePattern: this.cleanString(row[COLS.RECURRENCE_PATTERN]) || "",
+        movementId: this.cleanString(row[COLS.MOVEMENT_ID]) || '',
+        notes: this.cleanString(row[COLS.NOTES]) || '',
+        location: this.cleanString(row[COLS.LOCATION]) || '',
+        recurrenceId: this.cleanString(row[COLS.RECURRENCE_ID]) || '',
+        recurrencePattern: this.cleanString(row[COLS.RECURRENCE_PATTERN]) || '',
         dateAdded: this.normalizeMetaDate(row[COLS.DATE_ADDED]),
         dateModified: this.normalizeMetaDate(row[COLS.DATE_MODIFIED]),
         dateDeleted: this.normalizeMetaDate(row[COLS.DATE_DELETED]),
-        status: this.cleanString(row[COLS.STATUS]) || "Confirmed",
+        status: this.cleanString(row[COLS.STATUS]) || 'Confirmed',
       };
       return { rowIndex: rowIndex + 1, transaction }; // 1-based index per uso in range
     } catch (ex) {
@@ -264,9 +244,7 @@ export class TransactionsHelper {
   // ===== NUOVI METODI PER GESTIONE MOVEMENTS =====
 
   // Converte transactions in IMovement raggruppando per movementId
-  private static groupTransactionsByMovement(
-    transactions: ITransaction[],
-  ): IMovement[] {
+  private static groupTransactionsByMovement(transactions: ITransaction[]): IMovement[] {
     const movementMap = new Map<string, ITransaction[]>();
 
     // Raggruppa per movementId
@@ -314,49 +292,33 @@ export class TransactionsHelper {
     const movementId = movementRequest.movementId || this.generateMovementId();
 
     // Crea transactions dal movimento
-    const transactions: ITransaction[] = movementRequest.transactions?.map(
-      (treq: any) => ({
-        transactionId: treq.transactionId || this.generateTransactionId(),
-        movementId: movementId,
-        description: treq.description || movementRequest.description,
-        category: treq.category || movementRequest.category,
-        amount: treq.amount, // Il frontend invia già la stringa con il segno corretto
-        date: treq.date || movementRequest.date,
-        type:
-          treq.type ||
-          movementRequest.type ||
-          this.normalizeType("", treq.amount),
-        account: treq.account || "",
-        notes: treq.notes || movementRequest.notes || "",
-        location: treq.location || movementRequest.location || "",
-        recurrenceId: movementRequest.recurrenceId || "",
-        recurrencePattern: movementRequest.recurrencePattern || "",
-        dateAdded: this.normalizeMetaDate(new Date()),
-        dateModified: this.normalizeMetaDate(new Date()),
-        status: movementRequest.status || "Confirmed",
-      }),
-    );
+    const transactions: ITransaction[] = movementRequest.transactions?.map((treq: any) => ({
+      transactionId: treq.transactionId || this.generateTransactionId(),
+      movementId: movementId,
+      description: treq.description || movementRequest.description,
+      category: treq.category || movementRequest.category,
+      amount: treq.amount, // Il frontend invia già la stringa con il segno corretto
+      date: treq.date || movementRequest.date,
+      type: treq.type || movementRequest.type || this.normalizeType('', treq.amount),
+      account: treq.account || '',
+      notes: treq.notes || movementRequest.notes || '',
+      location: treq.location || movementRequest.location || '',
+      recurrenceId: movementRequest.recurrenceId || '',
+      recurrencePattern: movementRequest.recurrencePattern || '',
+      dateAdded: this.normalizeMetaDate(new Date()),
+      dateModified: this.normalizeMetaDate(new Date()),
+      status: movementRequest.status || 'Confirmed',
+    }));
 
     // Converte in righe e appende
     const values = transactions.map((t) => this.transactionToRowValidated(t));
     const body = { values };
-    return await GoogleHelper.append(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-      body,
-    );
+    return await GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
   }
 
   // LIST movements (raggruppa transactions per movementId)
-  public static async listMovements(
-    authClient: any,
-    spreadsheetId: string,
-  ): Promise<IMovement[]> {
-    const transactions: ITransaction[] = await this.listTransactions(
-      authClient,
-      spreadsheetId,
-    );
+  public static async listMovements(authClient: any, spreadsheetId: string): Promise<IMovement[]> {
+    const transactions: ITransaction[] = await this.listTransactions(authClient, spreadsheetId);
 
     // Raggruppa per movementId
     return this.groupTransactionsByMovement(transactions);
@@ -367,18 +329,14 @@ export class TransactionsHelper {
     spreadsheetId: string,
     filters?: ITransactionFilters,
   ): Promise<ITransaction[]> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
     if (!rows || rows.length === 0) return [];
 
     // Converte tutte le righe in transactions
     let transactions: ITransaction[] = [];
     rows.forEach((r, i) => {
       const p = this.rowToTransaction(r, i);
-      if (p && p.transaction.status !== "DELETED") {
+      if (p && p.transaction.status !== 'DELETED') {
         transactions.push(p.transaction);
       }
     });
@@ -475,11 +433,7 @@ export class TransactionsHelper {
     spreadsheetId: string,
     movementId: string,
   ): Promise<IMovement | null> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
     if (!rows) return null;
 
     // Trova tutte le transactions con questo movementId
@@ -487,7 +441,7 @@ export class TransactionsHelper {
     rows.forEach((r, i) => {
       if (r[COLS.MOVEMENT_ID] === movementId) {
         const p = this.rowToTransaction(r, i);
-        if (p && p.transaction.status !== "DELETED") {
+        if (p && p.transaction.status !== 'DELETED') {
           transactions.push(p.transaction);
         }
       }
@@ -507,25 +461,18 @@ export class TransactionsHelper {
     movementRequest: IMovementRequest,
   ): Promise<any> {
     const movementId = movementRequest.movementId;
-    if (!movementId) throw new Error("MovementId richiesto per update");
+    if (!movementId) throw new Error('MovementId richiesto per update');
 
-    const rows: any[][] = await GoogleHelper.get(
-      authClientClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
-    if (!rows) throw new Error("Foglio vuoto");
+    const rows: any[][] = await GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
+    if (!rows) throw new Error('Foglio vuoto');
 
     // Trova tutte le transactions esistenti per questo movimento
-    const existingTransactionRows = new Map<
-      string,
-      { row: any[]; index: number }
-    >();
+    const existingTransactionRows = new Map<string, { row: any[]; index: number }>();
     rows.forEach((r, i) => {
       if (
         r[COLS.MOVEMENT_ID] === movementId &&
         r[COLS.TRANSACTION_ID] &&
-        r[COLS.STATUS] !== "DELETED"
+        r[COLS.STATUS] !== 'DELETED'
       ) {
         existingTransactionRows.set(r[COLS.TRANSACTION_ID], {
           row: r,
@@ -541,9 +488,7 @@ export class TransactionsHelper {
 
     // ID delle transactions presenti nella request (per rilevare quelle eliminate)
     const requestedTransactionIds = new Set(
-      (movementRequest.transactions || [])
-        .map((t) => t.transactionId)
-        .filter(Boolean) as string[],
+      (movementRequest.transactions || []).map((t) => t.transactionId).filter(Boolean) as string[],
     );
 
     // Soft delete delle transactions non più presenti nella request
@@ -551,14 +496,14 @@ export class TransactionsHelper {
       existingTransactionRows.forEach((existing, transactionId) => {
         if (!requestedTransactionIds.has(transactionId)) {
           const row = [...existing.row];
-          row[COLS.STATUS] = "DELETED";
+          row[COLS.STATUS] = 'DELETED';
           row[COLS.DATE_DELETED] = now;
           row[COLS.DATE_MODIFIED] = now;
 
           // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
           const rowNumber = existing.index + 2;
           const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-          updateData.push({ majorDimension: "ROWS", range, values: [row] });
+          updateData.push({ majorDimension: 'ROWS', range, values: [row] });
         }
       });
     }
@@ -584,26 +529,17 @@ export class TransactionsHelper {
           hasChanges = true;
         }
 
-        if (
-          movementRequest.date !== undefined &&
-          movementRequest.date !== row[COLS.DATE]
-        ) {
+        if (movementRequest.date !== undefined && movementRequest.date !== row[COLS.DATE]) {
           row[COLS.DATE] = movementRequest.date;
           hasChanges = true;
         }
 
-        if (
-          movementRequest.type !== undefined &&
-          movementRequest.type !== row[COLS.TYPE]
-        ) {
+        if (movementRequest.type !== undefined && movementRequest.type !== row[COLS.TYPE]) {
           row[COLS.TYPE] = movementRequest.type;
           hasChanges = true;
         }
 
-        if (
-          movementRequest.notes !== undefined &&
-          movementRequest.notes !== row[COLS.NOTES]
-        ) {
+        if (movementRequest.notes !== undefined && movementRequest.notes !== row[COLS.NOTES]) {
           row[COLS.NOTES] = movementRequest.notes;
           hasChanges = true;
         }
@@ -616,10 +552,7 @@ export class TransactionsHelper {
           hasChanges = true;
         }
 
-        if (
-          movementRequest.status !== undefined &&
-          movementRequest.status !== row[COLS.STATUS]
-        ) {
+        if (movementRequest.status !== undefined && movementRequest.status !== row[COLS.STATUS]) {
           row[COLS.STATUS] = movementRequest.status;
           hasChanges = true;
         }
@@ -649,13 +582,13 @@ export class TransactionsHelper {
         // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
         const rowNumber = existing.index + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+        updateData.push({ majorDimension: 'ROWS', range, values: [row] });
       });
     }
 
     // Processa le transactions della request
     for (const treq of movementRequest.transactions || []) {
-      const isExplicitDelete = treq._operation === "delete";
+      const isExplicitDelete = treq._operation === 'delete';
       const existing = treq.transactionId
         ? existingTransactionRows.get(treq.transactionId)
         : undefined;
@@ -663,12 +596,12 @@ export class TransactionsHelper {
       if (isExplicitDelete && existing) {
         // Soft delete esplicita
         const row = [...existing.row];
-        row[COLS.STATUS] = "DELETED";
+        row[COLS.STATUS] = 'DELETED';
         row[COLS.DATE_DELETED] = now;
         row[COLS.DATE_MODIFIED] = now;
         const rowNumber = existing.index + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+        updateData.push({ majorDimension: 'ROWS', range, values: [row] });
       } else if (existing && !isExplicitDelete) {
         // UPDATE puntuale della transaction esistente
         const row = [...existing.row];
@@ -676,20 +609,17 @@ export class TransactionsHelper {
         row[COLS.CATEGORY] = treq.category || movementRequest.category;
         row[COLS.AMOUNT] = treq.amount;
         row[COLS.DATE] = treq.date || movementRequest.date;
-        row[COLS.TYPE] =
-          treq.type ||
-          movementRequest.type ||
-          this.normalizeType("", treq.amount);
-        row[COLS.ACCOUNT] = treq.account || "";
-        row[COLS.NOTES] = treq.notes || movementRequest.notes || "";
-        row[COLS.LOCATION] = treq.location || movementRequest.location || "";
+        row[COLS.TYPE] = treq.type || movementRequest.type || this.normalizeType('', treq.amount);
+        row[COLS.ACCOUNT] = treq.account || '';
+        row[COLS.NOTES] = treq.notes || movementRequest.notes || '';
+        row[COLS.LOCATION] = treq.location || movementRequest.location || '';
         row[COLS.STATUS] = movementRequest.status || row[COLS.STATUS];
-        row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId || "";
-        row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern || "";
+        row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId || '';
+        row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern || '';
         row[COLS.DATE_MODIFIED] = now;
         const rowNumber = existing.index + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+        updateData.push({ majorDimension: 'ROWS', range, values: [row] });
       } else if (!isExplicitDelete) {
         // CREATE: nuova transaction
         newTransactions.push({
@@ -699,18 +629,15 @@ export class TransactionsHelper {
           category: treq.category || movementRequest.category,
           amount: treq.amount,
           date: treq.date || movementRequest.date,
-          type:
-            treq.type ||
-            movementRequest.type ||
-            this.normalizeType("", treq.amount),
-          account: treq.account || "",
-          notes: treq.notes || movementRequest.notes || "",
-          location: treq.location || movementRequest.location || "",
-          recurrenceId: movementRequest.recurrenceId || "",
-          recurrencePattern: movementRequest.recurrencePattern || "",
+          type: treq.type || movementRequest.type || this.normalizeType('', treq.amount),
+          account: treq.account || '',
+          notes: treq.notes || movementRequest.notes || '',
+          location: treq.location || movementRequest.location || '',
+          recurrenceId: movementRequest.recurrenceId || '',
+          recurrencePattern: movementRequest.recurrencePattern || '',
           dateAdded: now,
           dateModified: now,
-          status: movementRequest.status || "Confirmed",
+          status: movementRequest.status || 'Confirmed',
         });
       }
     }
@@ -718,23 +645,14 @@ export class TransactionsHelper {
     // Esegui updates (soft delete + aggiornamenti puntuali)
     const results: any[] = [];
     if (updateData.length > 0) {
-      results.push(
-        await GoogleHelper.update(authClientClient, spreadsheetId, updateData),
-      );
+      results.push(await GoogleHelper.update(authClientClient, spreadsheetId, updateData));
     }
 
     // Appendi nuove transactions
     if (newTransactions.length > 0) {
-      const values = newTransactions.map((t) =>
-        this.transactionToRowValidated(t),
-      );
+      const values = newTransactions.map((t) => this.transactionToRowValidated(t));
       results.push(
-        await GoogleHelper.append(
-          authClientClient,
-          spreadsheetId,
-          SHEET_RANGE,
-          { values },
-        ),
+        await GoogleHelper.append(authClientClient, spreadsheetId, SHEET_RANGE, { values }),
       );
     }
 
@@ -750,12 +668,8 @@ export class TransactionsHelper {
       return { updatedMovements: 0, updatedTransactions: 0 };
     }
 
-    const rows: any[][] = await GoogleHelper.get(
-      authClientClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
-    if (!rows) throw new Error("Foglio vuoto");
+    const rows: any[][] = await GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
+    if (!rows) throw new Error('Foglio vuoto');
 
     const updatesByMovementId = new Map(
       movementUpdates
@@ -771,17 +685,14 @@ export class TransactionsHelper {
       const movementId = row[COLS.MOVEMENT_ID];
       const update = updatesByMovementId.get(movementId);
 
-      if (!update || row[COLS.STATUS] === "DELETED") {
+      if (!update || row[COLS.STATUS] === 'DELETED') {
         return;
       }
 
       const nextRow = [...row];
       let hasChanges = false;
 
-      if (
-        update.location !== undefined &&
-        update.location !== row[COLS.LOCATION]
-      ) {
+      if (update.location !== undefined && update.location !== row[COLS.LOCATION]) {
         nextRow[COLS.LOCATION] = update.location;
         hasChanges = true;
       }
@@ -795,7 +706,7 @@ export class TransactionsHelper {
       const rowNumber = index + 2;
       const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
       updateData.push({
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range,
         values: [nextRow],
       });
@@ -820,21 +731,17 @@ export class TransactionsHelper {
     spreadsheetId: string,
     movementId: string,
   ): Promise<any> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
-    if (!rows) throw new Error("Foglio vuoto");
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
+    if (!rows) throw new Error('Foglio vuoto');
 
     const updateData: IUpdateTransactionBodyData[] = [];
     const now = this.normalizeMetaDate(new Date());
 
     // Trova tutte le transactions con questo movementId e marcale come DELETED
     rows.forEach((r, i) => {
-      if (r[COLS.MOVEMENT_ID] === movementId && r[COLS.STATUS] !== "DELETED") {
+      if (r[COLS.MOVEMENT_ID] === movementId && r[COLS.STATUS] !== 'DELETED') {
         const row = [...r];
-        row[COLS.STATUS] = "DELETED";
+        row[COLS.STATUS] = 'DELETED';
         row[COLS.DATE_DELETED] = now;
         row[COLS.DATE_MODIFIED] = now;
 
@@ -842,7 +749,7 @@ export class TransactionsHelper {
         const rowNumber = i + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
         updateData.push({
-          majorDimension: "ROWS",
+          majorDimension: 'ROWS',
           range: range,
           values: [row],
         });
@@ -850,7 +757,7 @@ export class TransactionsHelper {
     });
 
     if (updateData.length === 0) {
-      throw new Error("Movement non trovato o già eliminato");
+      throw new Error('Movement non trovato o già eliminato');
     }
 
     return await GoogleHelper.update(authClient, spreadsheetId, updateData);
@@ -869,7 +776,7 @@ export class TransactionsHelper {
   // Helper interno che converte dati già normalizzati in riga
   private static transactionToRowValidated(t: ITransaction): any[] {
     // Build row based on COLS mapping
-    const row: any[] = new Array(16).fill(""); // 16 colonne
+    const row: any[] = new Array(16).fill(''); // 16 colonne
     row[COLS.DESCRIPTION] = t.description;
     row[COLS.CATEGORY] = t.category;
     row[COLS.AMOUNT] = t.amount; // Il frontend invia già la stringa con il segno corretto
@@ -883,9 +790,9 @@ export class TransactionsHelper {
     row[COLS.RECURRENCE_ID] = t.recurrenceId;
     row[COLS.DATE_ADDED] = t.dateAdded;
     row[COLS.DATE_MODIFIED] = t.dateModified;
-    row[COLS.DATE_DELETED] = t.dateDeleted || "";
+    row[COLS.DATE_DELETED] = t.dateDeleted || '';
     row[COLS.STATUS] = t.status;
-    row[COLS.RECURRENCE_PATTERN] = t.recurrencePattern || "";
+    row[COLS.RECURRENCE_PATTERN] = t.recurrencePattern || '';
     return row;
   }
 
@@ -902,11 +809,7 @@ export class TransactionsHelper {
     oldAccountName: string,
     newAccountName: string,
   ): Promise<number> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
     if (!rows || rows.length === 0) return 0;
 
     const updateData: IUpdateTransactionBodyData[] = [];
@@ -914,7 +817,7 @@ export class TransactionsHelper {
 
     // Trova tutte le transazioni con il vecchio nome account
     rows.forEach((r, i) => {
-      if (r[COLS.ACCOUNT] === oldAccountName && r[COLS.STATUS] !== "DELETED") {
+      if (r[COLS.ACCOUNT] === oldAccountName && r[COLS.STATUS] !== 'DELETED') {
         const row = [...r];
         row[COLS.ACCOUNT] = newAccountName;
         row[COLS.DATE_MODIFIED] = now;
@@ -923,7 +826,7 @@ export class TransactionsHelper {
         const rowNumber = i + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
         updateData.push({
-          majorDimension: "ROWS",
+          majorDimension: 'ROWS',
           range: range,
           values: [row],
         });
@@ -947,21 +850,14 @@ export class TransactionsHelper {
     oldCategoryName: string,
     newCategoryName: string,
   ): Promise<number> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
     if (!rows || rows.length === 0) return 0;
 
     const updateData: IUpdateTransactionBodyData[] = [];
     const now = this.normalizeMetaDate(new Date());
 
     rows.forEach((r, i) => {
-      if (
-        r[COLS.CATEGORY] === oldCategoryName &&
-        r[COLS.STATUS] !== "DELETED"
-      ) {
+      if (r[COLS.CATEGORY] === oldCategoryName && r[COLS.STATUS] !== 'DELETED') {
         const row = [...r];
         row[COLS.CATEGORY] = newCategoryName;
         row[COLS.DATE_MODIFIED] = now;
@@ -969,7 +865,7 @@ export class TransactionsHelper {
         const rowNumber = i + 2;
         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
         updateData.push({
-          majorDimension: "ROWS",
+          majorDimension: 'ROWS',
           range: range,
           values: [row],
         });
@@ -989,7 +885,7 @@ export class TransactionsHelper {
    */
   private static extractRowNumberFromRange(range: string): string {
     const match = range.match(/(\d+)$/);
-    return match ? match[1] : "1";
+    return match ? match[1] : '1';
   }
 
   /**
@@ -1004,11 +900,7 @@ export class TransactionsHelper {
     spreadsheetId: string,
     since: string,
   ): Promise<ITransaction[]> {
-    const rows: any[][] = await GoogleHelper.get(
-      authClient,
-      spreadsheetId,
-      SHEET_RANGE,
-    );
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
     if (!rows || rows.length === 0) return [];
 
     // Parse the since parameter
@@ -1023,11 +915,9 @@ export class TransactionsHelper {
     const transactions: ITransaction[] = [];
     rows.forEach((r, i) => {
       const p = this.rowToTransaction(r, i);
-      if (p && p.transaction.status !== "DELETED") {
+      if (p && p.transaction.status !== 'DELETED') {
         // Parse dateModified (format: yyyy-MM-dd HH:mm)
-        const dateModified = this.parseMetaDateToDate(
-          p.transaction.dateModified,
-        );
+        const dateModified = this.parseMetaDateToDate(p.transaction.dateModified);
         if (dateModified && dateModified > sinceDate) {
           transactions.push(p.transaction);
         }

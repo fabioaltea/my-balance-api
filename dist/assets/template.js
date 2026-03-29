@@ -6,9 +6,9 @@ exports.template = {
         {
             properties: {
                 sheetId: 1969697882,
-                title: "Instructions",
+                title: 'Instructions',
                 index: 0,
-                sheetType: "GRID",
+                sheetType: 'GRID',
                 gridProperties: {
                     rowCount: 50,
                     columnCount: 5,
@@ -18,9 +18,9 @@ exports.template = {
         {
             properties: {
                 sheetId: 351667172,
-                title: "AllTransactions",
+                title: 'AllTransactions',
                 index: 1,
-                sheetType: "GRID",
+                sheetType: 'GRID',
                 gridProperties: {
                     rowCount: 9999,
                     columnCount: 26,
@@ -30,9 +30,9 @@ exports.template = {
         {
             properties: {
                 sheetId: 1969697880,
-                title: "Accounts",
+                title: 'Accounts',
                 index: 2,
-                sheetType: "GRID",
+                sheetType: 'GRID',
                 gridProperties: {
                     rowCount: 1003,
                     columnCount: 27,
@@ -42,9 +42,9 @@ exports.template = {
         {
             properties: {
                 sheetId: 1969697881,
-                title: "Categories",
+                title: 'Categories',
                 index: 3,
-                sheetType: "GRID",
+                sheetType: 'GRID',
                 gridProperties: {
                     rowCount: 1003,
                     columnCount: 27,
@@ -53,7 +53,7 @@ exports.template = {
         },
     ],
     properties: {
-        title: "MyBalance",
+        title: 'MyBalance',
     },
 };
 //# sourceMappingURL=template.js.map

@@ -1,8 +1,8 @@
-import crypto from "crypto";
-import CryptoJS from "crypto-js";
+import crypto from 'crypto';
+import CryptoJS from 'crypto-js';
 
 export class CryptoHelper {
-  private static readonly ALGORITHM = "aes-256-gcm";
+  private static readonly ALGORITHM = 'aes-256-gcm';
   private static readonly IV_LENGTH = 16; // 128 bits
   private static readonly TAG_LENGTH = 16; // 128 bits
 
@@ -12,11 +12,11 @@ export class CryptoHelper {
   private static getKey(): string {
     const key = process.env.ENCRYPTION_KEY;
     if (!key) {
-      throw new Error("ENCRYPTION_KEY environment variable is required");
+      throw new Error('ENCRYPTION_KEY environment variable is required');
     }
     if (key.length !== 64) {
       // 32 bytes = 64 hex characters
-      throw new Error("ENCRYPTION_KEY must be 32 bytes (64 hex characters)");
+      throw new Error('ENCRYPTION_KEY must be 32 bytes (64 hex characters)');
     }
     return key;
   }
@@ -26,23 +26,23 @@ export class CryptoHelper {
    */
   public static encrypt(text: string): string {
     try {
-      const key = Buffer.from(this.getKey(), "hex");
+      const key = Buffer.from(this.getKey(), 'hex');
       const iv = crypto.randomBytes(this.IV_LENGTH);
 
       const cipher = crypto.createCipheriv(this.ALGORITHM, key, iv);
-      cipher.setAAD(Buffer.from("mybalance-auth", "utf8"));
+      cipher.setAAD(Buffer.from('mybalance-auth', 'utf8'));
 
-      let encrypted = cipher.update(text, "utf8", "hex");
-      encrypted += cipher.final("hex");
+      let encrypted = cipher.update(text, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
 
       const tag = cipher.getAuthTag();
 
       // Combine IV, tag, and encrypted data
-      const result = iv.toString("hex") + tag.toString("hex") + encrypted;
+      const result = iv.toString('hex') + tag.toString('hex') + encrypted;
       return result;
     } catch (error: any) {
-      console.error("Encryption failed:", error);
-      throw new Error("Failed to encrypt data");
+      console.error('Encryption failed:', error);
+      throw new Error('Failed to encrypt data');
     }
   }
 
@@ -51,35 +51,27 @@ export class CryptoHelper {
    */
   public static decrypt(encryptedData: string): string {
     try {
-      const key = Buffer.from(this.getKey(), "hex");
+      const key = Buffer.from(this.getKey(), 'hex');
 
       // Extract IV, tag, and encrypted data
-      const iv = Buffer.from(
-        encryptedData.substring(0, this.IV_LENGTH * 2),
-        "hex"
-      );
+      const iv = Buffer.from(encryptedData.substring(0, this.IV_LENGTH * 2), 'hex');
       const tag = Buffer.from(
-        encryptedData.substring(
-          this.IV_LENGTH * 2,
-          (this.IV_LENGTH + this.TAG_LENGTH) * 2
-        ),
-        "hex"
+        encryptedData.substring(this.IV_LENGTH * 2, (this.IV_LENGTH + this.TAG_LENGTH) * 2),
+        'hex',
       );
-      const encrypted = encryptedData.substring(
-        (this.IV_LENGTH + this.TAG_LENGTH) * 2
-      );
+      const encrypted = encryptedData.substring((this.IV_LENGTH + this.TAG_LENGTH) * 2);
 
       const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
-      decipher.setAAD(Buffer.from("mybalance-auth", "utf8"));
+      decipher.setAAD(Buffer.from('mybalance-auth', 'utf8'));
       decipher.setAuthTag(tag);
 
-      let decrypted = decipher.update(encrypted, "hex", "utf8");
-      decrypted += decipher.final("utf8");
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
 
       return decrypted;
     } catch (error: any) {
-      console.error("Decryption failed:", error);
-      throw new Error("Failed to decrypt data");
+      console.error('Decryption failed:', error);
+      throw new Error('Failed to decrypt data');
     }
   }
 
@@ -104,20 +96,15 @@ export class CryptoHelper {
    * Generate a random encryption key (for setup/migration)
    */
   public static generateKey(): string {
-    return crypto.randomBytes(32).toString("hex");
+    return crypto.randomBytes(32).toString('hex');
   }
 
   /**
    * Hash password or sensitive data using PBKDF2
    */
-  public static hashPassword(
-    password: string,
-    salt?: string
-  ): { hash: string; salt: string } {
-    const actualSalt = salt || crypto.randomBytes(32).toString("hex");
-    const hash = crypto
-      .pbkdf2Sync(password, actualSalt, 10000, 64, "sha512")
-      .toString("hex");
+  public static hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+    const actualSalt = salt || crypto.randomBytes(32).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, actualSalt, 10000, 64, 'sha512').toString('hex');
 
     return {
       hash,
@@ -128,14 +115,8 @@ export class CryptoHelper {
   /**
    * Verify password against hash
    */
-  public static verifyPassword(
-    password: string,
-    hash: string,
-    salt: string
-  ): boolean {
-    const computedHash = crypto
-      .pbkdf2Sync(password, salt, 10000, 64, "sha512")
-      .toString("hex");
+  public static verifyPassword(password: string, hash: string, salt: string): boolean {
+    const computedHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
     return this.constantTimeEquals(hash, computedHash);
   }
 
