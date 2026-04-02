@@ -15,9 +15,9 @@ const crypto_helper_1 = require("../crypto.helper");
 const db_helper_1 = require("../db.helper");
 // Custom error for Google token issues that require re-authentication
 class GoogleTokenError extends Error {
-    constructor(message, code = "GOOGLE_TOKEN_INVALID") {
+    constructor(message, code = 'GOOGLE_TOKEN_INVALID') {
         super(message);
-        this.name = "GoogleTokenError";
+        this.name = 'GoogleTokenError';
         this.code = code;
     }
 }
@@ -29,28 +29,28 @@ class GoogleAuthHelper {
     // ============================================================================
     // CONSTRUCTOR & CLIENT INITIALIZATION
     // ============================================================================
-    constructor(deviceType = "web") {
+    constructor(deviceType = 'web') {
         this.deviceType = deviceType;
         this.initializeClient(deviceType);
     }
     initializeClient(deviceType) {
         switch (deviceType) {
-            case "ios":
+            case 'ios':
                 this.loadIOSClient();
                 break;
-            case "android":
+            case 'android':
                 this.loadAndroidClient();
                 break;
-            case "web":
+            case 'web':
             default:
                 this.loadWebClient();
                 break;
         }
     }
     loadWebClient() {
-        console.log("Loading web OAuth2 client with params:", {
+        console.log('Loading web OAuth2 client with params:', {
             clientId: process.env.CLIENT_ID_WEB,
-            clientSecret: process.env.CLIENT_SECRET ? "***" : undefined,
+            clientSecret: process.env.CLIENT_SECRET ? '***' : undefined,
             redirectUri: process.env.REDIRECT_URI_WEB,
         });
         this.client = new google_auth_library_1.OAuth2Client(process.env.CLIENT_ID_WEB, process.env.CLIENT_SECRET, process.env.REDIRECT_URI_WEB);
@@ -63,7 +63,7 @@ class GoogleAuthHelper {
         });
     }
     loadAndroidClient() {
-        console.log("Loading Android OAuth2 client with params:", {
+        console.log('Loading Android OAuth2 client with params:', {
             clientId: process.env.CLIENT_ID_ANDROID,
             redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
         });
@@ -105,25 +105,25 @@ class GoogleAuthHelper {
                 // Only add codeVerifier if it's provided and not empty
                 if (params.codeVerifier && params.codeVerifier.trim()) {
                     tokenRequest.codeVerifier = params.codeVerifier;
-                    console.log("Using PKCE code verifier for token exchange");
+                    console.log('Using PKCE code verifier for token exchange');
                 }
                 // If redirectUri is provided, use it (needed for web where the URI is dynamic)
                 if (params.redirectUri) {
                     tokenRequest.redirect_uri = params.redirectUri;
-                    console.log("Using custom redirect URI for token exchange:", params.redirectUri);
+                    console.log('Using custom redirect URI for token exchange:', params.redirectUri);
                 }
                 const { tokens } = yield this.client.getToken(tokenRequest);
                 if (!tokens.id_token) {
-                    throw new Error("No ID token received from Google");
+                    throw new Error('No ID token received from Google');
                 }
                 return {
                     idToken: tokens.id_token,
                     refreshToken: tokens.refresh_token || undefined,
-                    scopes: ((_a = tokens.scope) === null || _a === void 0 ? void 0 : _a.split(" ")) || [],
+                    scopes: ((_a = tokens.scope) === null || _a === void 0 ? void 0 : _a.split(' ')) || [],
                 };
             }
             catch (error) {
-                console.error("Error exchanging authorization code:", ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.error_description) || error.message);
+                console.error('Error exchanging authorization code:', ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.error_description) || error.message);
                 throw new Error(`Failed to exchange authorization code: ${error.message}`);
             }
         });
@@ -133,7 +133,7 @@ class GoogleAuthHelper {
      */
     verifyIdToken(idToken) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("Verifying ID token for client", this.client._clientId);
+            console.log('Verifying ID token for client', this.client._clientId);
             try {
                 const ticket = yield this.client.verifyIdToken({
                     idToken: idToken,
@@ -141,19 +141,18 @@ class GoogleAuthHelper {
                 });
                 const payload = ticket.getPayload();
                 if (!payload) {
-                    throw new Error("Invalid ID token payload");
+                    throw new Error('Invalid ID token payload');
                 }
                 // Verify issuer
-                if (payload.iss !== "https://accounts.google.com" &&
-                    payload.iss !== "accounts.google.com") {
-                    throw new Error("Invalid token issuer");
+                if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+                    throw new Error('Invalid token issuer');
                 }
                 // Verify audience
                 if (payload.aud !== this.client._clientId) {
-                    throw new Error("Invalid token audience");
+                    throw new Error('Invalid token audience');
                 }
                 if (!payload.email) {
-                    throw new Error("Missing required fields in ID token");
+                    throw new Error('Missing required fields in ID token');
                 }
                 return {
                     email: payload.email,
@@ -163,7 +162,7 @@ class GoogleAuthHelper {
                 };
             }
             catch (error) {
-                console.error("Error verifying ID token:", error);
+                console.error('Error verifying ID token:', error);
                 throw new Error(`Failed to verify ID token: ${error.message}`);
             }
         });
@@ -190,14 +189,14 @@ class GoogleAuthHelper {
                 // getAccessToken() internally refreshes if needed
                 const { token, res } = yield this.client.getAccessToken();
                 if (!token) {
-                    throw new GoogleTokenError("Failed to obtain access token - refresh token may be invalid", "GOOGLE_TOKEN_REFRESH_FAILED");
+                    throw new GoogleTokenError('Failed to obtain access token - refresh token may be invalid', 'GOOGLE_TOKEN_REFRESH_FAILED');
                 }
                 // Check if Google returned a new refresh token (token rotation)
                 const credentials = this.client.credentials;
                 const newRefreshToken = credentials.refresh_token;
                 // Log if we got a rotated token
                 if (newRefreshToken && ((_a = res === null || res === void 0 ? void 0 : res.data) === null || _a === void 0 ? void 0 : _a.refresh_token)) {
-                    console.log("🔄 Google returned a new refresh token (token rotation)");
+                    console.log('🔄 Google returned a new refresh token (token rotation)');
                 }
                 return {
                     accessToken: token,
@@ -205,40 +204,36 @@ class GoogleAuthHelper {
                 };
             }
             catch (error) {
-                console.error("Error refreshing access token:", error);
+                console.error('Error refreshing access token:', error);
                 // Check for specific Google errors that indicate token is invalid
                 const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
                 const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
-                const isTokenInvalid = errorMessage.includes("invalid_grant") ||
-                    errorMessage.includes("token has been expired or revoked") ||
-                    errorMessage.includes("token has been revoked") ||
-                    errorMessage.includes("invalid credentials") ||
+                const isTokenInvalid = errorMessage.includes('invalid_grant') ||
+                    errorMessage.includes('token has been expired or revoked') ||
+                    errorMessage.includes('token has been revoked') ||
+                    errorMessage.includes('invalid credentials') ||
                     GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus !== null && errorStatus !== void 0 ? errorStatus : -1);
                 if (isTokenInvalid) {
-                    throw new GoogleTokenError("Google refresh token is invalid or revoked. User must re-authenticate.", "GOOGLE_TOKEN_REVOKED");
+                    throw new GoogleTokenError('Google refresh token is invalid or revoked. User must re-authenticate.', 'GOOGLE_TOKEN_REVOKED');
                 }
-                throw new GoogleTokenError(`Failed to refresh access token: ${error.message}`, "GOOGLE_TOKEN_REFRESH_FAILED");
+                throw new GoogleTokenError(`Failed to refresh access token: ${error.message}`, 'GOOGLE_TOKEN_REFRESH_FAILED');
             }
         });
     }
     static extractErrorMessage(error) {
         var _a, _b, _c, _d;
-        return [
-            error === null || error === void 0 ? void 0 : error.message,
-            (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.error_description,
-            (_d = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.error,
-        ]
+        return [error === null || error === void 0 ? void 0 : error.message, (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.error_description, (_d = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.error]
             .filter(Boolean)
-            .join(" ")
+            .join(' ')
             .toLowerCase();
     }
     static extractErrorStatus(error) {
         var _a, _b, _c;
         const rawStatus = (_c = (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) !== null && _b !== void 0 ? _b : error === null || error === void 0 ? void 0 : error.status) !== null && _c !== void 0 ? _c : error === null || error === void 0 ? void 0 : error.code;
-        if (typeof rawStatus === "number") {
+        if (typeof rawStatus === 'number') {
             return rawStatus;
         }
-        if (typeof rawStatus === "string") {
+        if (typeof rawStatus === 'string') {
             const parsedStatus = Number(rawStatus);
             return Number.isNaN(parsedStatus) ? undefined : parsedStatus;
         }
@@ -248,11 +243,11 @@ class GoogleAuthHelper {
         const errorMessage = GoogleAuthHelper.extractErrorMessage(error);
         const errorStatus = GoogleAuthHelper.extractErrorStatus(error);
         return (GoogleAuthHelper.AUTH_ERROR_STATUSES.has(errorStatus !== null && errorStatus !== void 0 ? errorStatus : -1) ||
-            errorMessage.includes("unauthorized_client") ||
-            errorMessage.includes("invalid_grant") ||
-            errorMessage.includes("invalid credentials") ||
-            (errorMessage.includes("token") && errorMessage.includes("expired")) ||
-            (errorMessage.includes("token") && errorMessage.includes("revoked")));
+            errorMessage.includes('unauthorized_client') ||
+            errorMessage.includes('invalid_grant') ||
+            errorMessage.includes('invalid credentials') ||
+            (errorMessage.includes('token') && errorMessage.includes('expired')) ||
+            (errorMessage.includes('token') && errorMessage.includes('revoked')));
     }
     static toGoogleTokenError(error, fallbackMessage) {
         if (error instanceof GoogleTokenError) {
@@ -260,7 +255,7 @@ class GoogleAuthHelper {
         }
         const status = GoogleAuthHelper.extractErrorStatus(error);
         const message = (error === null || error === void 0 ? void 0 : error.message) || fallbackMessage;
-        const code = status === 403 ? "GOOGLE_AUTH_FORBIDDEN" : "GOOGLE_TOKEN_INVALID";
+        const code = status === 403 ? 'GOOGLE_AUTH_FORBIDDEN' : 'GOOGLE_TOKEN_INVALID';
         return new GoogleTokenError(message, code);
     }
     /**
@@ -288,8 +283,8 @@ class GoogleAuthHelper {
                     throw error;
                 }
                 console.log(`🔄 Auth error detected for ${userEmail}, attempting token refresh and retry...`);
-                // Use lock to prevent concurrent refresh attempts for the same user
-                const lockKey = `${userEmail}:${deviceType}`;
+                // Use lock to prevent concurrent refresh attempts for the same user+product
+                const lockKey = `${userEmail}:${deviceType}:${GoogleAuthHelper.PRODUCT_NAME}`;
                 const existingLock = GoogleAuthHelper.refreshLocks.get(lockKey);
                 if (existingLock) {
                     // Wait for ongoing refresh to complete
@@ -302,7 +297,7 @@ class GoogleAuthHelper {
                     }
                     catch (retryError) {
                         if (GoogleAuthHelper.isAuthError(retryError)) {
-                            throw GoogleAuthHelper.toGoogleTokenError(retryError, "Google authentication failed after token refresh. User must re-authenticate.");
+                            throw GoogleAuthHelper.toGoogleTokenError(retryError, 'Google authentication failed after token refresh. User must re-authenticate.');
                         }
                         throw retryError;
                     }
@@ -312,10 +307,10 @@ class GoogleAuthHelper {
                     try {
                         // Create a new helper to perform the refresh
                         const helper = new GoogleAuthHelper(deviceType);
-                        // Get and decrypt refresh token
-                        const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType);
+                        // Get and decrypt refresh token (product-scoped)
+                        const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType, GoogleAuthHelper.PRODUCT_NAME);
                         if (!encryptedToken) {
-                            throw new GoogleTokenError(`No refresh token found for ${userEmail}`, "GOOGLE_TOKEN_NOT_FOUND");
+                            throw new GoogleTokenError(`No refresh token found for ${userEmail} (${GoogleAuthHelper.PRODUCT_NAME})`, 'GOOGLE_TOKEN_NOT_FOUND');
                         }
                         const refreshToken = crypto_helper_1.CryptoHelper.decrypt(encryptedToken);
                         helper.setCredentials(refreshToken);
@@ -323,14 +318,14 @@ class GoogleAuthHelper {
                         const refreshResult = yield helper.refreshAccessToken();
                         // Handle token rotation if Google returned a new refresh token
                         if (refreshResult.newRefreshToken) {
-                            console.log(`💾 Saving rotated refresh token for ${userEmail} (${deviceType})`);
+                            console.log(`💾 Saving rotated refresh token for ${userEmail} (${deviceType}/${GoogleAuthHelper.PRODUCT_NAME})`);
                             const encryptedNewToken = crypto_helper_1.CryptoHelper.encrypt(refreshResult.newRefreshToken);
-                            yield db_helper_1.DbHelper.storeGoogleRefreshToken(userEmail, encryptedNewToken, deviceType);
-                            console.log("✅ Rotated refresh token saved");
+                            yield db_helper_1.DbHelper.storeGoogleRefreshToken(userEmail, encryptedNewToken, deviceType, GoogleAuthHelper.PRODUCT_NAME);
+                            console.log('✅ Rotated refresh token saved');
                         }
                     }
                     catch (refreshError) {
-                        console.error("Failed to refresh token:", refreshError);
+                        console.error('Failed to refresh token:', refreshError);
                         throw refreshError;
                     }
                     finally {
@@ -351,7 +346,7 @@ class GoogleAuthHelper {
                 }
                 catch (retryError) {
                     if (GoogleAuthHelper.isAuthError(retryError)) {
-                        throw GoogleAuthHelper.toGoogleTokenError(retryError, "Google authentication failed after token refresh. User must re-authenticate.");
+                        throw GoogleAuthHelper.toGoogleTokenError(retryError, 'Google authentication failed after token refresh. User must re-authenticate.');
                     }
                     throw retryError;
                 }
@@ -367,12 +362,12 @@ class GoogleAuthHelper {
      * Note: Token refresh happens lazily when API calls fail (handled by retry wrapper)
      */
     static getAuthClientForUser(userEmail_1) {
-        return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = "web") {
+        return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = 'web') {
             try {
-                // Get encrypted refresh token from user_google_tokens table
-                const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType);
+                // Get encrypted refresh token from user_google_tokens table (product-scoped)
+                const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType, GoogleAuthHelper.PRODUCT_NAME);
                 if (!encryptedToken) {
-                    throw new GoogleTokenError(`No Google refresh token found for user ${userEmail} with device type ${deviceType}. User must re-authenticate.`, "GOOGLE_TOKEN_NOT_FOUND");
+                    throw new GoogleTokenError(`No Google refresh token found for user ${userEmail} with device type ${deviceType}. User must re-authenticate.`, 'GOOGLE_TOKEN_NOT_FOUND');
                 }
                 // Decrypt the refresh token
                 const refreshToken = crypto_helper_1.CryptoHelper.decrypt(encryptedToken);
@@ -384,13 +379,13 @@ class GoogleAuthHelper {
                 return helper.getClient();
             }
             catch (error) {
-                console.error("Error getting auth client for user:", error);
+                console.error('Error getting auth client for user:', error);
                 // Re-throw GoogleTokenError as-is for proper handling upstream
                 if (error instanceof GoogleTokenError) {
                     throw error;
                 }
                 // Wrap other errors
-                throw new GoogleTokenError(`Failed to get Google auth client: ${error.message}`, "GOOGLE_AUTH_FAILED");
+                throw new GoogleTokenError(`Failed to get Google auth client: ${error.message}`, 'GOOGLE_AUTH_FAILED');
             }
         });
     }
@@ -404,7 +399,7 @@ class GoogleAuthHelper {
                 return (user === null || user === void 0 ? void 0 : user.spreadsheet_id) || null;
             }
             catch (error) {
-                console.error("Error getting spreadsheet ID for user:", error);
+                console.error('Error getting spreadsheet ID for user:', error);
                 return null;
             }
         });
@@ -417,12 +412,12 @@ class GoogleAuthHelper {
             try {
                 const user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
                 if (!user) {
-                    throw new Error("User not found");
+                    throw new Error('User not found');
                 }
                 yield db_helper_1.DbHelper.updateUser(userEmail, { spreadsheetId });
             }
             catch (error) {
-                console.error("Error setting spreadsheet ID for user:", error);
+                console.error('Error setting spreadsheet ID for user:', error);
                 throw new Error(`Failed to set spreadsheet ID: ${error.message}`);
             }
         });
@@ -431,6 +426,9 @@ class GoogleAuthHelper {
 exports.GoogleAuthHelper = GoogleAuthHelper;
 exports.GoogleOAuthHelper = GoogleAuthHelper;
 GoogleAuthHelper.AUTH_ERROR_STATUSES = new Set([401, 403]);
+// Product name read from env — drives product-scoped token storage.
+// Set PRODUCT_NAME=MyBalance in the service .env file.
+GoogleAuthHelper.PRODUCT_NAME = process.env.PRODUCT_NAME || 'MyBalance';
 // ============================================================================
 // RETRY WRAPPER - Execute API calls with automatic token refresh on auth errors
 // ============================================================================

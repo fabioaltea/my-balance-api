@@ -87,13 +87,13 @@ class GoogleHelper {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 var OAuth2 = googleapis_1.google.auth.OAuth2;
-                var oauth2Client = new OAuth2(auth.client_id, auth.client_secret, "");
+                var oauth2Client = new OAuth2(auth.client_id, auth.client_secret, '');
                 oauth2Client.setCredentials({
                     refresh_token: auth.refresh_token,
                 });
                 var oauth2 = googleapis_1.google.oauth2({
                     auth: oauth2Client,
-                    version: 'v2'
+                    version: 'v2',
                 });
                 const { data } = yield oauth2.userinfo.get();
                 return data;
@@ -106,15 +106,15 @@ class GoogleHelper {
     }
     static parseAuthHeaders(headers) {
         const requiredHeaders = ['refresh_token'];
-        const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
+        const missingHeaders = requiredHeaders.filter((header) => !headers[header] || headers[header] === '');
         if (missingHeaders.length > 0) {
             throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
         }
         return {
-            type: "authorized_user",
+            type: 'authorized_user',
             refresh_token: headers.refresh_token,
             client_secret: process.env.CLIENT_SECRET,
-            client_id: process.env.CLIENT_ID
+            client_id: process.env.CLIENT_ID,
         };
     }
     static get(auth, spreadsheetId, range) {
@@ -122,17 +122,17 @@ class GoogleHelper {
             if (!spreadsheetId && !range) {
                 throw new Error('Missing or invalid parameters: spreadsheetId, range');
             }
-            if (!spreadsheetId || spreadsheetId == "") {
+            if (!spreadsheetId || spreadsheetId == '') {
                 throw new Error('Missing or invalid parameter: spreadsheetId');
             }
-            if (!range || range == "") {
+            if (!range || range == '') {
                 throw new Error('Missing or invalid parameter: range');
             }
             try {
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
                 const res = yield sheets.spreadsheets.values.get({
                     spreadsheetId: spreadsheetId,
-                    range: range
+                    range: range,
                 });
                 const rows = res.data.values;
                 if (!rows || rows.length === 0) {
@@ -152,7 +152,7 @@ class GoogleHelper {
             if (!spreadsheetId && !body) {
                 throw new Error('Missing or invalid parameters: spreadsheetId, range');
             }
-            if (!spreadsheetId || spreadsheetId == "") {
+            if (!spreadsheetId || spreadsheetId == '') {
                 throw new Error('Missing or invalid parameter: spreadsheetId');
             }
             if (!body) {
@@ -163,9 +163,9 @@ class GoogleHelper {
                 const res = yield sheets.spreadsheets.values.batchUpdate({
                     spreadsheetId: spreadsheetId,
                     requestBody: {
-                        valueInputOption: "RAW",
-                        data: body
-                    }
+                        valueInputOption: 'RAW',
+                        data: body,
+                    },
                 });
                 if (res.status) {
                     return res;
@@ -185,7 +185,7 @@ class GoogleHelper {
             if (!spreadsheetId && !body) {
                 throw new Error('Missing or invalid parameters: spreadsheetId, range');
             }
-            if (!spreadsheetId || spreadsheetId == "") {
+            if (!spreadsheetId || spreadsheetId == '') {
                 throw new Error('Missing or invalid parameter: spreadsheetId');
             }
             if (!body) {
@@ -197,7 +197,7 @@ class GoogleHelper {
                     spreadsheetId: spreadsheetId,
                     requestBody: body,
                     range: range,
-                    valueInputOption: "RAW"
+                    valueInputOption: 'RAW',
                 });
                 if (res.status) {
                     return res;
@@ -268,7 +268,7 @@ class GoogleHelper {
             try {
                 const sheets = googleapis_1.google.sheets({ version: 'v4', auth });
                 const res = yield sheets.spreadsheets.create({
-                    requestBody: template_1.template
+                    requestBody: template_1.template,
                 });
                 return res;
             }
@@ -280,6 +280,9 @@ class GoogleHelper {
     }
 }
 exports.GoogleHelper = GoogleHelper;
-GoogleHelper.SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo'];
+GoogleHelper.SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/userinfo',
+];
 GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI);
 //# sourceMappingURL=sheets.helper.js.map

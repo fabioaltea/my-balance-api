@@ -18,7 +18,7 @@ export interface CreateSessionRequest {
   userEmail: string;
   deviceId: string;
   scopes: string[];
-  deviceType?: "web" | "ios" | "android";
+  deviceType?: 'web' | 'ios' | 'android';
 }
 
 export interface UpdateSessionRequest {

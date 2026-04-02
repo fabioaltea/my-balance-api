@@ -49,7 +49,7 @@ export interface IAppendTransactionBody {
 
 // Body per update batch (Google batchUpdate -> data[])
 export interface IUpdateTransactionBodyData {
-  majorDimension: "ROWS";
+  majorDimension: 'ROWS';
   range: string; // Es: AllTransactions!A10:Z10
   values: any[][]; // Singola riga aggiornata
 }
@@ -89,5 +89,5 @@ export interface ITransactionRequest {
   account?: string;
   notes?: string; // Se omesso, eredita dal movement
   location?: string; // Se omesso, eredita dal movement
-  _operation?: "create" | "update" | "delete"; // Operazione da eseguire
+  _operation?: 'create' | 'update' | 'delete'; // Operazione da eseguire
 }

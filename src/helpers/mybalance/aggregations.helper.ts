@@ -1,5 +1,5 @@
-import { TransactionsHelper, ITransactionFilters } from "./transactions.helper";
-import { ITransaction } from "../../models";
+import { TransactionsHelper, ITransactionFilters } from './transactions.helper';
+import { ITransaction } from '../../models';
 
 /**
  * Interfaccia per aggregazioni mensili
@@ -31,13 +31,13 @@ export class AggregationsHelper {
     authClient: any,
     spreadsheetId: string,
     from_date?: string,
-    to_date?: string
+    to_date?: string,
   ): Promise<IMonthlyAggregations> {
     // Fetch transactions with date filters
     const filters: ITransactionFilters = {
       limit: 10000, // Get all transactions within date range
     };
-    
+
     if (from_date) {
       filters.from_date = from_date;
     }
@@ -48,7 +48,7 @@ export class AggregationsHelper {
     const transactions = await TransactionsHelper.listTransactions(
       authClient,
       spreadsheetId,
-      filters
+      filters,
     );
 
     // Aggregate by month
@@ -57,7 +57,7 @@ export class AggregationsHelper {
     transactions.forEach((transaction) => {
       // Skip transactions with status "recurrent" (template) or "unconfirmed"
       const status = transaction.status?.toLowerCase();
-      if (status === "recurrent" || status === "unconfirmed") {
+      if (status === 'recurrent' || status === 'unconfirmed') {
         return;
       }
 
@@ -81,10 +81,10 @@ export class AggregationsHelper {
 
       // Update aggregation based on transaction type
       // Type field takes precedence for categorization
-      if (transaction.type === "in") {
+      if (transaction.type === 'in') {
         // Income: add absolute value
         aggregations[yearMonth].income += Math.abs(amount);
-      } else if (transaction.type === "out") {
+      } else if (transaction.type === 'out') {
         // Expense: add absolute value
         aggregations[yearMonth].expense += Math.abs(amount);
       } else {
@@ -103,7 +103,7 @@ export class AggregationsHelper {
     Object.keys(aggregations).forEach((yearMonth) => {
       aggregations[yearMonth].balance =
         aggregations[yearMonth].income - aggregations[yearMonth].expense;
-      
+
       // Round to 2 decimal places
       aggregations[yearMonth].income = Math.round(aggregations[yearMonth].income * 100) / 100;
       aggregations[yearMonth].expense = Math.round(aggregations[yearMonth].expense * 100) / 100;
@@ -133,33 +133,33 @@ export class AggregationsHelper {
    * Parse amount string to number
    */
   private static parseAmount(amountStr: string | number): number {
-    if (typeof amountStr === "number") return amountStr;
+    if (typeof amountStr === 'number') return amountStr;
     if (!amountStr) return 0;
 
     let raw = String(amountStr).trim();
     // Remove currency symbols and spaces
-    raw = raw.replace(/[€\s]/g, "");
+    raw = raw.replace(/[€\s]/g, '');
 
-    const hasComma = raw.includes(",");
-    const hasDot = raw.includes(".");
+    const hasComma = raw.includes(',');
+    const hasDot = raw.includes('.');
 
     if (hasComma && hasDot) {
       // If both exist, the last separator is the decimal one
-      const lastComma = raw.lastIndexOf(",");
-      const lastDot = raw.lastIndexOf(".");
+      const lastComma = raw.lastIndexOf(',');
+      const lastDot = raw.lastIndexOf('.');
       if (lastComma > lastDot) {
         // EU format: "." thousands, "," decimal
-        raw = raw.replace(/\./g, "").replace(/,/g, ".");
+        raw = raw.replace(/\./g, '').replace(/,/g, '.');
       } else {
         // US format: "," thousands, "." decimal
-        raw = raw.replace(/,/g, "");
+        raw = raw.replace(/,/g, '');
       }
     } else if (hasComma && !hasDot) {
       // Only comma -> decimal
-      raw = raw.replace(/,/g, ".");
+      raw = raw.replace(/,/g, '.');
     }
 
-    const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
     return isNaN(parsed) ? 0 : parsed;
   }
 }

@@ -16,40 +16,40 @@ const movementsRateLimit = (0, express_rate_limit_1.default)({
     max: 50, // Limit each IP to 50 requests per minute
     message: {
         success: false,
-        error: "Too many requests, please try again later",
-        code: "RATE_LIMIT_EXCEEDED",
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
 // All movements routes require authentication
-console.log("🔧 Setting up MOVEMENTS routes...");
+console.log('🔧 Setting up MOVEMENTS routes...');
 /**
  * GET /movements - Recupera tutti i movements
  */
-console.log("🔧 Defining GET /movements route...");
-movementsRoutes.get("/", movementsRateLimit, (req, res, next) => {
-    console.log("🔧 GET /movements route hit - before auth middleware");
+console.log('🔧 Defining GET /movements route...');
+movementsRoutes.get('/', movementsRateLimit, (req, res, next) => {
+    console.log('🔧 GET /movements route hit - before auth middleware');
     next();
 }, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.getMovements);
 /**
  * POST /movements - Crea nuovo movement
  */
-movementsRoutes.post("/", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.createMovement);
+movementsRoutes.post('/', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.createMovement);
 /**
  * POST /movements/batch - Aggiorna multipli movements in batch
  */
-movementsRoutes.post("/batch", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovementsBatch);
+movementsRoutes.post('/batch', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovementsBatch);
 /**
  * GET /movements/:movementId - Recupera singolo movement
  */
-movementsRoutes.get("/:movementId", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.getMovement);
+movementsRoutes.get('/:movementId', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.getMovement);
 /**
  * PUT /movements/:movementId - Aggiorna movement esistente
  */
-movementsRoutes.put("/:movementId", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovement);
+movementsRoutes.put('/:movementId', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovement);
 /**
  * DELETE /movements/:movementId - Elimina movement
  */
-movementsRoutes.delete("/:movementId", movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.deleteMovement);
+movementsRoutes.delete('/:movementId', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.deleteMovement);
 //# sourceMappingURL=movements.routes.js.map

@@ -16,40 +16,40 @@ const transactionsRateLimit = (0, express_rate_limit_1.default)({
     max: 50, // Limit each IP to 50 requests per minute
     message: {
         success: false,
-        error: "Too many requests, please try again later",
-        code: "RATE_LIMIT_EXCEEDED",
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
 // All transactions routes require authentication
-console.log("🔧 Setting up TRANSACTIONS routes...");
+console.log('🔧 Setting up TRANSACTIONS routes...');
 /**
  * GET /transactions - Restituisce tutte le transazioni
  */
-console.log("🔧 Defining GET /transactions route...");
-transactionsRoutes.get("/", transactionsRateLimit, (req, res, next) => {
-    console.log("🔧 GET /transactions route hit - before auth middleware");
+console.log('🔧 Defining GET /transactions route...');
+transactionsRoutes.get('/', transactionsRateLimit, (req, res, next) => {
+    console.log('🔧 GET /transactions route hit - before auth middleware');
     next();
 }, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactions);
 /**
  * GET /transactions/delta - Restituisce transazioni modificate da un certo timestamp
  */
-transactionsRoutes.get("/delta", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactionsDelta);
+transactionsRoutes.get('/delta', transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransactionsDelta);
 /**
  * POST /transactions - Crea nuova transazione
  */
-transactionsRoutes.post("/", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.createTransaction);
+transactionsRoutes.post('/', transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.createTransaction);
 /**
  * GET /transactions/:transactionId - Recupera singola transazione
  */
-transactionsRoutes.get("/:transactionId", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransaction);
+transactionsRoutes.get('/:transactionId', transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.getTransaction);
 /**
  * PUT /transactions/:transactionId - Aggiorna transazione esistente
  */
-transactionsRoutes.put("/:transactionId", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.updateTransaction);
+transactionsRoutes.put('/:transactionId', transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.updateTransaction);
 /**
  * DELETE /transactions/:transactionId - Elimina transazione
  */
-transactionsRoutes.delete("/:transactionId", transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.deleteTransaction);
+transactionsRoutes.delete('/:transactionId', transactionsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, transactions_controller_1.TransactionsController.deleteTransaction);
 //# sourceMappingURL=transactions.routes.js.map

@@ -1,20 +1,20 @@
 // Authentication interfaces
-import { Request } from "express";
-import { JwtPayload as BaseJwtPayload } from "jsonwebtoken";
+import { Request } from 'express';
+import { JwtPayload as BaseJwtPayload } from 'jsonwebtoken';
 
 // JWT Payload interfaces
 export interface JwtPayload extends BaseJwtPayload {
   userId: string;
   scopes: string[];
-  type: "access" | "refresh";
-  deviceType?: "web" | "ios" | "android";
+  type: 'access' | 'refresh';
+  deviceType?: 'web' | 'ios' | 'android';
   deviceId?: string;
 }
 
 export interface AccessTokenPayload {
   userId: string;
   scopes: string[];
-  deviceType?: "web" | "ios" | "android";
+  deviceType?: 'web' | 'ios' | 'android';
   deviceId?: string;
 }
 
@@ -29,7 +29,7 @@ export interface RefreshTokenData {
 export interface AuthenticatedRequest extends Request {
   userId?: string;
   scopes?: string[];
-  deviceType?: "web" | "ios" | "android";
+  deviceType?: 'web' | 'ios' | 'android';
   deviceId?: string;
 }
 
@@ -38,7 +38,7 @@ export interface GoogleCallbackRequest {
   authorizationCode: string;
   codeVerifier?: string; // Optional for PKCE support
   deviceId: string;
-  deviceType?: "ios" | "android" | "web"; // Default to web
+  deviceType?: 'ios' | 'android' | 'web'; // Default to web
   redirectUri?: string; // Optional - used for web to pass the actual redirect URI used
 }
 

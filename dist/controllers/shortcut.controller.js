@@ -45,7 +45,7 @@ class ShortcutController {
             try {
                 const userEmail = req.userId; // From auth middleware
                 // Generate a secure random key (32 bytes = 64 hex chars)
-                const shortcutKey = crypto_1.default.randomBytes(32).toString("hex");
+                const shortcutKey = crypto_1.default.randomBytes(32).toString('hex');
                 // Save to database
                 yield db_helper_1.DbHelper.updateShortcutKey(userEmail, shortcutKey);
                 res.json({
@@ -56,10 +56,10 @@ class ShortcutController {
                 });
             }
             catch (error) {
-                console.error("Error generating shortcut key:", error);
+                console.error('Error generating shortcut key:', error);
                 res.status(500).json({
                     success: false,
-                    error: error.message || "Failed to generate shortcut key",
+                    error: error.message || 'Failed to generate shortcut key',
                 });
             }
         });
@@ -75,7 +75,7 @@ class ShortcutController {
                 if (!user) {
                     res.status(404).json({
                         success: false,
-                        error: "User not found",
+                        error: 'User not found',
                     });
                     return;
                 }
@@ -87,10 +87,10 @@ class ShortcutController {
                 });
             }
             catch (error) {
-                console.error("Error fetching shortcut key:", error);
+                console.error('Error fetching shortcut key:', error);
                 res.status(500).json({
                     success: false,
-                    error: error.message || "Failed to fetch shortcut key",
+                    error: error.message || 'Failed to fetch shortcut key',
                 });
             }
         });
@@ -102,11 +102,11 @@ class ShortcutController {
     static createMovementViaShortcut(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const shortcutKey = req.headers["x-shortcutkey"];
+                const shortcutKey = req.headers['x-shortcutkey'];
                 if (!shortcutKey) {
                     res.status(401).json({
                         success: false,
-                        error: "Missing x-shortcutkey header",
+                        error: 'Missing x-shortcutkey header',
                     });
                     return;
                 }
@@ -115,7 +115,7 @@ class ShortcutController {
                 if (!user) {
                     res.status(401).json({
                         success: false,
-                        error: "Invalid shortcut key",
+                        error: 'Invalid shortcut key',
                     });
                     return;
                 }
@@ -123,22 +123,22 @@ class ShortcutController {
                 if (!spreadsheetId) {
                     res.status(400).json({
                         success: false,
-                        error: "User has no spreadsheet configured",
+                        error: 'User has no spreadsheet configured',
                     });
                     return;
                 }
                 // Extract movement data from request
-                const { amount, description = "", category = "", account = "", location = "", date = new Date().toLocaleDateString("it-IT"), // dd-MM-yyyy format
+                const { amount, description = '', category = '', account = '', location = '', date = new Date().toLocaleDateString('it-IT'), // dd-MM-yyyy format
                  } = req.body;
                 if (!amount) {
                     res.status(400).json({
                         success: false,
-                        error: "Amount is required",
+                        error: 'Amount is required',
                     });
                     return;
                 }
                 // Get session for this user to retrieve Google tokens
-                const deviceType = "ios"; // Assume iOS for shortcut
+                const deviceType = 'ios'; // Assume iOS for shortcut
                 // Get user's accounts and find the best matching account
                 const accounts = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.AccountsHelper.getAccounts(spreadsheetId, client); }));
                 const matchedAccount = ShortcutController.findBestAccountMatch(account, accounts);
@@ -149,7 +149,7 @@ class ShortcutController {
                     category,
                     date,
                     location,
-                    status: "unconfirmed", // Mark as unconfirmed for later review
+                    status: 'unconfirmed', // Mark as unconfirmed for later review
                     transactions: [
                         {
                             amount: amount.toString(),
@@ -158,7 +158,7 @@ class ShortcutController {
                             category,
                             date,
                             location,
-                            _operation: "create",
+                            _operation: 'create',
                         },
                     ],
                 };
@@ -167,37 +167,37 @@ class ShortcutController {
                 // Send push notification if user has a push token
                 if (user.push_token) {
                     try {
-                        yield fetch("https://exp.host/--/api/v2/push/send", {
-                            method: "POST",
+                        yield fetch('https://exp.host/--/api/v2/push/send', {
+                            method: 'POST',
                             headers: {
-                                "Content-Type": "application/json",
+                                'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
                                 to: user.push_token,
-                                title: "MyBalance",
-                                body: "There is a new unconfirmed movement to be reviewed",
-                                sound: "default",
+                                title: 'MyBalance',
+                                body: 'There is a new unconfirmed movement to be reviewed',
+                                sound: 'default',
                             }),
                         });
                     }
                     catch (pushError) {
-                        console.error("Error sending push notification:", pushError);
+                        console.error('Error sending push notification:', pushError);
                         // Don't fail the request if push notification fails
                     }
                 }
                 res.json({
                     success: true,
                     data: result,
-                    message: "Movement created successfully via shortcut",
+                    message: 'Movement created successfully via shortcut',
                 });
             }
             catch (error) {
-                if (handleGoogleTokenError(error, res, "createMovementViaShortcut"))
+                if (handleGoogleTokenError(error, res, 'createMovementViaShortcut'))
                     return;
-                console.error("Error creating movement via shortcut:", error);
+                console.error('Error creating movement via shortcut:', error);
                 res.status(500).json({
                     success: false,
-                    error: error.message || "Failed to create movement",
+                    error: error.message || 'Failed to create movement',
                 });
             }
         });
@@ -208,7 +208,7 @@ class ShortcutController {
      */
     static findBestAccountMatch(inputAccount, accounts) {
         if (!accounts.length)
-            return "";
+            return '';
         if (!(inputAccount === null || inputAccount === void 0 ? void 0 : inputAccount.trim()))
             return accounts[0].name;
         const input = inputAccount.toLowerCase().trim();
@@ -217,8 +217,7 @@ class ShortcutController {
         if (exactMatch)
             return exactMatch.name;
         // 2. Partial match (input contains account name or vice versa)
-        const partialMatch = accounts.find((a) => a.name.toLowerCase().includes(input) ||
-            input.includes(a.name.toLowerCase()));
+        const partialMatch = accounts.find((a) => a.name.toLowerCase().includes(input) || input.includes(a.name.toLowerCase()));
         if (partialMatch)
             return partialMatch.name;
         // 3. Fallback to first account (default)

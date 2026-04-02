@@ -10,7 +10,7 @@ class RefreshTokenHelper {
      * Generate a cryptographically secure refresh token
      */
     static generateRefreshToken() {
-        const raw = crypto_1.default.randomBytes(this.TOKEN_LENGTH).toString("base64url");
+        const raw = crypto_1.default.randomBytes(this.TOKEN_LENGTH).toString('base64url');
         const hash = this.hashToken(raw);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + this.TTL_DAYS);
@@ -29,7 +29,7 @@ class RefreshTokenHelper {
             return this.constantTimeEquals(computedHash, hash);
         }
         catch (error) {
-            console.error("Error verifying refresh token:", error);
+            console.error('Error verifying refresh token:', error);
             return false;
         }
     }
@@ -37,7 +37,7 @@ class RefreshTokenHelper {
      * Hash token using SHA-256
      */
     static hashToken(token) {
-        return crypto_1.default.createHash("sha256").update(token).digest("hex");
+        return crypto_1.default.createHash('sha256').update(token).digest('hex');
     }
     /**
      * Constant-time string comparison to prevent timing attacks
@@ -62,10 +62,7 @@ class RefreshTokenHelper {
      * Generate device-specific token salt (optional enhancement)
      */
     static generateDeviceSalt(deviceId) {
-        return crypto_1.default
-            .createHash("sha256")
-            .update(`device:${deviceId}`)
-            .digest("hex");
+        return crypto_1.default.createHash('sha256').update(`device:${deviceId}`).digest('hex');
     }
 }
 exports.RefreshTokenHelper = RefreshTokenHelper;

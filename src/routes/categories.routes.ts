@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { CategoriesController } from "../controllers/categories.controller";
-import { RequireAuthMiddleware } from "../middleware/requireAuth.middleware";
-import rateLimit from "express-rate-limit";
+import { Router } from 'express';
+import { CategoriesController } from '../controllers/categories.controller';
+import { RequireAuthMiddleware } from '../middleware/requireAuth.middleware';
+import rateLimit from 'express-rate-limit';
 
 const categoriesRoutes = Router();
 
@@ -11,14 +11,14 @@ const categoriesRateLimit = rateLimit({
   max: 60, // Limit each IP to 60 requests per minute
   message: {
     success: false,
-    error: "Too many requests, please try again later",
-    code: "RATE_LIMIT_EXCEEDED",
+    error: 'Too many requests, please try again later',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-console.log("🔧 Setting up CATEGORIES routes...");
+console.log('🔧 Setting up CATEGORIES routes...');
 
 /**
  * GET /categories/default - Recupera categorie default (pubblico)
@@ -33,7 +33,7 @@ console.log("🔧 Setting up CATEGORIES routes...");
  * GET /categories - Recupera tutte le categorie
  */
 categoriesRoutes.get(
-  "/",
+  '/',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.getCategories,
@@ -43,7 +43,7 @@ categoriesRoutes.get(
  * POST /categories - Crea nuova categoria
  */
 categoriesRoutes.post(
-  "/",
+  '/',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.createCategory,
@@ -53,7 +53,7 @@ categoriesRoutes.post(
  * POST /categories/batch - Crea categorie in batch
  */
 categoriesRoutes.post(
-  "/batch",
+  '/batch',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.createCategoriesBatch,
@@ -63,7 +63,7 @@ categoriesRoutes.post(
  * GET /categories/:categoryId - Recupera singola categoria
  */
 categoriesRoutes.get(
-  "/:categoryId",
+  '/:categoryId',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.getCategory,
@@ -73,7 +73,7 @@ categoriesRoutes.get(
  * PUT /categories/:categoryId - Aggiorna categoria esistente
  */
 categoriesRoutes.put(
-  "/:categoryId",
+  '/:categoryId',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.updateCategory,
@@ -83,7 +83,7 @@ categoriesRoutes.put(
  * DELETE /categories/:categoryId - Elimina categoria
  */
 categoriesRoutes.delete(
-  "/:categoryId",
+  '/:categoryId',
   categoriesRateLimit,
   RequireAuthMiddleware.verify,
   CategoriesController.deleteCategory,

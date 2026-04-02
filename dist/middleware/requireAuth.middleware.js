@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequireAuthMiddleware = void 0;
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:8082";
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8082';
 class RequireAuthMiddleware {
     /**
      * Middleware to verify JWT access token via Auth service
@@ -18,27 +18,27 @@ class RequireAuthMiddleware {
      */
     static verify(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log("🔐 === AUTH MIDDLEWARE START ===");
+            console.log('🔐 === AUTH MIDDLEWARE START ===');
             try {
-                const authHeader = req.headers.authorization || req.headers["x-authorization"];
-                console.log("🔐 Authorization header:", req.headers.authorization ? "present" : "missing");
+                const authHeader = req.headers.authorization || req.headers['x-authorization'];
+                console.log('🔐 Authorization header:', req.headers.authorization ? 'present' : 'missing');
                 if (!authHeader) {
-                    console.log("❌ No auth header found, returning 401");
+                    console.log('❌ No auth header found, returning 401');
                     res.status(401).json({
                         success: false,
-                        error: "Missing authorization token",
-                        code: "MISSING_TOKEN",
+                        error: 'Missing authorization token',
+                        code: 'MISSING_TOKEN',
                     });
                     return;
                 }
                 // Call auth service to verify token using fetch
-                console.log("🔐 Calling auth service to verify token...");
+                console.log('🔐 Calling auth service to verify token...');
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const response = yield fetch(`${AUTH_SERVICE_URL}/auth/token/verify`, {
-                    method: "POST",
+                    method: 'POST',
                     headers: {
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
                         Authorization: authHeader,
                     },
                     signal: controller.signal,
@@ -46,33 +46,33 @@ class RequireAuthMiddleware {
                 clearTimeout(timeoutId);
                 const data = yield response.json();
                 if (!response.ok || !data.valid) {
-                    console.log("❌ Token invalid:", data.code);
+                    console.log('❌ Token invalid:', data.code);
                     res.status(401).json({
                         success: false,
-                        error: data.error || "Invalid token",
-                        code: data.code || "INVALID_TOKEN",
+                        error: data.error || 'Invalid token',
+                        code: data.code || 'INVALID_TOKEN',
                     });
                     return;
                 }
-                console.log("✅ Token verified by auth service. User:", data.userId);
+                console.log('✅ Token verified by auth service. User:', data.userId);
                 // Attach user info from auth service response
                 req.userId = data.userId;
                 req.scopes = data.scopes;
-                req.deviceType = data.deviceType || "web";
+                req.deviceType = data.deviceType || 'web';
                 req.deviceId = data.deviceId;
-                console.log("🔐 Auth middleware completed successfully, calling next()");
+                console.log('🔐 Auth middleware completed successfully, calling next()');
                 next();
             }
             catch (error) {
-                console.error("❌ Authentication middleware error:", error.message);
+                console.error('❌ Authentication middleware error:', error.message);
                 // Auth service unavailable or timeout
                 res.status(503).json({
                     success: false,
-                    error: "Authentication service unavailable",
-                    code: "AUTH_SERVICE_UNAVAILABLE",
+                    error: 'Authentication service unavailable',
+                    code: 'AUTH_SERVICE_UNAVAILABLE',
                 });
             }
-            console.log("🔐 === AUTH MIDDLEWARE END ===");
+            console.log('🔐 === AUTH MIDDLEWARE END ===');
         });
     }
     /**
@@ -83,8 +83,8 @@ class RequireAuthMiddleware {
             if (!req.scopes) {
                 res.status(403).json({
                     success: false,
-                    error: "Authentication required",
-                    code: "AUTH_REQUIRED",
+                    error: 'Authentication required',
+                    code: 'AUTH_REQUIRED',
                 });
                 return;
             }
@@ -92,8 +92,8 @@ class RequireAuthMiddleware {
             if (!hasAllScopes) {
                 res.status(403).json({
                     success: false,
-                    error: "Insufficient permissions",
-                    code: "INSUFFICIENT_SCOPES",
+                    error: 'Insufficient permissions',
+                    code: 'INSUFFICIENT_SCOPES',
                     required: requiredScopes,
                     current: req.scopes,
                 });
@@ -109,14 +109,14 @@ class RequireAuthMiddleware {
     static optional(req, res, next) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const authHeader = req.headers.authorization || req.headers["x-authorization"];
+                const authHeader = req.headers.authorization || req.headers['x-authorization'];
                 if (authHeader) {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 5000);
                     const response = yield fetch(`${AUTH_SERVICE_URL}/auth/token/verify`, {
-                        method: "POST",
+                        method: 'POST',
                         headers: {
-                            "Content-Type": "application/json",
+                            'Content-Type': 'application/json',
                             Authorization: authHeader,
                         },
                         signal: controller.signal,

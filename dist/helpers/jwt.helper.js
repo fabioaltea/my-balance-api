@@ -32,15 +32,15 @@ class JwtHelper {
      * Generate RSA key pair (for development only)
      */
     static generateKeyPair() {
-        const { privateKey, publicKey } = crypto_1.default.generateKeyPairSync("rsa", {
+        const { privateKey, publicKey } = crypto_1.default.generateKeyPairSync('rsa', {
             modulusLength: 2048,
             publicKeyEncoding: {
-                type: "spki",
-                format: "pem",
+                type: 'spki',
+                format: 'pem',
             },
             privateKeyEncoding: {
-                type: "pkcs8",
-                format: "pem",
+                type: 'pkcs8',
+                format: 'pem',
             },
         });
         return { privateKey, publicKey };
@@ -50,12 +50,12 @@ class JwtHelper {
      */
     static signAccessToken(payload) {
         const { privateKey } = this.getKeys();
-        const tokenPayload = Object.assign(Object.assign({}, payload), { type: "access" });
+        const tokenPayload = Object.assign(Object.assign({}, payload), { type: 'access' });
         return jsonwebtoken_1.default.sign(tokenPayload, privateKey, {
-            algorithm: "RS256",
+            algorithm: 'RS256',
             expiresIn: this.ACCESS_TOKEN_TTL,
-            issuer: "mybalance-api",
-            audience: "mybalance-client",
+            issuer: 'mybalance-api',
+            audience: 'mybalance-client',
         });
     }
     /**
@@ -63,12 +63,12 @@ class JwtHelper {
      */
     static signRefreshToken(payload) {
         const { privateKey } = this.getKeys();
-        const tokenPayload = Object.assign(Object.assign({}, payload), { type: "refresh" });
+        const tokenPayload = Object.assign(Object.assign({}, payload), { type: 'refresh' });
         return jsonwebtoken_1.default.sign(tokenPayload, privateKey, {
-            algorithm: "RS256",
+            algorithm: 'RS256',
             expiresIn: this.REFRESH_TOKEN_TTL,
-            issuer: "mybalance-api",
-            audience: "mybalance-client",
+            issuer: 'mybalance-api',
+            audience: 'mybalance-client',
         });
     }
     /**
@@ -78,18 +78,18 @@ class JwtHelper {
         const { publicKey } = this.getKeys();
         try {
             const decoded = jsonwebtoken_1.default.verify(token, publicKey, {
-                algorithms: ["RS256"],
-                issuer: "mybalance-api",
-                audience: "mybalance-client",
+                algorithms: ['RS256'],
+                issuer: 'mybalance-api',
+                audience: 'mybalance-client',
             });
-            if (decoded.type !== "access") {
-                throw new Error("Invalid token type");
+            if (decoded.type !== 'access') {
+                throw new Error('Invalid token type');
             }
             return decoded;
         }
         catch (error) {
-            console.error("JWT verification failed:", error.message);
-            throw new Error("Invalid or expired access token");
+            console.error('JWT verification failed:', error.message);
+            throw new Error('Invalid or expired access token');
         }
     }
     /**
@@ -100,18 +100,18 @@ class JwtHelper {
         const { publicKey } = this.getKeys();
         try {
             const decoded = jsonwebtoken_1.default.verify(token, publicKey, {
-                algorithms: ["RS256"],
-                issuer: "mybalance-api",
-                audience: "mybalance-client",
+                algorithms: ['RS256'],
+                issuer: 'mybalance-api',
+                audience: 'mybalance-client',
             });
-            if (decoded.type !== "refresh") {
-                console.error("JWT verification failed: Invalid token type");
+            if (decoded.type !== 'refresh') {
+                console.error('JWT verification failed: Invalid token type');
                 return null;
             }
             return decoded;
         }
         catch (error) {
-            console.error("JWT verification failed:", error.message);
+            console.error('JWT verification failed:', error.message);
             return null;
         }
     }
@@ -119,15 +119,15 @@ class JwtHelper {
      * Extract token from Authorization header
      */
     static extractTokenFromHeader(authHeader) {
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return null;
         }
         return authHeader.substring(7); // Remove 'Bearer ' prefix
     }
 }
 exports.JwtHelper = JwtHelper;
-JwtHelper.ACCESS_TOKEN_TTL = "10m"; // 10 minutes
-JwtHelper.REFRESH_TOKEN_TTL = "30d"; // 30 days
+JwtHelper.ACCESS_TOKEN_TTL = '10m'; // 10 minutes
+JwtHelper.REFRESH_TOKEN_TTL = '30d'; // 30 days
 // Cache for generated keys (only used if env vars are not set)
 JwtHelper._cachedKeys = null;
 //# sourceMappingURL=jwt.helper.js.map

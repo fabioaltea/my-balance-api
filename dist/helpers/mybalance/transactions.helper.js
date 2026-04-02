@@ -47,11 +47,11 @@ const COLS = {
     DATE_DELETED: 15,
 };
 // Range base usato per operazioni
-const SHEET_RANGE = "AllTransactions!A2:Z";
-const SHEET_NAME = "AllTransactions";
+const SHEET_RANGE = 'AllTransactions!A2:Z';
+const SHEET_NAME = 'AllTransactions';
 class TransactionsHelper {
     static pad(n) {
-        return n < 10 ? "0" + n : String(n);
+        return n < 10 ? '0' + n : String(n);
     }
     static formatDateOnly(dt) {
         return `${this.pad(dt.getDate())}-${this.pad(dt.getMonth() + 1)}-${dt.getFullYear()}`;
@@ -66,25 +66,19 @@ class TransactionsHelper {
     // 3. Altrimenti deduce da amount: negativo => out, positivo => in
     // 4. Se non deducibile ritorna stringa vuota
     static normalizeType(type, amount) {
-        const raw = (type == null ? "" : String(type)).trim().toLowerCase();
-        if (raw === "in" ||
-            raw === "entrata" ||
-            raw === "income" ||
-            raw === "deposit")
-            return "in";
-        if (raw === "out" ||
-            raw === "expense" ||
-            raw === "uscita" ||
-            raw === "withdraw")
-            return "out";
+        const raw = (type == null ? '' : String(type)).trim().toLowerCase();
+        if (raw === 'in' || raw === 'entrata' || raw === 'income' || raw === 'deposit')
+            return 'in';
+        if (raw === 'out' || raw === 'expense' || raw === 'uscita' || raw === 'withdraw')
+            return 'out';
         const num = this.parseAmountToNumber(amount);
         if (!isNaN(num)) {
             if (num < 0)
-                return "out";
+                return 'out';
             if (num >= 0)
-                return "in";
+                return 'in';
         }
-        return ""; // neutro se impossibile
+        return ''; // neutro se impossibile
     }
     // Prova a interpretare qualunque formato di data plausibile e convertirlo in dd/MM/yyyy hh:mm.
     // Accetta: formato target già valido, ISO (yyyy-MM-ddTHH:mm:ssZ), yyyy-MM-dd, dd/MM/yyyy, timestamp numerico.
@@ -98,13 +92,13 @@ class TransactionsHelper {
         // dd/MM/yyyy
         const dmYSlash = /^(\d{2})\/(\d{2})\/(\d{4})$/;
         if (dmYSlash.test(raw)) {
-            const [d, m, y] = raw.split("/");
+            const [d, m, y] = raw.split('/');
             return `${d}-${m}-${y}`;
         }
         // yyyy-MM-dd
         const yMd = /^(\d{4})-(\d{2})-(\d{2})$/;
         if (yMd.test(raw)) {
-            const [y, m, d] = raw.split("-");
+            const [y, m, d] = raw.split('-');
             return `${d}-${m}-${y}`;
         }
         // Timestamp numerico
@@ -123,10 +117,10 @@ class TransactionsHelper {
     // Normalizza meta date (dateAdded / dateModified / dateDeleted) -> dd-MM-yyyy hh:mm
     static normalizeMetaDate(input) {
         if (input === null || input === undefined)
-            return "";
+            return '';
         const raw = String(input).trim();
-        if (raw === "")
-            return ""; // stringa vuota rimane vuota
+        if (raw === '')
+            return ''; // stringa vuota rimane vuota
         if (this.DATE_TIME_REGEX.test(raw))
             return raw; // già ok
         // dd-MM-yyyy senza tempo
@@ -136,13 +130,13 @@ class TransactionsHelper {
         // dd/MM/yyyy
         const dmYSlash = /^(\d{2})\/(\d{2})\/(\d{4})$/;
         if (dmYSlash.test(raw)) {
-            const [d, m, y] = raw.split("/");
+            const [d, m, y] = raw.split('/');
             return `${d}-${m}-${y} 00:00`;
         }
         // yyyy-MM-dd (senza tempo)
         const yMd = /^(\d{4})-(\d{2})-(\d{2})$/;
         if (yMd.test(raw)) {
-            const [y, m, d] = raw.split("-");
+            const [y, m, d] = raw.split('-');
             return `${d}-${m}-${y} 00:00`;
         }
         // Timestamp numerico
@@ -163,42 +157,42 @@ class TransactionsHelper {
             return NaN;
         let raw = String(amount).trim();
         // Rimuovi simboli di valuta e spazi
-        raw = raw.replace(/[€\s]/g, "");
-        const hasComma = raw.includes(",");
-        const hasDot = raw.includes(".");
+        raw = raw.replace(/[€\s]/g, '');
+        const hasComma = raw.includes(',');
+        const hasDot = raw.includes('.');
         if (hasComma && hasDot) {
             // Determina il separatore decimale come l'ultimo tra , e .
-            const lastComma = raw.lastIndexOf(",");
-            const lastDot = raw.lastIndexOf(".");
+            const lastComma = raw.lastIndexOf(',');
+            const lastDot = raw.lastIndexOf('.');
             if (lastComma > lastDot) {
                 // EU: . migliaia, , decimali
-                raw = raw.replace(/\./g, "").replace(/,/g, ".");
+                raw = raw.replace(/\./g, '').replace(/,/g, '.');
             }
             else {
                 // US: , migliaia, . decimali
-                raw = raw.replace(/,/g, "");
+                raw = raw.replace(/,/g, '');
             }
         }
         else if (hasComma && !hasDot) {
             // Solo la virgola come decimale
-            raw = raw.replace(/,/g, ".");
+            raw = raw.replace(/,/g, '.');
         }
         else if (hasDot && !hasComma) {
             // Solo il punto come decimale
             // Nessuna trasformazione necessaria
         }
-        raw = raw.replace(/[^0-9.\-]/g, "");
+        raw = raw.replace(/[^0-9.\-]/g, '');
         const num = parseFloat(raw);
         return isNaN(num) ? NaN : num;
     }
     static formatAmount(amount) {
         const num = this.parseAmountToNumber(amount);
         if (isNaN(num))
-            return "";
+            return '';
         return num.toFixed(2); // sempre due decimali
     }
     static cleanString(v) {
-        return v ? v.trim() : "";
+        return v ? v.trim() : '';
     }
     // Converte una riga Google Sheets in ITransaction
     static rowToTransaction(row, rowIndex) {
@@ -207,22 +201,22 @@ class TransactionsHelper {
             if (!transactionId)
                 return null; // riga vuota / non valida
             const transaction = {
-                description: this.cleanString(row[COLS.DESCRIPTION]) || "",
-                category: this.cleanString(row[COLS.CATEGORY]) || "",
-                amount: this.cleanString(row[COLS.AMOUNT]) || "", // Mantiene la stringa originale
+                description: this.cleanString(row[COLS.DESCRIPTION]) || '',
+                category: this.cleanString(row[COLS.CATEGORY]) || '',
+                amount: this.cleanString(row[COLS.AMOUNT]) || '', // Mantiene la stringa originale
                 date: this.normalizeMovementDate(row[COLS.DATE]),
                 type: this.normalizeType(row[COLS.TYPE], this.parseAmountToNumber(row[COLS.AMOUNT])),
-                account: this.cleanString(row[COLS.ACCOUNT]) || "",
+                account: this.cleanString(row[COLS.ACCOUNT]) || '',
                 transactionId: transactionId,
-                movementId: this.cleanString(row[COLS.MOVEMENT_ID]) || "",
-                notes: this.cleanString(row[COLS.NOTES]) || "",
-                location: this.cleanString(row[COLS.LOCATION]) || "",
-                recurrenceId: this.cleanString(row[COLS.RECURRENCE_ID]) || "",
-                recurrencePattern: this.cleanString(row[COLS.RECURRENCE_PATTERN]) || "",
+                movementId: this.cleanString(row[COLS.MOVEMENT_ID]) || '',
+                notes: this.cleanString(row[COLS.NOTES]) || '',
+                location: this.cleanString(row[COLS.LOCATION]) || '',
+                recurrenceId: this.cleanString(row[COLS.RECURRENCE_ID]) || '',
+                recurrencePattern: this.cleanString(row[COLS.RECURRENCE_PATTERN]) || '',
                 dateAdded: this.normalizeMetaDate(row[COLS.DATE_ADDED]),
                 dateModified: this.normalizeMetaDate(row[COLS.DATE_MODIFIED]),
                 dateDeleted: this.normalizeMetaDate(row[COLS.DATE_DELETED]),
-                status: this.cleanString(row[COLS.STATUS]) || "Confirmed",
+                status: this.cleanString(row[COLS.STATUS]) || 'Confirmed',
             };
             return { rowIndex: rowIndex + 1, transaction }; // 1-based index per uso in range
         }
@@ -279,17 +273,15 @@ class TransactionsHelper {
                 category: treq.category || movementRequest.category,
                 amount: treq.amount, // Il frontend invia già la stringa con il segno corretto
                 date: treq.date || movementRequest.date,
-                type: treq.type ||
-                    movementRequest.type ||
-                    this.normalizeType("", treq.amount),
-                account: treq.account || "",
-                notes: treq.notes || movementRequest.notes || "",
-                location: treq.location || movementRequest.location || "",
-                recurrenceId: movementRequest.recurrenceId || "",
-                recurrencePattern: movementRequest.recurrencePattern || "",
+                type: treq.type || movementRequest.type || this.normalizeType('', treq.amount),
+                account: treq.account || '',
+                notes: treq.notes || movementRequest.notes || '',
+                location: treq.location || movementRequest.location || '',
+                recurrenceId: movementRequest.recurrenceId || '',
+                recurrencePattern: movementRequest.recurrencePattern || '',
                 dateAdded: this.normalizeMetaDate(new Date()),
                 dateModified: this.normalizeMetaDate(new Date()),
-                status: movementRequest.status || "Confirmed",
+                status: movementRequest.status || 'Confirmed',
             }));
             // Converte in righe e appende
             const values = transactions.map((t) => this.transactionToRowValidated(t));
@@ -314,7 +306,7 @@ class TransactionsHelper {
             let transactions = [];
             rows.forEach((r, i) => {
                 const p = this.rowToTransaction(r, i);
-                if (p && p.transaction.status !== "DELETED") {
+                if (p && p.transaction.status !== 'DELETED') {
                     transactions.push(p.transaction);
                 }
             });
@@ -399,7 +391,7 @@ class TransactionsHelper {
             rows.forEach((r, i) => {
                 if (r[COLS.MOVEMENT_ID] === movementId) {
                     const p = this.rowToTransaction(r, i);
-                    if (p && p.transaction.status !== "DELETED") {
+                    if (p && p.transaction.status !== 'DELETED') {
                         transactions.push(p.transaction);
                     }
                 }
@@ -416,16 +408,16 @@ class TransactionsHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const movementId = movementRequest.movementId;
             if (!movementId)
-                throw new Error("MovementId richiesto per update");
+                throw new Error('MovementId richiesto per update');
             const rows = yield google_1.GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
-                throw new Error("Foglio vuoto");
+                throw new Error('Foglio vuoto');
             // Trova tutte le transactions esistenti per questo movimento
             const existingTransactionRows = new Map();
             rows.forEach((r, i) => {
                 if (r[COLS.MOVEMENT_ID] === movementId &&
                     r[COLS.TRANSACTION_ID] &&
-                    r[COLS.STATUS] !== "DELETED") {
+                    r[COLS.STATUS] !== 'DELETED') {
                     existingTransactionRows.set(r[COLS.TRANSACTION_ID], {
                         row: r,
                         index: i,
@@ -437,21 +429,19 @@ class TransactionsHelper {
             const newTransactions = [];
             const hasTransactionsPayload = Array.isArray(movementRequest.transactions);
             // ID delle transactions presenti nella request (per rilevare quelle eliminate)
-            const requestedTransactionIds = new Set((movementRequest.transactions || [])
-                .map((t) => t.transactionId)
-                .filter(Boolean));
+            const requestedTransactionIds = new Set((movementRequest.transactions || []).map((t) => t.transactionId).filter(Boolean));
             // Soft delete delle transactions non più presenti nella request
             if (hasTransactionsPayload) {
                 existingTransactionRows.forEach((existing, transactionId) => {
                     if (!requestedTransactionIds.has(transactionId)) {
                         const row = [...existing.row];
-                        row[COLS.STATUS] = "DELETED";
+                        row[COLS.STATUS] = 'DELETED';
                         row[COLS.DATE_DELETED] = now;
                         row[COLS.DATE_MODIFIED] = now;
                         // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
                         const rowNumber = existing.index + 2;
                         const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-                        updateData.push({ majorDimension: "ROWS", range, values: [row] });
+                        updateData.push({ majorDimension: 'ROWS', range, values: [row] });
                     }
                 });
             }
@@ -469,18 +459,15 @@ class TransactionsHelper {
                         row[COLS.CATEGORY] = movementRequest.category;
                         hasChanges = true;
                     }
-                    if (movementRequest.date !== undefined &&
-                        movementRequest.date !== row[COLS.DATE]) {
+                    if (movementRequest.date !== undefined && movementRequest.date !== row[COLS.DATE]) {
                         row[COLS.DATE] = movementRequest.date;
                         hasChanges = true;
                     }
-                    if (movementRequest.type !== undefined &&
-                        movementRequest.type !== row[COLS.TYPE]) {
+                    if (movementRequest.type !== undefined && movementRequest.type !== row[COLS.TYPE]) {
                         row[COLS.TYPE] = movementRequest.type;
                         hasChanges = true;
                     }
-                    if (movementRequest.notes !== undefined &&
-                        movementRequest.notes !== row[COLS.NOTES]) {
+                    if (movementRequest.notes !== undefined && movementRequest.notes !== row[COLS.NOTES]) {
                         row[COLS.NOTES] = movementRequest.notes;
                         hasChanges = true;
                     }
@@ -489,8 +476,7 @@ class TransactionsHelper {
                         row[COLS.LOCATION] = movementRequest.location;
                         hasChanges = true;
                     }
-                    if (movementRequest.status !== undefined &&
-                        movementRequest.status !== row[COLS.STATUS]) {
+                    if (movementRequest.status !== undefined && movementRequest.status !== row[COLS.STATUS]) {
                         row[COLS.STATUS] = movementRequest.status;
                         hasChanges = true;
                     }
@@ -511,24 +497,24 @@ class TransactionsHelper {
                     // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
                     const rowNumber = existing.index + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-                    updateData.push({ majorDimension: "ROWS", range, values: [row] });
+                    updateData.push({ majorDimension: 'ROWS', range, values: [row] });
                 });
             }
             // Processa le transactions della request
             for (const treq of movementRequest.transactions || []) {
-                const isExplicitDelete = treq._operation === "delete";
+                const isExplicitDelete = treq._operation === 'delete';
                 const existing = treq.transactionId
                     ? existingTransactionRows.get(treq.transactionId)
                     : undefined;
                 if (isExplicitDelete && existing) {
                     // Soft delete esplicita
                     const row = [...existing.row];
-                    row[COLS.STATUS] = "DELETED";
+                    row[COLS.STATUS] = 'DELETED';
                     row[COLS.DATE_DELETED] = now;
                     row[COLS.DATE_MODIFIED] = now;
                     const rowNumber = existing.index + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-                    updateData.push({ majorDimension: "ROWS", range, values: [row] });
+                    updateData.push({ majorDimension: 'ROWS', range, values: [row] });
                 }
                 else if (existing && !isExplicitDelete) {
                     // UPDATE puntuale della transaction esistente
@@ -537,20 +523,17 @@ class TransactionsHelper {
                     row[COLS.CATEGORY] = treq.category || movementRequest.category;
                     row[COLS.AMOUNT] = treq.amount;
                     row[COLS.DATE] = treq.date || movementRequest.date;
-                    row[COLS.TYPE] =
-                        treq.type ||
-                            movementRequest.type ||
-                            this.normalizeType("", treq.amount);
-                    row[COLS.ACCOUNT] = treq.account || "";
-                    row[COLS.NOTES] = treq.notes || movementRequest.notes || "";
-                    row[COLS.LOCATION] = treq.location || movementRequest.location || "";
+                    row[COLS.TYPE] = treq.type || movementRequest.type || this.normalizeType('', treq.amount);
+                    row[COLS.ACCOUNT] = treq.account || '';
+                    row[COLS.NOTES] = treq.notes || movementRequest.notes || '';
+                    row[COLS.LOCATION] = treq.location || movementRequest.location || '';
                     row[COLS.STATUS] = movementRequest.status || row[COLS.STATUS];
-                    row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId || "";
-                    row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern || "";
+                    row[COLS.RECURRENCE_ID] = movementRequest.recurrenceId || '';
+                    row[COLS.RECURRENCE_PATTERN] = movementRequest.recurrencePattern || '';
                     row[COLS.DATE_MODIFIED] = now;
                     const rowNumber = existing.index + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
-                    updateData.push({ majorDimension: "ROWS", range, values: [row] });
+                    updateData.push({ majorDimension: 'ROWS', range, values: [row] });
                 }
                 else if (!isExplicitDelete) {
                     // CREATE: nuova transaction
@@ -561,17 +544,15 @@ class TransactionsHelper {
                         category: treq.category || movementRequest.category,
                         amount: treq.amount,
                         date: treq.date || movementRequest.date,
-                        type: treq.type ||
-                            movementRequest.type ||
-                            this.normalizeType("", treq.amount),
-                        account: treq.account || "",
-                        notes: treq.notes || movementRequest.notes || "",
-                        location: treq.location || movementRequest.location || "",
-                        recurrenceId: movementRequest.recurrenceId || "",
-                        recurrencePattern: movementRequest.recurrencePattern || "",
+                        type: treq.type || movementRequest.type || this.normalizeType('', treq.amount),
+                        account: treq.account || '',
+                        notes: treq.notes || movementRequest.notes || '',
+                        location: treq.location || movementRequest.location || '',
+                        recurrenceId: movementRequest.recurrenceId || '',
+                        recurrencePattern: movementRequest.recurrencePattern || '',
                         dateAdded: now,
                         dateModified: now,
-                        status: movementRequest.status || "Confirmed",
+                        status: movementRequest.status || 'Confirmed',
                     });
                 }
             }
@@ -595,7 +576,7 @@ class TransactionsHelper {
             }
             const rows = yield google_1.GoogleHelper.get(authClientClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
-                throw new Error("Foglio vuoto");
+                throw new Error('Foglio vuoto');
             const updatesByMovementId = new Map(movementUpdates
                 .filter((update) => update.movementId)
                 .map((update) => [update.movementId, update]));
@@ -605,13 +586,12 @@ class TransactionsHelper {
             rows.forEach((row, index) => {
                 const movementId = row[COLS.MOVEMENT_ID];
                 const update = updatesByMovementId.get(movementId);
-                if (!update || row[COLS.STATUS] === "DELETED") {
+                if (!update || row[COLS.STATUS] === 'DELETED') {
                     return;
                 }
                 const nextRow = [...row];
                 let hasChanges = false;
-                if (update.location !== undefined &&
-                    update.location !== row[COLS.LOCATION]) {
+                if (update.location !== undefined && update.location !== row[COLS.LOCATION]) {
                     nextRow[COLS.LOCATION] = update.location;
                     hasChanges = true;
                 }
@@ -622,7 +602,7 @@ class TransactionsHelper {
                 const rowNumber = index + 2;
                 const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                 updateData.push({
-                    majorDimension: "ROWS",
+                    majorDimension: 'ROWS',
                     range,
                     values: [nextRow],
                 });
@@ -643,28 +623,28 @@ class TransactionsHelper {
         return __awaiter(this, void 0, void 0, function* () {
             const rows = yield google_1.GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
             if (!rows)
-                throw new Error("Foglio vuoto");
+                throw new Error('Foglio vuoto');
             const updateData = [];
             const now = this.normalizeMetaDate(new Date());
             // Trova tutte le transactions con questo movementId e marcale come DELETED
             rows.forEach((r, i) => {
-                if (r[COLS.MOVEMENT_ID] === movementId && r[COLS.STATUS] !== "DELETED") {
+                if (r[COLS.MOVEMENT_ID] === movementId && r[COLS.STATUS] !== 'DELETED') {
                     const row = [...r];
-                    row[COLS.STATUS] = "DELETED";
+                    row[COLS.STATUS] = 'DELETED';
                     row[COLS.DATE_DELETED] = now;
                     row[COLS.DATE_MODIFIED] = now;
                     // +2 because: data is fetched from A2:Z (row 2 onwards), so index 0 = row 2
                     const rowNumber = i + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                     updateData.push({
-                        majorDimension: "ROWS",
+                        majorDimension: 'ROWS',
                         range: range,
                         values: [row],
                     });
                 }
             });
             if (updateData.length === 0) {
-                throw new Error("Movement non trovato o già eliminato");
+                throw new Error('Movement non trovato o già eliminato');
             }
             return yield google_1.GoogleHelper.update(authClient, spreadsheetId, updateData);
         });
@@ -680,7 +660,7 @@ class TransactionsHelper {
     // Helper interno che converte dati già normalizzati in riga
     static transactionToRowValidated(t) {
         // Build row based on COLS mapping
-        const row = new Array(16).fill(""); // 16 colonne
+        const row = new Array(16).fill(''); // 16 colonne
         row[COLS.DESCRIPTION] = t.description;
         row[COLS.CATEGORY] = t.category;
         row[COLS.AMOUNT] = t.amount; // Il frontend invia già la stringa con il segno corretto
@@ -694,9 +674,9 @@ class TransactionsHelper {
         row[COLS.RECURRENCE_ID] = t.recurrenceId;
         row[COLS.DATE_ADDED] = t.dateAdded;
         row[COLS.DATE_MODIFIED] = t.dateModified;
-        row[COLS.DATE_DELETED] = t.dateDeleted || "";
+        row[COLS.DATE_DELETED] = t.dateDeleted || '';
         row[COLS.STATUS] = t.status;
-        row[COLS.RECURRENCE_PATTERN] = t.recurrencePattern || "";
+        row[COLS.RECURRENCE_PATTERN] = t.recurrencePattern || '';
         return row;
     }
     // =================
@@ -714,7 +694,7 @@ class TransactionsHelper {
             const now = this.normalizeMetaDate(new Date());
             // Trova tutte le transazioni con il vecchio nome account
             rows.forEach((r, i) => {
-                if (r[COLS.ACCOUNT] === oldAccountName && r[COLS.STATUS] !== "DELETED") {
+                if (r[COLS.ACCOUNT] === oldAccountName && r[COLS.STATUS] !== 'DELETED') {
                     const row = [...r];
                     row[COLS.ACCOUNT] = newAccountName;
                     row[COLS.DATE_MODIFIED] = now;
@@ -722,7 +702,7 @@ class TransactionsHelper {
                     const rowNumber = i + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                     updateData.push({
-                        majorDimension: "ROWS",
+                        majorDimension: 'ROWS',
                         range: range,
                         values: [row],
                     });
@@ -746,15 +726,14 @@ class TransactionsHelper {
             const updateData = [];
             const now = this.normalizeMetaDate(new Date());
             rows.forEach((r, i) => {
-                if (r[COLS.CATEGORY] === oldCategoryName &&
-                    r[COLS.STATUS] !== "DELETED") {
+                if (r[COLS.CATEGORY] === oldCategoryName && r[COLS.STATUS] !== 'DELETED') {
                     const row = [...r];
                     row[COLS.CATEGORY] = newCategoryName;
                     row[COLS.DATE_MODIFIED] = now;
                     const rowNumber = i + 2;
                     const range = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
                     updateData.push({
-                        majorDimension: "ROWS",
+                        majorDimension: 'ROWS',
                         range: range,
                         values: [row],
                     });
@@ -772,7 +751,7 @@ class TransactionsHelper {
      */
     static extractRowNumberFromRange(range) {
         const match = range.match(/(\d+)$/);
-        return match ? match[1] : "1";
+        return match ? match[1] : '1';
     }
     /**
      * GET /transactions/delta - Returns transactions modified since a specific timestamp
@@ -795,7 +774,7 @@ class TransactionsHelper {
             const transactions = [];
             rows.forEach((r, i) => {
                 const p = this.rowToTransaction(r, i);
-                if (p && p.transaction.status !== "DELETED") {
+                if (p && p.transaction.status !== 'DELETED') {
                     // Parse dateModified (format: yyyy-MM-dd HH:mm)
                     const dateModified = this.parseMetaDateToDate(p.transaction.dateModified);
                     if (dateModified && dateModified > sinceDate) {

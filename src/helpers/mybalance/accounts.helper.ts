@@ -1,17 +1,17 @@
-import { GoogleHelper } from "../google";
-import { TransactionsHelper } from "./transactions.helper";
-import { ITransaction, IAccount, IAccountData } from "../../models";
+import { GoogleHelper } from '../google';
+import { TransactionsHelper } from './transactions.helper';
+import { ITransaction, IAccount, IAccountData } from '../../models';
 
-const SHEET_NAME = "Accounts";
-const SHEET_RANGE = "Accounts!A2:Z";
+const SHEET_NAME = 'Accounts';
+const SHEET_RANGE = 'Accounts!A2:Z';
 
 // Mappatura colonne del foglio "Accounts" (0-based) — Schema v3
 const COLS = {
-  NAME: 0,        // A: accountName
-  COLOR: 1,       // B: accountColor
-  TEXT_COLOR: 2,   // C: accountTxtColor
-  IMAGE_URL: 3,    // D: accountImgUrl
-  DATE_ADDED: 4,   // E: dateAdded
+  NAME: 0, // A: accountName
+  COLOR: 1, // B: accountColor
+  TEXT_COLOR: 2, // C: accountTxtColor
+  IMAGE_URL: 3, // D: accountImgUrl
+  DATE_ADDED: 4, // E: dateAdded
   DATE_MODIFIED: 5, // F: dateModified
 } as const;
 
@@ -25,65 +25,51 @@ export class AccountsHelper {
   static async getAccounts(
     spreadsheetId: string,
     authClient: any,
-    calculateBalance: boolean = true
+    calculateBalance: boolean = true,
   ): Promise<IAccount[]> {
     try {
       const auth = authClient;
-      const rows: any[][] = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-      );
+      const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
 
       if (!rows || rows.length === 0) return [];
 
       let transactions: ITransaction[] = [];
-      
+
       // Only fetch transactions if we need to calculate balance
       if (calculateBalance) {
-        console.log("📊 Fetching transactions to calculate account balances...");
-        transactions = await TransactionsHelper.listTransactions(
-          auth,
-          spreadsheetId,
-        );
+        console.log('📊 Fetching transactions to calculate account balances...');
+        transactions = await TransactionsHelper.listTransactions(auth, spreadsheetId);
         console.log(`📊 Found ${transactions.length} transactions`);
       } else {
-        console.log("📊 Using balance from sheet (calculate_balance=false)");
+        console.log('📊 Using balance from sheet (calculate_balance=false)');
       }
 
       const accounts: IAccount[] = [];
 
       // Salta la prima riga se contiene headers
-      const startIndex =
-        rows[0] && rows[0][COLS.NAME] === "accountName" ? 1 : 0;
+      const startIndex = rows[0] && rows[0][COLS.NAME] === 'accountName' ? 1 : 0;
 
       for (let i = startIndex; i < rows.length; i++) {
         const row = rows[i];
         if (!row || row.length === 0) continue;
 
         const account = this.rowToAccount(row, i);
-        if (account && !account.name.startsWith("DELETED_")) {
+        if (account && !account.name.startsWith('DELETED_')) {
           if (calculateBalance) {
             // Calcola il balance reale per questo account
-            const calculatedBalance = this.calculateAccountBalance(
-              account.name,
-              transactions,
-            );
+            const calculatedBalance = this.calculateAccountBalance(account.name, transactions);
 
             // Sostituisci il balance del sheet con quello calcolato
             account.balance = this.formatBalance(calculatedBalance);
-
-          } 
+          }
           accounts.push(account);
         }
       }
 
-      console.log(
-        `📊 Returning ${accounts.length} accounts`,
-      );
+      console.log(`📊 Returning ${accounts.length} accounts`);
       return accounts;
     } catch (error) {
-      console.error("Error getting accounts:", error);
+      console.error('Error getting accounts:', error);
       throw error;
     }
   }
@@ -101,16 +87,16 @@ export class AccountsHelper {
       const now = this.formatDateTime(new Date());
 
       const newRow = [
-        accountData.name,                // A: accountName
-        accountData.color || "#808080",   // B: accountColor
-        accountData.textColor || "#ffffff", // C: accountTxtColor
-        "",                               // D: accountImgUrl
-        now,                              // E: dateAdded
-        now,                              // F: dateModified
+        accountData.name, // A: accountName
+        accountData.color || '#808080', // B: accountColor
+        accountData.textColor || '#ffffff', // C: accountTxtColor
+        '', // D: accountImgUrl
+        now, // E: dateAdded
+        now, // F: dateModified
       ];
 
       const body = {
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range: SHEET_RANGE,
         values: [newRow],
       };
@@ -120,15 +106,15 @@ export class AccountsHelper {
       return {
         accountId: this.generateId(),
         name: accountData.name,
-        description: accountData.description || "",
-        balance: this.formatBalance(accountData.balance || "0"),
-        color: accountData.color || "#808080",
-        textColor: accountData.textColor || "#ffffff",
-        status: "ACTIVE",
+        description: accountData.description || '',
+        balance: this.formatBalance(accountData.balance || '0'),
+        color: accountData.color || '#808080',
+        textColor: accountData.textColor || '#ffffff',
+        status: 'ACTIVE',
         dateAdded: now,
       };
     } catch (error) {
-      console.error("Error creating account:", error);
+      console.error('Error creating account:', error);
       throw error;
     }
   }
@@ -146,12 +132,8 @@ export class AccountsHelper {
       const auth = authClient;
 
       // Prima trova l'account da aggiornare
-      const rows: any[][] = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-      );
-      if (!rows) throw new Error("Sheet vuoto");
+      const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+      if (!rows) throw new Error('Sheet vuoto');
 
       let targetRowIndex = -1;
       let existingAccount: IAccount | null = null;
@@ -159,10 +141,7 @@ export class AccountsHelper {
       // Cerca l'account per nome (dato che non abbiamo accountId nel sheet legacy)
       for (let i = 0; i < rows.length; i++) {
         const account = this.rowToAccount(rows[i], i);
-        if (
-          account &&
-          (account.accountId === accountId || account.name === updateData.name)
-        ) {
+        if (account && (account.accountId === accountId || account.name === updateData.name)) {
           targetRowIndex = i;
           existingAccount = account;
           break;
@@ -199,7 +178,7 @@ export class AccountsHelper {
         textColor: updateData.textColor || existingAccount.textColor,
       };
     } catch (error) {
-      console.error("Error updating account:", error);
+      console.error('Error updating account:', error);
       throw error;
     }
   }
@@ -216,12 +195,8 @@ export class AccountsHelper {
       const auth = authClient;
 
       // Prima trova l'account da eliminare
-      const rows: any[][] = await GoogleHelper.get(
-        auth,
-        spreadsheetId,
-        SHEET_RANGE,
-      );
-      if (!rows) throw new Error("Sheet vuoto");
+      const rows: any[][] = await GoogleHelper.get(auth, spreadsheetId, SHEET_RANGE);
+      if (!rows) throw new Error('Sheet vuoto');
 
       let targetRowIndex = -1;
 
@@ -247,14 +222,14 @@ export class AccountsHelper {
       const updateRange = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
 
       const updateBody = {
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range: updateRange,
         values: [updatedRow],
       };
 
       await GoogleHelper.update(auth, spreadsheetId, updateBody);
     } catch (error) {
-      console.error("Error deleting account:", error);
+      console.error('Error deleting account:', error);
       throw error;
     }
   }
@@ -276,28 +251,28 @@ export class AccountsHelper {
 
       for (const accountData of accounts) {
         newRows.push([
-          accountData.name,                  // A: accountName
-          accountData.color || "#808080",     // B: accountColor
-          accountData.textColor || "#ffffff", // C: accountTxtColor
-          "",                                // D: accountImgUrl
-          now,                               // E: dateAdded
-          now,                               // F: dateModified
+          accountData.name, // A: accountName
+          accountData.color || '#808080', // B: accountColor
+          accountData.textColor || '#ffffff', // C: accountTxtColor
+          '', // D: accountImgUrl
+          now, // E: dateAdded
+          now, // F: dateModified
         ]);
 
         resultAccounts.push({
           accountId: this.generateId(),
           name: accountData.name,
-          description: accountData.description || "",
-          balance: this.formatBalance(accountData.balance || "0"),
-          color: accountData.color || "#808080",
-          textColor: accountData.textColor || "#ffffff",
-          status: "ACTIVE",
+          description: accountData.description || '',
+          balance: this.formatBalance(accountData.balance || '0'),
+          color: accountData.color || '#808080',
+          textColor: accountData.textColor || '#ffffff',
+          status: 'ACTIVE',
           dateAdded: now,
         });
       }
 
       const body = {
-        majorDimension: "ROWS",
+        majorDimension: 'ROWS',
         range: SHEET_RANGE,
         values: newRows,
       };
@@ -306,7 +281,7 @@ export class AccountsHelper {
 
       return resultAccounts;
     } catch (error) {
-      console.error("Error creating accounts batch:", error);
+      console.error('Error creating accounts batch:', error);
       throw error;
     }
   }
@@ -327,7 +302,7 @@ export class AccountsHelper {
     for (const transaction of transactions) {
       // Skip transazioni con status "recurrent" (template) o "unconfirmed" (non ancora confermate)
       const status = transaction.status?.toLowerCase();
-      if (status === "recurrent" || status === "unconfirmed") {
+      if (status === 'recurrent' || status === 'unconfirmed') {
         continue;
       }
 
@@ -340,7 +315,6 @@ export class AccountsHelper {
       }
     }
 
-  
     return totalBalance;
   }
 
@@ -348,36 +322,36 @@ export class AccountsHelper {
    * Converte un amount da stringa (formato italiano con €) a numero
    */
   private static parseAmount(amountStr: string | number): number {
-    if (typeof amountStr === "number") return amountStr;
+    if (typeof amountStr === 'number') return amountStr;
     if (!amountStr) return 0;
 
     let raw = String(amountStr).trim();
     // Rimuovi simboli valuta e spazi
-    raw = raw.replace(/[€\s]/g, "");
+    raw = raw.replace(/[€\s]/g, '');
 
-    const hasComma = raw.includes(",");
-    const hasDot = raw.includes(".");
+    const hasComma = raw.includes(',');
+    const hasDot = raw.includes('.');
 
     if (hasComma && hasDot) {
       // Se ci sono entrambi, l'ultimo separatore visto è quello decimale
-      const lastComma = raw.lastIndexOf(",");
-      const lastDot = raw.lastIndexOf(".");
+      const lastComma = raw.lastIndexOf(',');
+      const lastDot = raw.lastIndexOf('.');
       if (lastComma > lastDot) {
         // Formato EU: "." migliaia, "," decimali
-        raw = raw.replace(/\./g, "").replace(/,/g, ".");
+        raw = raw.replace(/\./g, '').replace(/,/g, '.');
       } else {
         // Formato US: "," migliaia, "." decimali
-        raw = raw.replace(/,/g, "");
+        raw = raw.replace(/,/g, '');
       }
     } else if (hasComma && !hasDot) {
       // Solo virgola -> decimale
-      raw = raw.replace(/,/g, ".");
+      raw = raw.replace(/,/g, '.');
     } else if (hasDot && !hasComma) {
       // Solo punto -> decimale, rimuovi eventuali spazi già tolti
       // Nessuna azione necessaria
     }
 
-    const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ""));
+    const parsed = parseFloat(raw.replace(/[^0-9.\-]/g, ''));
     return isNaN(parsed) ? 0 : parsed;
   }
 
@@ -388,21 +362,21 @@ export class AccountsHelper {
     try {
       if (!row || row.length === 0) return null;
 
-      const name = row[COLS.NAME] ? String(row[COLS.NAME]).trim() : "";
-      if (!name || name === "accountName") return null; // Skip header or empty
+      const name = row[COLS.NAME] ? String(row[COLS.NAME]).trim() : '';
+      if (!name || name === 'accountName') return null; // Skip header or empty
 
       return {
-        accountId: `acc_${rowIndex}_${name.replace(/\s+/g, "_")}`,
+        accountId: `acc_${rowIndex}_${name.replace(/\s+/g, '_')}`,
         name: name,
-        description: "",
-        balance: "€ 0,00", // Balance calcolato dalle transazioni, non dal sheet
-        color: row[COLS.COLOR] || "#808080",
-        textColor: row[COLS.TEXT_COLOR] || "#ffffff",
-        status: "ACTIVE",
-        dateAdded: row[COLS.DATE_ADDED] || "",
+        description: '',
+        balance: '€ 0,00', // Balance calcolato dalle transazioni, non dal sheet
+        color: row[COLS.COLOR] || '#808080',
+        textColor: row[COLS.TEXT_COLOR] || '#ffffff',
+        status: 'ACTIVE',
+        dateAdded: row[COLS.DATE_ADDED] || '',
       };
     } catch (error) {
-      console.error("Error parsing account row:", error);
+      console.error('Error parsing account row:', error);
       return null;
     }
   }
@@ -411,27 +385,25 @@ export class AccountsHelper {
    * Formatta il balance in formato valuta italiana
    */
   private static formatBalance(balance: any): string {
-    if (balance === null || balance === undefined || balance === "") {
-      return "€ 0,00";
+    if (balance === null || balance === undefined || balance === '') {
+      return '€ 0,00';
     }
 
     const num = this.parseAmount(balance);
-    if (isNaN(num)) return "€ 0,00";
-    return `€ ${num.toFixed(2).replace(".", ",")}`;
+    if (isNaN(num)) return '€ 0,00';
+    return `€ ${num.toFixed(2).replace('.', ',')}`;
   }
 
   private static generateId(): string {
-    return "acc_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    return 'acc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
   private static formatDateTime(date: Date): string {
-    return `${date.getDate().toString().padStart(2, "0")}-${(
-      date.getMonth() + 1
-    )
+    return `${date.getDate().toString().padStart(2, '0')}-${(date.getMonth() + 1)
       .toString()
-      .padStart(2, "0")}-${date.getFullYear()} ${date
+      .padStart(2, '0')}-${date.getFullYear()} ${date
       .getHours()
       .toString()
-      .padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+      .padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   }
 }

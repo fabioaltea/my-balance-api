@@ -1,263 +1,248 @@
-
-
 import { google } from 'googleapis';
 import * as dotenv from 'dotenv';
 import { IGetBody } from '../../models';
-import { template } from "../../assets/template";
+import { template } from '../../assets/template';
 
-dotenv.config({ path: '.env.local' }); 
-
+dotenv.config({ path: '.env.local' });
 
 function createGoogleSheetsError(message: string, error: any): Error {
-    const wrappedError = new Error(`${message}. Error: ${error?.message || String(error)}`);
+  const wrappedError = new Error(`${message}. Error: ${error?.message || String(error)}`);
 
-    Object.assign(wrappedError, {
-        code: error?.code,
-        status: error?.status,
-        response: error?.response,
-        errors: error?.errors,
-        cause: error,
-    });
+  Object.assign(wrappedError, {
+    code: error?.code,
+    status: error?.status,
+    response: error?.response,
+    errors: error?.errors,
+    cause: error,
+  });
 
-    return wrappedError;
+  return wrappedError;
 }
 
-
-
 export class GoogleHelper {
-    private static SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/userinfo'];
+  private static SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/userinfo',
+  ];
 
-    public static oauth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.REDIRECT_URI
+  public static oauth2Client = new google.auth.OAuth2(
+    process.env.CLIENT_ID,
+    process.env.CLIENT_SECRET,
+    process.env.REDIRECT_URI,
+  );
+
+  public static async authenticate(req: any): Promise<string> {
+    const authorizationUrl = this.oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: this.SCOPES,
+      include_granted_scopes: true,
+    });
+
+    return authorizationUrl;
+  }
+
+  public static async authorize(queryCode: any): Promise<any> {
+    try {
+      const code = decodeURIComponent(queryCode);
+      const { tokens } = await this.oauth2Client.getToken(code);
+      const { user_id, email } = await this.oauth2Client.getTokenInfo(tokens.access_token);
+      return { refreshToken: tokens.refresh_token, user_id, email };
+    } catch (ex) {
+      console.log(ex);
+      throw new Error(ex);
+    }
+  }
+
+  public static async checkCredentials(auth: any): Promise<any | null> {
+    try {
+      var OAuth2 = google.auth.OAuth2;
+      var oauth2Client = new OAuth2(auth.client_id, auth.client_secret, '');
+      oauth2Client.setCredentials({
+        refresh_token: auth.refresh_token,
+      });
+      var oauth2 = google.oauth2({
+        auth: oauth2Client,
+        version: 'v2',
+      });
+      const { data } = await oauth2.userinfo.get();
+      return data;
+    } catch (ex) {
+      console.log(ex);
+      throw new Error(ex);
+    }
+  }
+
+  public static parseAuthHeaders(headers: any) {
+    const requiredHeaders = ['refresh_token'];
+    const missingHeaders = requiredHeaders.filter(
+      (header) => !headers[header] || headers[header] === '',
     );
 
-    public static async authenticate(req: any): Promise<string> {
-       
-        const authorizationUrl = this.oauth2Client.generateAuthUrl({
-            access_type: 'offline',
-            scope: this.SCOPES,
-            include_granted_scopes: true,
-        });
-
-        return authorizationUrl
+    if (missingHeaders.length > 0) {
+      throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
     }
 
-    public static async authorize(queryCode: any): Promise<any> {
-        
-        try {
-            const code = decodeURIComponent(queryCode);
-            const { tokens } = await this.oauth2Client.getToken(code);
-            const {user_id, email} =await this.oauth2Client.getTokenInfo(tokens.access_token)
-            return {refreshToken:tokens.refresh_token, user_id, email};
-        } catch (ex) {
-            console.log(ex)
-            throw new Error(ex);
-        }
+    return {
+      type: 'authorized_user',
+      refresh_token: headers.refresh_token,
+      client_secret: process.env.CLIENT_SECRET,
+      client_id: process.env.CLIENT_ID,
+    };
+  }
+
+  public static async get(auth: any, spreadsheetId: string, range: string) {
+    if (!spreadsheetId && !range) {
+      throw new Error('Missing or invalid parameters: spreadsheetId, range');
+    }
+    if (!spreadsheetId || spreadsheetId == '') {
+      throw new Error('Missing or invalid parameter: spreadsheetId');
+    }
+    if (!range || range == '') {
+      throw new Error('Missing or invalid parameter: range');
     }
 
-    public static async checkCredentials(auth:any):Promise<any|null>{
-        try{
-            var OAuth2 = google.auth.OAuth2;
-            var oauth2Client = new OAuth2(
-                auth.client_id, auth.client_secret, ""
-            );
-            oauth2Client.setCredentials({
-                refresh_token:auth.refresh_token,
-            })
-            var oauth2=google.oauth2({
-                auth:oauth2Client,
-                version:'v2'
-            });
-            const {data}= await oauth2.userinfo.get()
-            return data
-            
-            
-        }catch(ex){
-            console.log(ex)
-            throw new Error(ex);
-        }
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: spreadsheetId,
+        range: range,
+      } as IGetBody);
+      const rows = res.data.values;
+      if (!rows || rows.length === 0) {
+        console.log('No data found.');
+        return;
+      }
+
+      return rows;
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
+    }
+  }
+
+  public static async update(auth: any, spreadsheetId: string, body: any) {
+    if (!spreadsheetId && !body) {
+      throw new Error('Missing or invalid parameters: spreadsheetId, range');
+    }
+    if (!spreadsheetId || spreadsheetId == '') {
+      throw new Error('Missing or invalid parameter: spreadsheetId');
+    }
+    if (!body) {
+      throw new Error('Missing or invalid parameter: body');
     }
 
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: spreadsheetId,
+        requestBody: {
+          valueInputOption: 'RAW',
+          data: body,
+        },
+      });
 
-
-    public static parseAuthHeaders(headers: any) {
-        const requiredHeaders = [ 'refresh_token'];
-        const missingHeaders = requiredHeaders.filter(header => !headers[header] || headers[header] === '');
-
-        if (missingHeaders.length > 0) {
-            throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
-        }
-
-        return {
-            type: "authorized_user",
-            refresh_token: headers.refresh_token,
-            client_secret: process.env.CLIENT_SECRET,
-            client_id: process.env.CLIENT_ID
-        };
+      if (res.status) {
+        return res;
+      } else {
+        throw new Error();
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
     }
-    
-    public static async get(auth: any, spreadsheetId: string, range: string) {
-        if (!spreadsheetId && !range) {
-            throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }
-        if (!spreadsheetId || spreadsheetId == "") {
-            throw new Error('Missing or invalid parameter: spreadsheetId');
-        }
-        if (!range || range == "") {
-            throw new Error('Missing or invalid parameter: range');
-        }
+  }
 
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.values.get({
-                spreadsheetId: spreadsheetId,
-                range: range
-            } as IGetBody);
-            const rows = res.data.values;
-            if (!rows || rows.length === 0) {
-                console.log('No data found.');
-                return;
-            }
-
-            return rows
-        } catch (error) {
-            console.error('Error fetching items:', error);
-            throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
-        }
+  public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
+    if (!spreadsheetId && !body) {
+      throw new Error('Missing or invalid parameters: spreadsheetId, range');
+    }
+    if (!spreadsheetId || spreadsheetId == '') {
+      throw new Error('Missing or invalid parameter: spreadsheetId');
+    }
+    if (!body) {
+      throw new Error('Missing or invalid parameter: range');
     }
 
-    public static async update(auth: any, spreadsheetId: string, body: any) {
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.values.append({
+        spreadsheetId: spreadsheetId,
+        requestBody: body,
+        range: range,
+        valueInputOption: 'RAW',
+      });
 
-        if (!spreadsheetId && !body) {
-            throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }
-        if (!spreadsheetId || spreadsheetId == "") {
-            throw new Error('Missing or invalid parameter: spreadsheetId');
-        }
-        if (!body) {
-            throw new Error('Missing or invalid parameter: body');
-        }
+      if (res.status) {
+        return res;
+      } else {
+        throw new Error();
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
+    }
+  }
 
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.values.batchUpdate({
-                spreadsheetId: spreadsheetId,
-                requestBody: {
-                    valueInputOption:"RAW",
-                    data:body
-                }
-            })
-
-            if (res.status) {
-                return res
-            } else {
-                throw new Error()
-            }
-        } catch (error) {
-            console.error('Error fetching items:', error);
-            throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
-        }
+  /**
+   * Esegue operazioni strutturali sullo spreadsheet (rinomina sheet, aggiungi sheet, ecc.)
+   * Usa spreadsheets.batchUpdate (NON values.batchUpdate)
+   */
+  public static async batchUpdateSpreadsheet(auth: any, spreadsheetId: string, requests: any[]) {
+    if (!spreadsheetId) {
+      throw new Error('Missing or invalid parameter: spreadsheetId');
+    }
+    if (!requests || requests.length === 0) {
+      throw new Error('Missing or invalid parameter: requests');
     }
 
-    
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      });
+      return res;
+    } catch (error) {
+      console.error('Error in batchUpdateSpreadsheet:', error);
+      throw createGoogleSheetsError('Failed batchUpdate on spreadsheet', error);
+    }
+  }
 
-    public static async append(auth: any, spreadsheetId: string, range: string, body: any) {
-        if (!spreadsheetId && !body) {
-            throw new Error('Missing or invalid parameters: spreadsheetId, range');
-        }
-        if (!spreadsheetId || spreadsheetId == "") {
-            throw new Error('Missing or invalid parameter: spreadsheetId');
-        }
-        if (!body) {
-            throw new Error('Missing or invalid parameter: range');
-        }
-
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.values.append({
-                spreadsheetId: spreadsheetId,
-                requestBody: body,
-                range: range,
-                valueInputOption: "RAW"
-            })
-
-            if (res.status) {
-                return res
-            } else {
-                throw new Error()
-            }
-        } catch (error) {
-            console.error('Error fetching items:', error);
-            throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
-        }
+  /**
+   * Ottiene i metadati dello spreadsheet (inclusi sheetId per ogni tab)
+   */
+  public static async getSpreadsheetMeta(auth: any, spreadsheetId: string) {
+    if (!spreadsheetId) {
+      throw new Error('Missing or invalid parameter: spreadsheetId');
     }
 
-    /**
-     * Esegue operazioni strutturali sullo spreadsheet (rinomina sheet, aggiungi sheet, ecc.)
-     * Usa spreadsheets.batchUpdate (NON values.batchUpdate)
-     */
-    public static async batchUpdateSpreadsheet(
-        auth: any,
-        spreadsheetId: string,
-        requests: any[]
-    ) {
-        if (!spreadsheetId) {
-            throw new Error('Missing or invalid parameter: spreadsheetId');
-        }
-        if (!requests || requests.length === 0) {
-            throw new Error('Missing or invalid parameter: requests');
-        }
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.get({
+        spreadsheetId,
+        fields: 'sheets.properties',
+      });
+      return res.data.sheets || [];
+    } catch (error) {
+      console.error('Error getting spreadsheet meta:', error);
+      throw createGoogleSheetsError('Failed to get spreadsheet metadata', error);
+    }
+  }
 
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.batchUpdate({
-                spreadsheetId,
-                requestBody: { requests },
-            });
-            return res;
-        } catch (error) {
-            console.error('Error in batchUpdateSpreadsheet:', error);
-            throw createGoogleSheetsError('Failed batchUpdate on spreadsheet', error);
-        }
+  public static async create(auth: any, userEmail: any) {
+    if (!userEmail) {
+      throw new Error('Missing or invalid parameter: userEmail');
     }
 
-    /**
-     * Ottiene i metadati dello spreadsheet (inclusi sheetId per ogni tab)
-     */
-    public static async getSpreadsheetMeta(auth: any, spreadsheetId: string) {
-        if (!spreadsheetId) {
-            throw new Error('Missing or invalid parameter: spreadsheetId');
-        }
-
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.get({
-                spreadsheetId,
-                fields: 'sheets.properties',
-            });
-            return res.data.sheets || [];
-        } catch (error) {
-            console.error('Error getting spreadsheet meta:', error);
-            throw createGoogleSheetsError('Failed to get spreadsheet metadata', error);
-        }
+    try {
+      const sheets = google.sheets({ version: 'v4', auth });
+      const res = await sheets.spreadsheets.create({
+        requestBody: template,
+      });
+      return res;
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
     }
-
-    public static async create(auth: any, userEmail: any) {
-        if (!userEmail) {
-            throw new Error('Missing or invalid parameter: userEmail');
-        }
-
-        try {
-            const sheets = google.sheets({ version: 'v4', auth });
-            const res = await sheets.spreadsheets.create({
-                requestBody: template
-            });
-            return res;
-        } catch (error) {
-            console.error('Error fetching items:', error);
-            throw createGoogleSheetsError('Failed to fetch items from Google Sheets', error);
-        }
-    }
+  }
 }

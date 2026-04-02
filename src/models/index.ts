@@ -1,12 +1,7 @@
 // Barrel export for all models/interfaces
 
 // Google Sheets API
-export type {
-  IGetBody,
-  IUpdateBody,
-  IUpdateBodyData,
-  IAppendBody,
-} from "./sheets.interfaces";
+export type { IGetBody, IUpdateBody, IUpdateBodyData, IAppendBody } from './sheets.interfaces';
 
 // Transactions and Movements
 export type {
@@ -17,7 +12,7 @@ export type {
   IUpdateTransactionBodyData,
   IMovementRequest,
   ITransactionRequest,
-} from "./transactions.interfaces";
+} from './transactions.interfaces';
 
 // Google OAuth
 export type {
@@ -25,7 +20,7 @@ export type {
   GoogleIdentity,
   ExchangeCodeParams,
   DeviceType,
-} from "./google.interfaces";
+} from './google.interfaces';
 
 // Authentication
 export type {
@@ -37,7 +32,7 @@ export type {
   RefreshRequest,
   PasskeyLoginRequest,
   LogoutRequest,
-} from "./auth.interfaces";
+} from './auth.interfaces';
 
 // Database
 export type {
@@ -45,16 +40,13 @@ export type {
   UpdateUserRequest,
   CreateSessionRequest,
   UpdateSessionRequest,
-} from "./db.interfaces";
+} from './db.interfaces';
 
 // Accounts
-export type { IAccount, IAccountData } from "./accounts.interfaces";
+export type { IAccount, IAccountData } from './accounts.interfaces';
 
 // Categories
-export type { ICategory, ICategoryData } from "./categories.interfaces";
+export type { ICategory, ICategoryData } from './categories.interfaces';
 
 // Spreadsheets
-export type {
-  ISpreadsheetValidation,
-  ITemplateData,
-} from "./spreadsheets.interfaces";
+export type { ISpreadsheetValidation, ITemplateData } from './spreadsheets.interfaces';

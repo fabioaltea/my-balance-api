@@ -16,23 +16,23 @@ const shortcutRateLimit = (0, express_rate_limit_1.default)({
     max: 30, // Limit each IP to 30 requests per minute
     message: {
         success: false,
-        error: "Too many requests, please try again later",
-        code: "RATE_LIMIT_EXCEEDED",
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
     },
     standardHeaders: true,
     legacyHeaders: false,
 });
-console.log("🔧 Setting up SHORTCUT routes...");
+console.log('🔧 Setting up SHORTCUT routes...');
 /**
  * POST /shortcut/generate - Generate new shortcut key (requires JWT auth)
  */
-shortcutRoutes.post("/generate", shortcutRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, shortcut_controller_1.ShortcutController.generateShortcutKey);
+shortcutRoutes.post('/generate', shortcutRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, shortcut_controller_1.ShortcutController.generateShortcutKey);
 /**
  * GET /shortcut/key - Get current shortcut key (requires JWT auth)
  */
-shortcutRoutes.get("/key", shortcutRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, shortcut_controller_1.ShortcutController.getShortcutKey);
+shortcutRoutes.get('/key', shortcutRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, shortcut_controller_1.ShortcutController.getShortcutKey);
 /**
  * POST /shortcut/movement - Create movement via shortcut (uses x-shortcutkey header)
  */
-shortcutRoutes.post("/movement", shortcutRateLimit, shortcut_controller_1.ShortcutController.createMovementViaShortcut);
+shortcutRoutes.post('/movement', shortcutRateLimit, shortcut_controller_1.ShortcutController.createMovementViaShortcut);
 //# sourceMappingURL=shortcut.routes.js.map
