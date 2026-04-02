@@ -29,6 +29,10 @@ export class GoogleAuthHelper {
   private deviceType: DeviceType;
   private static readonly AUTH_ERROR_STATUSES = new Set([401, 403]);
 
+  // Product name read from env — drives product-scoped token storage.
+  // Set PRODUCT_NAME=MyBalance in the service .env file.
+  private static readonly PRODUCT_NAME: string = process.env.PRODUCT_NAME || 'MyBalance';
+
   // ============================================================================
   // CONSTRUCTOR & CLIENT INITIALIZATION
   // ============================================================================
@@ -348,8 +352,8 @@ export class GoogleAuthHelper {
 
       console.log(`🔄 Auth error detected for ${userEmail}, attempting token refresh and retry...`);
 
-      // Use lock to prevent concurrent refresh attempts for the same user
-      const lockKey = `${userEmail}:${deviceType}`;
+      // Use lock to prevent concurrent refresh attempts for the same user+product
+      const lockKey = `${userEmail}:${deviceType}:${GoogleAuthHelper.PRODUCT_NAME}`;
       const existingLock = GoogleAuthHelper.refreshLocks.get(lockKey);
 
       if (existingLock) {
@@ -377,12 +381,16 @@ export class GoogleAuthHelper {
           // Create a new helper to perform the refresh
           const helper = new GoogleAuthHelper(deviceType);
 
-          // Get and decrypt refresh token
-          const encryptedToken = await DbHelper.getGoogleRefreshToken(userEmail, deviceType);
+          // Get and decrypt refresh token (product-scoped)
+          const encryptedToken = await DbHelper.getGoogleRefreshToken(
+            userEmail,
+            deviceType,
+            GoogleAuthHelper.PRODUCT_NAME,
+          );
 
           if (!encryptedToken) {
             throw new GoogleTokenError(
-              `No refresh token found for ${userEmail}`,
+              `No refresh token found for ${userEmail} (${GoogleAuthHelper.PRODUCT_NAME})`,
               'GOOGLE_TOKEN_NOT_FOUND',
             );
           }
@@ -395,9 +403,16 @@ export class GoogleAuthHelper {
 
           // Handle token rotation if Google returned a new refresh token
           if (refreshResult.newRefreshToken) {
-            console.log(`💾 Saving rotated refresh token for ${userEmail} (${deviceType})`);
+            console.log(
+              `💾 Saving rotated refresh token for ${userEmail} (${deviceType}/${GoogleAuthHelper.PRODUCT_NAME})`,
+            );
             const encryptedNewToken = CryptoHelper.encrypt(refreshResult.newRefreshToken);
-            await DbHelper.storeGoogleRefreshToken(userEmail, encryptedNewToken, deviceType);
+            await DbHelper.storeGoogleRefreshToken(
+              userEmail,
+              encryptedNewToken,
+              deviceType,
+              GoogleAuthHelper.PRODUCT_NAME,
+            );
             console.log('✅ Rotated refresh token saved');
           }
         } catch (refreshError: any) {
@@ -448,8 +463,12 @@ export class GoogleAuthHelper {
     deviceType: DeviceType = 'web',
   ): Promise<OAuth2Client> {
     try {
-      // Get encrypted refresh token from user_google_tokens table
-      const encryptedToken = await DbHelper.getGoogleRefreshToken(userEmail, deviceType);
+      // Get encrypted refresh token from user_google_tokens table (product-scoped)
+      const encryptedToken = await DbHelper.getGoogleRefreshToken(
+        userEmail,
+        deviceType,
+        GoogleAuthHelper.PRODUCT_NAME,
+      );
 
       if (!encryptedToken) {
         throw new GoogleTokenError(

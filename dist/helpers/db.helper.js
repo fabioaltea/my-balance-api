@@ -299,13 +299,13 @@ class DbHelper {
      * Uses UPSERT to ensure only one token per user+device_type
      */
     static storeGoogleRefreshToken(userEmail_1, encryptedToken_1) {
-        return __awaiter(this, arguments, void 0, function* (userEmail, encryptedToken, deviceType = 'web') {
+        return __awaiter(this, arguments, void 0, function* (userEmail, encryptedToken, deviceType = 'web', productName = 'MyBalance') {
             const client = yield DbHelper._pool.connect();
             try {
-                yield client.query(`INSERT INTO user_google_tokens (user_email, device_type, google_refresh_token, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (user_email, device_type)
-         DO UPDATE SET google_refresh_token = $3, updated_at = NOW()`, [userEmail, deviceType, encryptedToken]);
+                yield client.query(`INSERT INTO user_google_tokens (user_email, device_type, product_name, google_refresh_token, updated_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (user_email, device_type, product_name)
+         DO UPDATE SET google_refresh_token = $4, updated_at = NOW()`, [userEmail, deviceType, productName, encryptedToken]);
             }
             catch (error) {
                 console.error('Error storing Google refresh token:', error);
@@ -320,12 +320,12 @@ class DbHelper {
      * Get encrypted Google refresh token from user_google_tokens table
      */
     static getGoogleRefreshToken(userEmail_1) {
-        return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = 'web') {
+        return __awaiter(this, arguments, void 0, function* (userEmail, deviceType = 'web', productName = 'MyBalance') {
             var _a;
             const client = yield DbHelper._pool.connect();
             try {
                 const { rows } = yield client.query(`SELECT google_refresh_token FROM user_google_tokens
-         WHERE user_email = $1 AND device_type = $2`, [userEmail, deviceType]);
+         WHERE user_email = $1 AND device_type = $2 AND product_name = $3`, [userEmail, deviceType, productName]);
                 return ((_a = rows[0]) === null || _a === void 0 ? void 0 : _a.google_refresh_token) || null;
             }
             catch (error) {

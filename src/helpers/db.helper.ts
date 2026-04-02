@@ -300,15 +300,16 @@ export class DbHelper {
     userEmail: string,
     encryptedToken: string,
     deviceType: 'web' | 'ios' | 'android' = 'web',
+    productName: string = 'MyBalance',
   ) {
     const client = await DbHelper._pool.connect();
     try {
       await client.query(
-        `INSERT INTO user_google_tokens (user_email, device_type, google_refresh_token, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (user_email, device_type)
-         DO UPDATE SET google_refresh_token = $3, updated_at = NOW()`,
-        [userEmail, deviceType, encryptedToken],
+        `INSERT INTO user_google_tokens (user_email, device_type, product_name, google_refresh_token, updated_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (user_email, device_type, product_name)
+         DO UPDATE SET google_refresh_token = $4, updated_at = NOW()`,
+        [userEmail, deviceType, productName, encryptedToken],
       );
     } catch (error) {
       console.error('Error storing Google refresh token:', error);
@@ -324,13 +325,14 @@ export class DbHelper {
   public static async getGoogleRefreshToken(
     userEmail: string,
     deviceType: 'web' | 'ios' | 'android' = 'web',
+    productName: string = 'MyBalance',
   ): Promise<string | null> {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
         `SELECT google_refresh_token FROM user_google_tokens
-         WHERE user_email = $1 AND device_type = $2`,
-        [userEmail, deviceType],
+         WHERE user_email = $1 AND device_type = $2 AND product_name = $3`,
+        [userEmail, deviceType, productName],
       );
 
       return rows[0]?.google_refresh_token || null;
