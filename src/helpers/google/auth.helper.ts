@@ -25,7 +25,7 @@ export interface RefreshResult {
 // ============================================================================
 
 export class GoogleAuthHelper {
-  private client: OAuth2Client;
+  private client!: OAuth2Client;
   private deviceType: DeviceType;
   private static readonly AUTH_ERROR_STATUSES = new Set([401, 403]);
 
@@ -33,61 +33,69 @@ export class GoogleAuthHelper {
   // Set PRODUCT_NAME=MyBalance in the service .env file.
   private static readonly PRODUCT_NAME: string = process.env.PRODUCT_NAME || 'MyBalance';
 
+  // Cache oauth client config per platform to avoid repeated DB lookups
+  private static configCache = new Map<
+    string,
+    { clientId: string; clientSecret?: string; redirectUri?: string }
+  >();
+
   // ============================================================================
   // CONSTRUCTOR & CLIENT INITIALIZATION
   // ============================================================================
 
-  constructor(deviceType: DeviceType = 'web') {
+  private constructor(deviceType: DeviceType = 'web') {
     this.deviceType = deviceType;
-    this.initializeClient(deviceType);
   }
 
-  private initializeClient(deviceType: DeviceType): void {
+  /**
+   * Factory method — fetches OAuth client config from DB and returns an initialized helper.
+   * Use this instead of `new GoogleAuthHelper()`.
+   */
+  public static async create(deviceType: DeviceType = 'web'): Promise<GoogleAuthHelper> {
+    const helper = new GoogleAuthHelper(deviceType);
+    await helper.initializeClientAsync(deviceType);
+    return helper;
+  }
+
+  private static async getClientConfig(
+    platform: string,
+  ): Promise<{ clientId: string; clientSecret?: string; redirectUri?: string }> {
+    const cached = GoogleAuthHelper.configCache.get(platform);
+    if (cached) return cached;
+
+    const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+    const config = await DbHelper.getOAuthClientConfig(
+      GoogleAuthHelper.PRODUCT_NAME,
+      platform,
+      environment,
+    );
+
+    if (!config) {
+      throw new Error(
+        `OAuth client config not found for ${GoogleAuthHelper.PRODUCT_NAME}/${platform}/${environment}`,
+      );
+    }
+
+    GoogleAuthHelper.configCache.set(platform, config);
+    return config;
+  }
+
+  private async initializeClientAsync(deviceType: DeviceType): Promise<void> {
+    const config = await GoogleAuthHelper.getClientConfig(deviceType);
     switch (deviceType) {
       case 'ios':
-        this.loadIOSClient();
-        break;
       case 'android':
-        this.loadAndroidClient();
+        // Public clients — no client secret
+        this.client = new OAuth2Client({
+          clientId: config.clientId,
+          redirectUri: config.redirectUri,
+        } as OAuth2ClientOptions);
         break;
       case 'web':
       default:
-        this.loadWebClient();
+        this.client = new OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
         break;
     }
-  }
-
-  private loadWebClient(): void {
-    console.log('Loading web OAuth2 client with params:', {
-      clientId: process.env.CLIENT_ID_WEB,
-      clientSecret: process.env.CLIENT_SECRET ? '***' : undefined,
-      redirectUri: process.env.REDIRECT_URI_WEB,
-    });
-    this.client = new OAuth2Client(
-      process.env.CLIENT_ID_WEB,
-      process.env.CLIENT_SECRET,
-      process.env.REDIRECT_URI_WEB,
-    );
-  }
-
-  private loadIOSClient(): void {
-    // iOS is a "public client" - no client secret
-    this.client = new OAuth2Client({
-      clientId: process.env.CLIENT_ID_IOS,
-      redirectUri: process.env.REDIRECT_URI_IOS,
-    } as OAuth2ClientOptions);
-  }
-
-  private loadAndroidClient(): void {
-    console.log('Loading Android OAuth2 client with params:', {
-      clientId: process.env.CLIENT_ID_ANDROID,
-      redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
-    });
-    // Android is a "public client" - no client secret
-    this.client = new OAuth2Client({
-      clientId: process.env.CLIENT_ID_ANDROID || process.env.CLIENT_ID_IOS,
-      redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
-    } as OAuth2ClientOptions);
   }
 
   // ============================================================================
@@ -379,7 +387,7 @@ export class GoogleAuthHelper {
       const refreshPromise = (async () => {
         try {
           // Create a new helper to perform the refresh
-          const helper = new GoogleAuthHelper(deviceType);
+          const helper = await GoogleAuthHelper.create(deviceType);
 
           // Get and decrypt refresh token (product-scoped)
           const encryptedToken = await DbHelper.getGoogleRefreshToken(
@@ -481,7 +489,7 @@ export class GoogleAuthHelper {
       const refreshToken = CryptoHelper.decrypt(encryptedToken);
 
       // Create helper with the correct device type
-      const helper = new GoogleAuthHelper(deviceType);
+      const helper = await GoogleAuthHelper.create(deviceType);
 
       // Set the refresh token credentials
       // OAuth2Client will automatically refresh when needed during API calls

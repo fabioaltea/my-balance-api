@@ -31,46 +31,49 @@ class GoogleAuthHelper {
     // ============================================================================
     constructor(deviceType = 'web') {
         this.deviceType = deviceType;
-        this.initializeClient(deviceType);
     }
-    initializeClient(deviceType) {
-        switch (deviceType) {
-            case 'ios':
-                this.loadIOSClient();
-                break;
-            case 'android':
-                this.loadAndroidClient();
-                break;
-            case 'web':
-            default:
-                this.loadWebClient();
-                break;
-        }
-    }
-    loadWebClient() {
-        console.log('Loading web OAuth2 client with params:', {
-            clientId: process.env.CLIENT_ID_WEB,
-            clientSecret: process.env.CLIENT_SECRET ? '***' : undefined,
-            redirectUri: process.env.REDIRECT_URI_WEB,
-        });
-        this.client = new google_auth_library_1.OAuth2Client(process.env.CLIENT_ID_WEB, process.env.CLIENT_SECRET, process.env.REDIRECT_URI_WEB);
-    }
-    loadIOSClient() {
-        // iOS is a "public client" - no client secret
-        this.client = new google_auth_library_1.OAuth2Client({
-            clientId: process.env.CLIENT_ID_IOS,
-            redirectUri: process.env.REDIRECT_URI_IOS,
+    /**
+     * Factory method — fetches OAuth client config from DB and returns an initialized helper.
+     * Use this instead of `new GoogleAuthHelper()`.
+     */
+    static create() {
+        return __awaiter(this, arguments, void 0, function* (deviceType = 'web') {
+            const helper = new GoogleAuthHelper(deviceType);
+            yield helper.initializeClientAsync(deviceType);
+            return helper;
         });
     }
-    loadAndroidClient() {
-        console.log('Loading Android OAuth2 client with params:', {
-            clientId: process.env.CLIENT_ID_ANDROID,
-            redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+    static getClientConfig(platform) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const cached = GoogleAuthHelper.configCache.get(platform);
+            if (cached)
+                return cached;
+            const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+            const config = yield db_helper_1.DbHelper.getOAuthClientConfig(GoogleAuthHelper.PRODUCT_NAME, platform, environment);
+            if (!config) {
+                throw new Error(`OAuth client config not found for ${GoogleAuthHelper.PRODUCT_NAME}/${platform}/${environment}`);
+            }
+            GoogleAuthHelper.configCache.set(platform, config);
+            return config;
         });
-        // Android is a "public client" - no client secret
-        this.client = new google_auth_library_1.OAuth2Client({
-            clientId: process.env.CLIENT_ID_ANDROID || process.env.CLIENT_ID_IOS,
-            redirectUri: process.env.REDIRECT_URI_ANDROID || process.env.REDIRECT_URI_IOS,
+    }
+    initializeClientAsync(deviceType) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const config = yield GoogleAuthHelper.getClientConfig(deviceType);
+            switch (deviceType) {
+                case 'ios':
+                case 'android':
+                    // Public clients — no client secret
+                    this.client = new google_auth_library_1.OAuth2Client({
+                        clientId: config.clientId,
+                        redirectUri: config.redirectUri,
+                    });
+                    break;
+                case 'web':
+                default:
+                    this.client = new google_auth_library_1.OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
+                    break;
+            }
         });
     }
     // ============================================================================
@@ -306,7 +309,7 @@ class GoogleAuthHelper {
                 const refreshPromise = (() => __awaiter(this, void 0, void 0, function* () {
                     try {
                         // Create a new helper to perform the refresh
-                        const helper = new GoogleAuthHelper(deviceType);
+                        const helper = yield GoogleAuthHelper.create(deviceType);
                         // Get and decrypt refresh token (product-scoped)
                         const encryptedToken = yield db_helper_1.DbHelper.getGoogleRefreshToken(userEmail, deviceType, GoogleAuthHelper.PRODUCT_NAME);
                         if (!encryptedToken) {
@@ -372,7 +375,7 @@ class GoogleAuthHelper {
                 // Decrypt the refresh token
                 const refreshToken = crypto_helper_1.CryptoHelper.decrypt(encryptedToken);
                 // Create helper with the correct device type
-                const helper = new GoogleAuthHelper(deviceType);
+                const helper = yield GoogleAuthHelper.create(deviceType);
                 // Set the refresh token credentials
                 // OAuth2Client will automatically refresh when needed during API calls
                 helper.setCredentials(refreshToken);
@@ -429,6 +432,8 @@ GoogleAuthHelper.AUTH_ERROR_STATUSES = new Set([401, 403]);
 // Product name read from env — drives product-scoped token storage.
 // Set PRODUCT_NAME=MyBalance in the service .env file.
 GoogleAuthHelper.PRODUCT_NAME = process.env.PRODUCT_NAME || 'MyBalance';
+// Cache oauth client config per platform to avoid repeated DB lookups
+GoogleAuthHelper.configCache = new Map();
 // ============================================================================
 // RETRY WRAPPER - Execute API calls with automatic token refresh on auth errors
 // ============================================================================

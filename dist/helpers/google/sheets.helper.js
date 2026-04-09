@@ -59,64 +59,6 @@ function createGoogleSheetsError(message, error) {
     return wrappedError;
 }
 class GoogleHelper {
-    static authenticate(req) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const authorizationUrl = this.oauth2Client.generateAuthUrl({
-                access_type: 'offline',
-                scope: this.SCOPES,
-                include_granted_scopes: true,
-            });
-            return authorizationUrl;
-        });
-    }
-    static authorize(queryCode) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const code = decodeURIComponent(queryCode);
-                const { tokens } = yield this.oauth2Client.getToken(code);
-                const { user_id, email } = yield this.oauth2Client.getTokenInfo(tokens.access_token);
-                return { refreshToken: tokens.refresh_token, user_id, email };
-            }
-            catch (ex) {
-                console.log(ex);
-                throw new Error(ex);
-            }
-        });
-    }
-    static checkCredentials(auth) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                var OAuth2 = googleapis_1.google.auth.OAuth2;
-                var oauth2Client = new OAuth2(auth.client_id, auth.client_secret, '');
-                oauth2Client.setCredentials({
-                    refresh_token: auth.refresh_token,
-                });
-                var oauth2 = googleapis_1.google.oauth2({
-                    auth: oauth2Client,
-                    version: 'v2',
-                });
-                const { data } = yield oauth2.userinfo.get();
-                return data;
-            }
-            catch (ex) {
-                console.log(ex);
-                throw new Error(ex);
-            }
-        });
-    }
-    static parseAuthHeaders(headers) {
-        const requiredHeaders = ['refresh_token'];
-        const missingHeaders = requiredHeaders.filter((header) => !headers[header] || headers[header] === '');
-        if (missingHeaders.length > 0) {
-            throw new Error(`Missing or invalid authentication headers: ${missingHeaders.join(', ')}`);
-        }
-        return {
-            type: 'authorized_user',
-            refresh_token: headers.refresh_token,
-            client_secret: process.env.CLIENT_SECRET,
-            client_id: process.env.CLIENT_ID,
-        };
-    }
     static get(auth, spreadsheetId, range) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!spreadsheetId && !range) {
@@ -280,9 +222,4 @@ class GoogleHelper {
     }
 }
 exports.GoogleHelper = GoogleHelper;
-GoogleHelper.SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/userinfo',
-];
-GoogleHelper.oauth2Client = new googleapis_1.google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URI);
 //# sourceMappingURL=sheets.helper.js.map
