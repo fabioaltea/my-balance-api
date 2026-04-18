@@ -98,18 +98,30 @@ Name, color, icon
 ## Environment Variables
 
 ```env
+# Server
 PORT=8080
 AUTH_SERVICE_URL=http://localhost:8082
 ALLOWED_ORIGINS=http://localhost:8100,http://localhost:5173
+ORIGIN_URL=http://localhost:8100
+
+# WebAuthn
+RPID=localhost
+RP_ORIGIN=http://localhost:8100
+
+# Database
 DATABASE_URL=postgresql://...
-CLIENT_ID_WEB=
-CLIENT_SECRET=
-CLIENT_ID_IOS=
-CLIENT_ID_ANDROID=
+
+# JWT (RSA PEM format, newlines as \n)
 JWT_PRIVATE_KEY=
 JWT_PUBLIC_KEY=
+
+# Encryption (AES-256-GCM, 64 hex chars)
 ENCRYPTION_KEY=
 ```
+
+> **Google OAuth client IDs and secrets are not stored in `.env`.**
+> They are read from the `oauth_clients` table in PostgreSQL (shared with AuthService)
+> and cached in memory per platform at runtime.
 
 ## Development
 

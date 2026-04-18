@@ -524,9 +524,11 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT id, user_email as email, email_verified,
-                spreadsheet_id, shortcut_key, push_token, created_at, last_access
-         FROM users WHERE shortcut_key = $1`,
+        `SELECT u.id, u.user_email as email, u.email_verified,
+                up.spreadsheet_id, u.shortcut_key, u.push_token, u.created_at, u.last_access
+         FROM users u
+         JOIN user_products up ON up.user_email = u.user_email AND up.product_name = 'MyBalance'
+         WHERE u.shortcut_key = $1`,
         [shortcutKey],
       );
       return rows.length > 0 ? rows[0] : null;
@@ -676,6 +678,37 @@ export class DbHelper {
     } catch (error) {
       console.error('Error setting setup complete:', error);
       throw new Error('Error setting setup complete');
+    } finally {
+      client.release();
+    }
+  }
+
+  // === OAUTH CLIENT CONFIG METHODS ===
+
+  /**
+   * Get OAuth client config from oauth_clients table (shared with AuthService)
+   */
+  public static async getOAuthClientConfig(
+    productName: string,
+    platform: string,
+    environment: string,
+  ): Promise<{ clientId: string; clientSecret?: string; redirectUri?: string } | null> {
+    const client = await DbHelper._pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT client_id, client_secret, redirect_uri FROM oauth_clients
+         WHERE product_name = $1 AND platform = $2 AND environment = $3`,
+        [productName, platform, environment],
+      );
+      if (!rows[0]) return null;
+      return {
+        clientId: rows[0].client_id,
+        clientSecret: rows[0].client_secret ?? undefined,
+        redirectUri: rows[0].redirect_uri ?? undefined,
+      };
+    } catch (error) {
+      console.error('Error getting OAuth client config:', error);
+      throw new Error('Error getting OAuth client config');
     } finally {
       client.release();
     }
