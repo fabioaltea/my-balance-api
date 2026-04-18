@@ -524,9 +524,11 @@ export class DbHelper {
     const client = await DbHelper._pool.connect();
     try {
       const { rows } = await client.query(
-        `SELECT id, user_email as email, email_verified,
-                spreadsheet_id, shortcut_key, push_token, created_at, last_access
-         FROM users WHERE shortcut_key = $1`,
+        `SELECT u.id, u.user_email as email, u.email_verified,
+                up.spreadsheet_id, u.shortcut_key, u.push_token, u.created_at, u.last_access
+         FROM users u
+         JOIN user_products up ON up.user_email = u.user_email AND up.product_name = 'MyBalance'
+         WHERE u.shortcut_key = $1`,
         [shortcutKey],
       );
       return rows.length > 0 ? rows[0] : null;
