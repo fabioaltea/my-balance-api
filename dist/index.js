@@ -63,6 +63,7 @@ const transactions_routes_1 = require("./routes/transactions.routes");
 const movements_routes_1 = require("./routes/movements.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
+const saltedge_routes_1 = require("./routes/saltedge.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const jwt_helper_1 = require("./helpers/jwt.helper");
 function handleGoogleTokenError(error, res, context) {
@@ -116,7 +117,12 @@ const corsOptions = {
 app.set('trust proxy', 1);
 app.use((0, cors_1.default)(corsOptions));
 app.options('*', (0, cors_1.default)(corsOptions));
-app.use(express_1.default.json());
+// Capture raw body for webhook signature verification before JSON parsing
+app.use(express_1.default.json({
+    verify: (req, _res, buf) => {
+        req.rawBody = buf.toString('utf8');
+    },
+}));
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use(express_1.default.raw());
 // ==============================
@@ -129,6 +135,7 @@ app.use('/transactions', transactions_routes_1.transactionsRoutes);
 app.use('/movements', movements_routes_1.movementsRoutes);
 app.use('/shortcut', shortcut_routes_1.shortcutRoutes);
 app.use('/aggregations', aggregations_routes_1.aggregationsRoutes);
+app.use('/saltedge', saltedge_routes_1.saltedgeRoutes);
 // ==============================
 // User Data Endpoints
 // ==============================

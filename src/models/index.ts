@@ -50,3 +50,21 @@ export type { ICategory, ICategoryData } from './categories.interfaces';
 
 // Spreadsheets
 export type { ISpreadsheetValidation, ITemplateData } from './spreadsheets.interfaces';
+
+// SaltEdge
+export type {
+  SaltEdgeCustomer,
+  SaltEdgeConnection,
+  SaltEdgeAccount,
+  SaltEdgeTransaction,
+  ConnectSessionOptions,
+  ConnectSessionResponse,
+  ReconnectSessionOptions,
+  RefreshSessionOptions,
+  ListConnectionsParams,
+  ListAccountsParams,
+  ListTransactionsParams,
+  PaginatedResponse,
+  SaltEdgeCustomerRecord,
+  SaltEdgeConnectionRecord,
+} from './saltedge.interfaces';

@@ -10,6 +10,10 @@ export interface IAccount {
   status: string;
   dateAdded?: string;
   dateDeleted?: string;
+  // SaltEdge integration — stored in sheet columns G/H/I
+  saltedgeConnectionId?: string;
+  saltedgeAccountId?: string;
+  lastSyncedAt?: string;
 }
 
 export interface IAccountData {
@@ -18,4 +22,7 @@ export interface IAccountData {
   balance?: string;
   color?: string;
   textColor?: string;
+  // SaltEdge linking — set via dedicated linkSaltEdge method or passed on create
+  saltedgeConnectionId?: string;
+  saltedgeAccountId?: string;
 }

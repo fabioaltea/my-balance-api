@@ -738,6 +738,49 @@ class DbHelper {
             }
         });
     }
+    // === SALTEDGE METHODS ===
+    // Requires migration: ALTER TABLE users ADD COLUMN saltedge_customer_id TEXT;
+    /**
+     * Get SaltEdge customer ID for a user (one per user)
+     */
+    static getSaltEdgeCustomerId(userEmail) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const client = yield DbHelper._pool.connect();
+            try {
+                const { rows } = yield client.query(`SELECT saltedge_customer_id FROM users WHERE user_email = $1`, [userEmail]);
+                return ((_a = rows[0]) === null || _a === void 0 ? void 0 : _a.saltedge_customer_id) || null;
+            }
+            catch (error) {
+                console.error('Error getting SaltEdge customer ID:', error);
+                throw new Error('Error getting SaltEdge customer ID');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
+    /**
+     * Store SaltEdge customer ID for a user
+     */
+    static storeSaltEdgeCustomerId(userEmail, saltedgeCustomerId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const client = yield DbHelper._pool.connect();
+            try {
+                yield client.query(`UPDATE users SET saltedge_customer_id = $1 WHERE user_email = $2`, [
+                    saltedgeCustomerId,
+                    userEmail,
+                ]);
+            }
+            catch (error) {
+                console.error('Error storing SaltEdge customer ID:', error);
+                throw new Error('Error storing SaltEdge customer ID');
+            }
+            finally {
+                client.release();
+            }
+        });
+    }
 }
 exports.DbHelper = DbHelper;
 DbHelper._pool = new pg_1.Pool({

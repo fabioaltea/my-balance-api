@@ -756,4 +756,47 @@ export class DbHelper {
       client.release();
     }
   }
+
+  // === SALTEDGE METHODS ===
+  // Requires migration: ALTER TABLE users ADD COLUMN saltedge_customer_id TEXT;
+
+  /**
+   * Get SaltEdge customer ID for a user (one per user)
+   */
+  public static async getSaltEdgeCustomerId(userEmail: string): Promise<string | null> {
+    const client = await DbHelper._pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT saltedge_customer_id FROM users WHERE user_email = $1`,
+        [userEmail],
+      );
+      return rows[0]?.saltedge_customer_id || null;
+    } catch (error) {
+      console.error('Error getting SaltEdge customer ID:', error);
+      throw new Error('Error getting SaltEdge customer ID');
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Store SaltEdge customer ID for a user
+   */
+  public static async storeSaltEdgeCustomerId(
+    userEmail: string,
+    saltedgeCustomerId: string,
+  ): Promise<void> {
+    const client = await DbHelper._pool.connect();
+    try {
+      await client.query(`UPDATE users SET saltedge_customer_id = $1 WHERE user_email = $2`, [
+        saltedgeCustomerId,
+        userEmail,
+      ]);
+    } catch (error) {
+      console.error('Error storing SaltEdge customer ID:', error);
+      throw new Error('Error storing SaltEdge customer ID');
+    } finally {
+      client.release();
+    }
+  }
 }

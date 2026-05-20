@@ -3,9 +3,9 @@ import { TransactionsHelper } from './transactions.helper';
 import { ITransaction, IAccount, IAccountData } from '../../models';
 
 const SHEET_NAME = 'Accounts';
-const SHEET_RANGE = 'Accounts!A2:Z';
+const SHEET_RANGE = 'Accounts!A2:I';
 
-// Mappatura colonne del foglio "Accounts" (0-based) — Schema v3
+// Mappatura colonne del foglio "Accounts" (0-based) — Schema v3 + SaltEdge
 const COLS = {
   NAME: 0, // A: accountName
   COLOR: 1, // B: accountColor
@@ -13,7 +13,12 @@ const COLS = {
   IMAGE_URL: 3, // D: accountImgUrl
   DATE_ADDED: 4, // E: dateAdded
   DATE_MODIFIED: 5, // F: dateModified
+  SALTEDGE_CONNECTION_ID: 6, // G: saltedge_connection_id
+  SALTEDGE_ACCOUNT_ID: 7, // H: saltedge_account_id
+  LAST_SYNCED_AT: 8, // I: last_synced_at
 } as const;
+
+const COLS_RANGE_FULL = 'I'; // last column letter
 
 export class AccountsHelper {
   /**
@@ -93,6 +98,9 @@ export class AccountsHelper {
         '', // D: accountImgUrl
         now, // E: dateAdded
         now, // F: dateModified
+        accountData.saltedgeConnectionId || '', // G: saltedge_connection_id
+        accountData.saltedgeAccountId || '', // H: saltedge_account_id
+        '', // I: last_synced_at
       ];
 
       const body = {
@@ -152,15 +160,20 @@ export class AccountsHelper {
         throw new Error(`Account con ID ${accountId} non trovato`);
       }
 
-      // Prepara la riga aggiornata
+      // Prepara la riga aggiornata — pad to full width to preserve SaltEdge cols
       const updatedRow = [...rows[targetRowIndex]];
+      while (updatedRow.length <= COLS.LAST_SYNCED_AT) updatedRow.push('');
       if (updateData.name) updatedRow[COLS.NAME] = updateData.name;
       if (updateData.color) updatedRow[COLS.COLOR] = updateData.color;
       if (updateData.textColor) updatedRow[COLS.TEXT_COLOR] = updateData.textColor;
+      if (updateData.saltedgeConnectionId !== undefined)
+        updatedRow[COLS.SALTEDGE_CONNECTION_ID] = updateData.saltedgeConnectionId;
+      if (updateData.saltedgeAccountId !== undefined)
+        updatedRow[COLS.SALTEDGE_ACCOUNT_ID] = updateData.saltedgeAccountId;
       updatedRow[COLS.DATE_MODIFIED] = this.formatDateTime(new Date());
 
       const rowNumber = targetRowIndex + 2; // +2: skip header row + 1-based
-      const updateRange = `${SHEET_NAME}!A${rowNumber}:F${rowNumber}`;
+      const updateRange = `${SHEET_NAME}!A${rowNumber}:${COLS_RANGE_FULL}${rowNumber}`;
 
       await GoogleHelper.update(auth, spreadsheetId, [
         { range: updateRange, values: [updatedRow] },
@@ -213,13 +226,12 @@ export class AccountsHelper {
         throw new Error(`Account con ID ${accountId} non trovato`);
       }
 
-      // Nel sistema legacy, "eliminare" un account significa svuotarlo o marcarlo
-      // Per ora lo nascondiamo impostando il nome a "DELETED_" + timestamp
       const updatedRow = [...rows[targetRowIndex]];
+      while (updatedRow.length <= COLS.LAST_SYNCED_AT) updatedRow.push('');
       updatedRow[COLS.NAME] = `DELETED_${Date.now()}_${updatedRow[COLS.NAME]}`;
 
       const rowNumber = targetRowIndex + 1; // 1-based per Google Sheets
-      const updateRange = `${SHEET_NAME}!A${rowNumber}:Z${rowNumber}`;
+      const updateRange = `${SHEET_NAME}!A${rowNumber}:${COLS_RANGE_FULL}${rowNumber}`;
 
       const updateBody = {
         majorDimension: 'ROWS',
@@ -257,6 +269,9 @@ export class AccountsHelper {
           '', // D: accountImgUrl
           now, // E: dateAdded
           now, // F: dateModified
+          accountData.saltedgeConnectionId || '', // G: saltedge_connection_id
+          accountData.saltedgeAccountId || '', // H: saltedge_account_id
+          '', // I: last_synced_at
         ]);
 
         resultAccounts.push({
@@ -374,6 +389,9 @@ export class AccountsHelper {
         textColor: row[COLS.TEXT_COLOR] || '#ffffff',
         status: 'ACTIVE',
         dateAdded: row[COLS.DATE_ADDED] || '',
+        saltedgeConnectionId: row[COLS.SALTEDGE_CONNECTION_ID] || undefined,
+        saltedgeAccountId: row[COLS.SALTEDGE_ACCOUNT_ID] || undefined,
+        lastSyncedAt: row[COLS.LAST_SYNCED_AT] || undefined,
       };
     } catch (error) {
       console.error('Error parsing account row:', error);
@@ -405,5 +423,92 @@ export class AccountsHelper {
       .getHours()
       .toString()
       .padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  // =================
+  // SALTEDGE METHODS
+  // =================
+
+  /**
+   * Link a SaltEdge connection+account to a MyBalance account row in the sheet.
+   * Call this after the Connect Widget completes successfully.
+   */
+  static async linkSaltEdge(
+    spreadsheetId: string,
+    authClient: any,
+    accountId: string,
+    saltedgeConnectionId: string,
+    saltedgeAccountId: string,
+  ): Promise<IAccount> {
+    return AccountsHelper.updateAccount(spreadsheetId, authClient, accountId, {
+      saltedgeConnectionId,
+      saltedgeAccountId,
+    });
+  }
+
+  /**
+   * Remove SaltEdge link from a MyBalance account (unlink / disconnect).
+   */
+  static async unlinkSaltEdge(
+    spreadsheetId: string,
+    authClient: any,
+    accountId: string,
+  ): Promise<IAccount> {
+    return AccountsHelper.updateAccount(spreadsheetId, authClient, accountId, {
+      saltedgeConnectionId: '',
+      saltedgeAccountId: '',
+    });
+  }
+
+  /**
+   * Update last_synced_at timestamp after a successful sync.
+   */
+  static async updateLastSynced(
+    spreadsheetId: string,
+    authClient: any,
+    accountId: string,
+  ): Promise<void> {
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
+    if (!rows) throw new Error('Sheet vuoto');
+
+    for (let i = 0; i < rows.length; i++) {
+      const account = AccountsHelper.rowToAccount(rows[i], i);
+      if (account?.accountId === accountId) {
+        const updatedRow = [...rows[i]];
+        while (updatedRow.length <= COLS.LAST_SYNCED_AT) updatedRow.push('');
+        updatedRow[COLS.LAST_SYNCED_AT] = new Date().toISOString();
+
+        const rowNumber = i + 2;
+        await GoogleHelper.update(authClient, spreadsheetId, [
+          {
+            range: `${SHEET_NAME}!A${rowNumber}:${COLS_RANGE_FULL}${rowNumber}`,
+            values: [updatedRow],
+          },
+        ]);
+        return;
+      }
+    }
+
+    throw new Error(`Account ${accountId} non trovato`);
+  }
+
+  /**
+   * Find a MyBalance account by its linked SaltEdge account ID.
+   * Useful during sync to map SaltEdge data back to the correct row.
+   */
+  static async findBySaltEdgeAccountId(
+    spreadsheetId: string,
+    authClient: any,
+    saltedgeAccountId: string,
+  ): Promise<IAccount | null> {
+    const rows: any[][] = await GoogleHelper.get(authClient, spreadsheetId, SHEET_RANGE);
+    if (!rows) return null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const account = AccountsHelper.rowToAccount(rows[i], i);
+      if (account?.saltedgeAccountId === saltedgeAccountId) return account;
+    }
+
+    return null;
   }
 }

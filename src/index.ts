@@ -23,6 +23,7 @@ import { transactionsRoutes } from './routes/transactions.routes';
 import { movementsRoutes } from './routes/movements.routes';
 import { shortcutRoutes } from './routes/shortcut.routes';
 import { aggregationsRoutes } from './routes/aggregations.routes';
+import { saltedgeRoutes } from './routes/saltedge.routes';
 import { RequireAuthMiddleware } from './middleware/requireAuth.middleware';
 import { JwtHelper } from './helpers/jwt.helper';
 
@@ -84,7 +85,14 @@ app.set('trust proxy', 1);
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-app.use(express.json());
+// Capture raw body for webhook signature verification before JSON parsing
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(express.raw());
 
@@ -98,6 +106,7 @@ app.use('/transactions', transactionsRoutes);
 app.use('/movements', movementsRoutes);
 app.use('/shortcut', shortcutRoutes);
 app.use('/aggregations', aggregationsRoutes);
+app.use('/saltedge', saltedgeRoutes);
 
 // ==============================
 // User Data Endpoints
