@@ -25,6 +25,7 @@ import { shortcutRoutes } from './routes/shortcut.routes';
 import { aggregationsRoutes } from './routes/aggregations.routes';
 import { RequireAuthMiddleware } from './middleware/requireAuth.middleware';
 import { JwtHelper } from './helpers/jwt.helper';
+import { mcpRoutes } from './mcp/router';
 
 function handleGoogleTokenError(error: any, res: any, context: string): boolean {
   if (error instanceof GoogleTokenError) {
@@ -74,8 +75,15 @@ const corsOptions = {
     'spreadsheet_id',
     'x-shortcutkey',
     'x-authorization',
+    'MCP-Protocol-Version',
+    'MCP-Method',
+    'MCP-Name',
   ],
-  exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
+  exposedHeaders: [
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials',
+    'MCP-Protocol-Version',
+  ],
   credentials: true,
 };
 
@@ -98,6 +106,7 @@ app.use('/transactions', transactionsRoutes);
 app.use('/movements', movementsRoutes);
 app.use('/shortcut', shortcutRoutes);
 app.use('/aggregations', aggregationsRoutes);
+app.use('/mcp', mcpRoutes);
 
 // ==============================
 // User Data Endpoints
@@ -704,11 +713,15 @@ app.use('*', (req, res) => {
 // ==============================
 // Server Start
 // ==============================
-app.listen(port, () => {
-  console.log('🚀 =================================');
-  console.log(`🚀 MyBalance API Server is running on port ${port}`);
-  console.log('🚀 =================================');
-  console.log(`🚀 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
-  console.log('🚀 =================================');
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log('🚀 =================================');
+    console.log(`🚀 MyBalance API Server is running on port ${port}`);
+    console.log('🚀 =================================');
+    console.log(`🚀 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
+    console.log('🚀 =================================');
+  });
+}
+
+export default app;

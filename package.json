@@ -2,6 +2,9 @@
   "name": "my-balance-api",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "nodemon src/index.ts",
     "format": "prettier --write \"src/**/*.{ts,js}\"",
@@ -16,6 +19,8 @@
   "description": "",
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@simplewebauthn/server": "^13.2.2",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -38,7 +43,8 @@
     "pre-commit": "^1.2.2",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "zod": "^4.4.3"
   },
   "pre-commit": [
     "format",

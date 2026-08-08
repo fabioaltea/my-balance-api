@@ -65,6 +65,7 @@ const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const jwt_helper_1 = require("./helpers/jwt.helper");
+const router_1 = require("./mcp/router");
 function handleGoogleTokenError(error, res, context) {
     if (error instanceof google_1.GoogleTokenError) {
         console.error(`❌ Google token error in ${context}:`, error.message, error.code);
@@ -109,8 +110,15 @@ const corsOptions = {
         'spreadsheet_id',
         'x-shortcutkey',
         'x-authorization',
+        'MCP-Protocol-Version',
+        'MCP-Method',
+        'MCP-Name',
     ],
-    exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
+    exposedHeaders: [
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Credentials',
+        'MCP-Protocol-Version',
+    ],
     credentials: true,
 };
 app.set('trust proxy', 1);
@@ -129,6 +137,7 @@ app.use('/transactions', transactions_routes_1.transactionsRoutes);
 app.use('/movements', movements_routes_1.movementsRoutes);
 app.use('/shortcut', shortcut_routes_1.shortcutRoutes);
 app.use('/aggregations', aggregations_routes_1.aggregationsRoutes);
+app.use('/mcp', router_1.mcpRoutes);
 // ==============================
 // User Data Endpoints
 // ==============================
@@ -671,12 +680,15 @@ app.use('*', (req, res) => {
 // ==============================
 // Server Start
 // ==============================
-app.listen(port, () => {
-    console.log('🚀 =================================');
-    console.log(`🚀 MyBalance API Server is running on port ${port}`);
-    console.log('🚀 =================================');
-    console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || 'development'}`);
-    console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
-    console.log('🚀 =================================');
-});
+if (!process_1.default.env.VERCEL) {
+    app.listen(port, () => {
+        console.log('🚀 =================================');
+        console.log(`🚀 MyBalance API Server is running on port ${port}`);
+        console.log('🚀 =================================');
+        console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || 'development'}`);
+        console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
+        console.log('🚀 =================================');
+    });
+}
+exports.default = app;
 //# sourceMappingURL=index.js.map
