@@ -286,7 +286,8 @@ class TransactionsHelper {
             // Converte in righe e appende
             const values = transactions.map((t) => this.transactionToRowValidated(t));
             const body = { values };
-            return yield google_1.GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
+            yield google_1.GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
+            return this.groupTransactionsByMovement(transactions)[0];
         });
     }
     // LIST movements (raggruppa transactions per movementId)
@@ -354,6 +355,30 @@ class TransactionsHelper {
         // Filter by status
         if (filters.status) {
             filtered = filtered.filter((t) => t.status === filters.status);
+        }
+        if (filters.search) {
+            const search = filters.search.trim().toLowerCase();
+            if (search) {
+                filtered = filtered.filter((transaction) => [
+                    transaction.description,
+                    transaction.category,
+                    transaction.account,
+                    transaction.notes,
+                    transaction.location,
+                ].some((value) => value === null || value === void 0 ? void 0 : value.toLowerCase().includes(search)));
+            }
+        }
+        if (filters.sort_by) {
+            const direction = filters.sort_direction === 'asc' ? 1 : -1;
+            filtered.sort((left, right) => {
+                var _a, _b, _c, _d;
+                if (filters.sort_by === 'amount') {
+                    return (Number(left.amount) - Number(right.amount)) * direction;
+                }
+                const leftDate = (_b = (_a = this.parseDateForFilter(left.date)) === null || _a === void 0 ? void 0 : _a.getTime()) !== null && _b !== void 0 ? _b : 0;
+                const rightDate = (_d = (_c = this.parseDateForFilter(right.date)) === null || _c === void 0 ? void 0 : _c.getTime()) !== null && _d !== void 0 ? _d : 0;
+                return (leftDate - rightDate) * direction;
+            });
         }
         // Apply offset
         if (filters.offset && filters.offset > 0) {

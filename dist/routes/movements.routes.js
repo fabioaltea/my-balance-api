@@ -49,6 +49,10 @@ movementsRoutes.get('/:movementId', movementsRateLimit, requireAuth_middleware_1
  */
 movementsRoutes.put('/:movementId', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovement);
 /**
+ * PATCH /movements/:movementId/status - Aggiorna esclusivamente lo stato.
+ */
+movementsRoutes.patch('/:movementId/status', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.updateMovementStatus);
+/**
  * DELETE /movements/:movementId - Elimina movement
  */
 movementsRoutes.delete('/:movementId', movementsRateLimit, requireAuth_middleware_1.RequireAuthMiddleware.verify, movements_controller_1.MovementsController.deleteMovement);

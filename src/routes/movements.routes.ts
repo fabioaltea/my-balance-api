@@ -77,6 +77,16 @@ movementsRoutes.put(
 );
 
 /**
+ * PATCH /movements/:movementId/status - Aggiorna esclusivamente lo stato.
+ */
+movementsRoutes.patch(
+  '/:movementId/status',
+  movementsRateLimit,
+  RequireAuthMiddleware.verify,
+  MovementsController.updateMovementStatus,
+);
+
+/**
  * DELETE /movements/:movementId - Elimina movement
  */
 movementsRoutes.delete(

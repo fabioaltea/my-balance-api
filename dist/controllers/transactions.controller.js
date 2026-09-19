@@ -68,6 +68,14 @@ class TransactionsController {
                     filters.type = req.query.type;
                 if (req.query.status)
                     filters.status = req.query.status;
+                if (req.query.search)
+                    filters.search = req.query.search;
+                if (req.query.sort_by === 'date' || req.query.sort_by === 'amount') {
+                    filters.sort_by = req.query.sort_by;
+                }
+                if (req.query.sort_direction === 'asc' || req.query.sort_direction === 'desc') {
+                    filters.sort_direction = req.query.sort_direction;
+                }
                 // Validate numeric parameters
                 if (req.query.limit) {
                     const limit = parseInt(req.query.limit);
@@ -91,11 +99,29 @@ class TransactionsController {
                     }
                     filters.offset = offset;
                 }
+                const isPaginatedResponse = req.query.pagination === 'true';
+                const filtersForLookup = isPaginatedResponse
+                    ? Object.fromEntries(Object.entries(filters).filter(([key]) => key !== 'limit' && key !== 'offset'))
+                    : filters;
                 // Get transactions with automatic retry on auth errors
                 const allTransactions = yield google_1.GoogleAuthHelper.executeWithRetry(userEmail, deviceType, (client) => __awaiter(this, void 0, void 0, function* () {
-                    return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId, Object.keys(filters).length > 0 ? filters : undefined);
+                    return mybalance_1.TransactionsHelper.listTransactions(client, spreadsheetId, Object.keys(filtersForLookup).length > 0 ? filtersForLookup : undefined);
                 }));
                 console.log('🔄 Transactions loaded successfully:', allTransactions.length);
+                if (isPaginatedResponse) {
+                    const offset = filters.offset || 0;
+                    const limit = Math.min(filters.limit || 50, 1000);
+                    res.json({
+                        success: true,
+                        data: {
+                            items: allTransactions.slice(offset, offset + limit),
+                            total: allTransactions.length,
+                            limit,
+                            offset,
+                        },
+                    });
+                    return;
+                }
                 res.json({ success: true, data: allTransactions });
             }
             catch (error) {

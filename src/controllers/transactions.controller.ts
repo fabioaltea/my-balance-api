@@ -58,6 +58,14 @@ export class TransactionsController {
       if (req.query.category) filters.category = req.query.category;
       if (req.query.type) filters.type = req.query.type;
       if (req.query.status) filters.status = req.query.status;
+      if (req.query.search) filters.search = req.query.search;
+
+      if (req.query.sort_by === 'date' || req.query.sort_by === 'amount') {
+        filters.sort_by = req.query.sort_by;
+      }
+      if (req.query.sort_direction === 'asc' || req.query.sort_direction === 'desc') {
+        filters.sort_direction = req.query.sort_direction;
+      }
 
       // Validate numeric parameters
       if (req.query.limit) {
@@ -84,6 +92,13 @@ export class TransactionsController {
         filters.offset = offset;
       }
 
+      const isPaginatedResponse = req.query.pagination === 'true';
+      const filtersForLookup = isPaginatedResponse
+        ? Object.fromEntries(
+            Object.entries(filters).filter(([key]) => key !== 'limit' && key !== 'offset'),
+          )
+        : filters;
+
       // Get transactions with automatic retry on auth errors
       const allTransactions = await GoogleAuthHelper.executeWithRetry(
         userEmail,
@@ -92,11 +107,26 @@ export class TransactionsController {
           TransactionsHelper.listTransactions(
             client,
             spreadsheetId,
-            Object.keys(filters).length > 0 ? filters : undefined,
+            Object.keys(filtersForLookup).length > 0 ? filtersForLookup : undefined,
           ),
       );
 
       console.log('🔄 Transactions loaded successfully:', allTransactions.length);
+
+      if (isPaginatedResponse) {
+        const offset = filters.offset || 0;
+        const limit = Math.min(filters.limit || 50, 1000);
+        res.json({
+          success: true,
+          data: {
+            items: allTransactions.slice(offset, offset + limit),
+            total: allTransactions.length,
+            limit,
+            offset,
+          },
+        });
+        return;
+      }
 
       res.json({ success: true, data: allTransactions });
     } catch (error: any) {

@@ -210,6 +210,21 @@ export class MovementsController {
   }
 
   /**
+   * PATCH /movements/:movementId/status - Aggiorna lo stato di un intero movimento.
+   * Kept separate from PUT so MCP clients cannot accidentally replace its transactions.
+   */
+  public static async updateMovementStatus(req: any, res: Response): Promise<void> {
+    const { status } = req.body || {};
+    if (typeof status !== 'string' || status.trim().length === 0) {
+      res.status(400).json({ success: false, error: 'status must be a non-empty string' });
+      return;
+    }
+
+    req.body = { status: status.trim() };
+    await MovementsController.updateMovement(req, res);
+  }
+
+  /**
    * POST /movements/batch - Aggiorna multipli movements in batch
    */
   public static async updateMovementsBatch(req: any, res: Response): Promise<void> {

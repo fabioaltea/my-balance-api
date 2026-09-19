@@ -3,6 +3,7 @@ dotenv.config({ path: '.env.local' });
 
 import express from 'express';
 import process from 'process';
+import { randomUUID } from 'crypto';
 import { GoogleHelper, GoogleAuthHelper, GoogleTokenError } from './helpers/google';
 import cors from 'cors';
 import { TransactionsHelper, SpreadsheetsHelper, MigrationHelper } from './helpers/mybalance';
@@ -45,6 +46,13 @@ function handleGoogleTokenError(error: any, res: any, context: string): boolean 
 const app = express();
 const port = process.env.PORT || 8080;
 
+app.use((req, res, next) => {
+  const requestId = req.header('x-request-id') || randomUUID();
+  req.headers['x-request-id'] = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
 // Parse allowed origins from env (comma-separated) or use defaults
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
@@ -66,7 +74,7 @@ const corsOptions = {
     console.warn(`CORS blocked request from origin: ${origin}`);
     return callback(new Error('Not allowed by CORS'), false);
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -78,11 +86,13 @@ const corsOptions = {
     'MCP-Protocol-Version',
     'MCP-Method',
     'MCP-Name',
+    'X-Request-ID',
   ],
   exposedHeaders: [
     'Access-Control-Allow-Origin',
     'Access-Control-Allow-Credentials',
     'MCP-Protocol-Version',
+    'X-Request-ID',
   ],
   credentials: true,
 };
