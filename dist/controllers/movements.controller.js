@@ -190,6 +190,21 @@ class MovementsController {
         });
     }
     /**
+     * PATCH /movements/:movementId/status - Aggiorna lo stato di un intero movimento.
+     * Kept separate from PUT so MCP clients cannot accidentally replace its transactions.
+     */
+    static updateMovementStatus(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { status } = req.body || {};
+            if (typeof status !== 'string' || status.trim().length === 0) {
+                res.status(400).json({ success: false, error: 'status must be a non-empty string' });
+                return;
+            }
+            req.body = { status: status.trim() };
+            yield MovementsController.updateMovement(req, res);
+        });
+    }
+    /**
      * POST /movements/batch - Aggiorna multipli movements in batch
      */
     static updateMovementsBatch(req, res) {

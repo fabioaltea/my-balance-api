@@ -56,6 +56,9 @@ export interface ITransactionFilters {
   category?: string;
   type?: 'in' | 'out';
   status?: string;
+  search?: string;
+  sort_by?: 'date' | 'amount';
+  sort_direction?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }
@@ -313,7 +316,9 @@ export class TransactionsHelper {
     // Converte in righe e appende
     const values = transactions.map((t) => this.transactionToRowValidated(t));
     const body = { values };
-    return await GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
+    await GoogleHelper.append(authClient, spreadsheetId, SHEET_RANGE, body);
+
+    return this.groupTransactionsByMovement(transactions)[0];
   }
 
   // LIST movements (raggruppa transactions per movementId)
@@ -395,6 +400,34 @@ export class TransactionsHelper {
     // Filter by status
     if (filters.status) {
       filtered = filtered.filter((t) => t.status === filters.status);
+    }
+
+    if (filters.search) {
+      const search = filters.search.trim().toLowerCase();
+      if (search) {
+        filtered = filtered.filter((transaction) =>
+          [
+            transaction.description,
+            transaction.category,
+            transaction.account,
+            transaction.notes,
+            transaction.location,
+          ].some((value) => value?.toLowerCase().includes(search)),
+        );
+      }
+    }
+
+    if (filters.sort_by) {
+      const direction = filters.sort_direction === 'asc' ? 1 : -1;
+      filtered.sort((left, right) => {
+        if (filters.sort_by === 'amount') {
+          return (Number(left.amount) - Number(right.amount)) * direction;
+        }
+
+        const leftDate = this.parseDateForFilter(left.date)?.getTime() ?? 0;
+        const rightDate = this.parseDateForFilter(right.date)?.getTime() ?? 0;
+        return (leftDate - rightDate) * direction;
+      });
     }
 
     // Apply offset

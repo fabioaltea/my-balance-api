@@ -49,12 +49,11 @@ const dotenv = __importStar(require("dotenv"));
 dotenv.config({ path: '.env.local' });
 const express_1 = __importDefault(require("express"));
 const process_1 = __importDefault(require("process"));
+const crypto_1 = require("crypto");
 const google_1 = require("./helpers/google");
 const cors_1 = __importDefault(require("cors"));
 const mybalance_1 = require("./helpers/mybalance");
 const db_helper_1 = require("./helpers/db.helper");
-const server_1 = require("@simplewebauthn/server");
-const base64url_1 = __importDefault(require("base64url/dist/base64url"));
 // ROUTES IMPORTS
 // Note: Auth routes removed - frontend calls auth service directly
 const accounts_routes_1 = require("./routes/accounts.routes");
@@ -64,7 +63,7 @@ const movements_routes_1 = require("./routes/movements.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
-const jwt_helper_1 = require("./helpers/jwt.helper");
+const router_1 = require("./mcp/router");
 function handleGoogleTokenError(error, res, context) {
     if (error instanceof google_1.GoogleTokenError) {
         console.error(`❌ Google token error in ${context}:`, error.message, error.code);
@@ -80,6 +79,12 @@ function handleGoogleTokenError(error, res, context) {
 }
 const app = (0, express_1.default)();
 const port = process_1.default.env.PORT || 8080;
+app.use((req, res, next) => {
+    const requestId = req.header('x-request-id') || (0, crypto_1.randomUUID)();
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('X-Request-ID', requestId);
+    next();
+});
 // Parse allowed origins from env (comma-separated) or use defaults
 const allowedOrigins = process_1.default.env.ALLOWED_ORIGINS
     ? process_1.default.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
@@ -100,7 +105,7 @@ const corsOptions = {
         console.warn(`CORS blocked request from origin: ${origin}`);
         return callback(new Error('Not allowed by CORS'), false);
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
         'Content-Type',
         'Authorization',
@@ -109,8 +114,17 @@ const corsOptions = {
         'spreadsheet_id',
         'x-shortcutkey',
         'x-authorization',
+        'MCP-Protocol-Version',
+        'MCP-Method',
+        'MCP-Name',
+        'X-Request-ID',
     ],
-    exposedHeaders: ['Access-Control-Allow-Origin', 'Access-Control-Allow-Credentials'],
+    exposedHeaders: [
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Credentials',
+        'MCP-Protocol-Version',
+        'X-Request-ID',
+    ],
     credentials: true,
 };
 app.set('trust proxy', 1);
@@ -129,6 +143,7 @@ app.use('/transactions', transactions_routes_1.transactionsRoutes);
 app.use('/movements', movements_routes_1.movementsRoutes);
 app.use('/shortcut', shortcut_routes_1.shortcutRoutes);
 app.use('/aggregations', aggregations_routes_1.aggregationsRoutes);
+app.use('/mcp', router_1.mcpRoutes);
 // ==============================
 // User Data Endpoints
 // ==============================
@@ -367,174 +382,6 @@ app.post('/append', requireAuth_middleware_1.RequireAuthMiddleware.verify, (req,
     }
 }));
 // ==============================
-// WebAuthn Endpoints
-// ==============================
-app.post('/generate-registration-options', (req, res) => {
-    const { userEmail } = req.body;
-    if (!userEmail) {
-        return res.status(400).send('Missing userEmail');
-    }
-    (0, server_1.generateRegistrationOptions)({
-        rpName: 'My Balance',
-        rpID: process_1.default.env.RPID,
-        userID: new Uint8Array(Buffer.from(userEmail, 'utf-8')),
-        userName: userEmail,
-        attestationType: 'none',
-        authenticatorSelection: {
-            residentKey: 'required',
-            userVerification: 'preferred',
-        },
-    }).then((options) => {
-        db_helper_1.DbHelper.saveAuthChallenge(userEmail, options.challenge)
-            .then(() => {
-            res.json(options);
-        })
-            .catch((error) => {
-            console.error('Error saving challenge:', error);
-            res.status(500).send('Error saving challenge');
-        });
-    });
-});
-app.post('/verify-registration', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { userEmail, attestationResponse } = req.body;
-    db_helper_1.DbHelper.getAuthChallenge(userEmail).then((row) => {
-        if (!row)
-            return res.status(400).send('User not found');
-        const { webauthn_challenge, webauthn_challenge_created_at } = row;
-        if (!webauthn_challenge)
-            return res.status(400).send('No challenge stored');
-        const challengeAgeMinutes = (Date.now() - new Date(webauthn_challenge_created_at).getTime()) / 1000 / 60;
-        if (challengeAgeMinutes > 5)
-            return res.status(400).send('Challenge expired');
-        try {
-            (0, server_1.verifyRegistrationResponse)({
-                response: attestationResponse,
-                expectedChallenge: webauthn_challenge,
-                expectedOrigin: process_1.default.env.RP_ORIGIN || 'http://localhost:8100',
-                expectedRPID: process_1.default.env.RPID || 'localhost',
-            })
-                .then((verification) => {
-                if (verification.verified && verification.registrationInfo) {
-                    db_helper_1.DbHelper.saveAuthChallenge(userEmail, null);
-                    const credentialId = verification.registrationInfo.credential.id;
-                    const publicKeyBuffer = verification.registrationInfo.credential.publicKey;
-                    const counter = verification.registrationInfo.credential.counter;
-                    db_helper_1.DbHelper.saveUserCredentials(userEmail, credentialId, base64url_1.default.encode(Buffer.from(publicKeyBuffer)), counter)
-                        .then(() => {
-                        res.json({ verified: true });
-                    })
-                        .catch((error) => {
-                        console.error('Error saving user credentials:', error);
-                        return res.status(500).send('Error saving user credentials');
-                    });
-                }
-                else {
-                    res.status(400).json({ verified: false, error: 'Verification failed' });
-                }
-            })
-                .catch((error) => {
-                console.error('Error verifying registration:', error);
-                res.status(500).send(`Error verifying registration: ${error.message}`);
-            });
-        }
-        catch (error) {
-            console.error('Synchronous error in verifyRegistrationResponse:', error);
-            res.status(500).send(`Synchronous error in verifyRegistrationResponse: ${error.message}`);
-        }
-    });
-}));
-app.post('/generate-auth-options', (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process_1.default.env.ORIGIN_URL || 'http://localhost:8100');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    (0, server_1.generateAuthenticationOptions)({
-        rpID: process_1.default.env.RPID,
-        userVerification: 'preferred',
-    })
-        .then((options) => {
-        res.json(options);
-    })
-        .catch((error) => {
-        console.error('Error retrieving user credentials:', error);
-        res.status(500).send('Error retrieving user credentials');
-    });
-});
-app.post('/verify-authentication', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { assertionResponse, challenge } = req.body;
-    const userEmail = Buffer.from(assertionResponse.response.userHandle, 'base64url').toString();
-    const clientCredentialId = assertionResponse.id;
-    db_helper_1.DbHelper.getUserCredentials(userEmail, clientCredentialId).then((credentials) => {
-        if (!credentials || credentials.length === 0) {
-            console.warn(`Credential ${clientCredentialId} not found for user`, userEmail);
-            return res.status(400).send('No credentials found for user');
-        }
-        if (!credentials[0].credentialPublicKey || credentials[0].counter === undefined) {
-            console.warn('Missing credentialPublicKey or counter for user:', userEmail);
-            return res.status(400).send('Invalid credential data for user');
-        }
-        const credentialIDString = Buffer.isBuffer(credentials[0].credentialID)
-            ? (0, base64url_1.default)(credentials[0].credentialID)
-            : credentials[0].credentialID;
-        const credentialPublicKeyBuffer = Buffer.isBuffer(credentials[0].credentialPublicKey)
-            ? credentials[0].credentialPublicKey
-            : Buffer.from(credentials[0].credentialPublicKey, 'base64url');
-        (0, server_1.verifyAuthenticationResponse)({
-            response: assertionResponse,
-            expectedChallenge: challenge,
-            expectedOrigin: process_1.default.env.RP_ORIGIN || 'http://localhost:8100',
-            expectedRPID: process_1.default.env.RPID || 'localhost',
-            credential: {
-                id: credentialIDString,
-                publicKey: credentialPublicKeyBuffer,
-                counter: credentials[0].counter,
-            },
-        })
-            .then((verification) => __awaiter(void 0, void 0, void 0, function* () {
-            if (verification.verified) {
-                db_helper_1.DbHelper.updateUserLastAccess(userEmail).catch((error) => {
-                    console.log('Error updating last access for user:', userEmail, error);
-                });
-                const user = yield db_helper_1.DbHelper.getUserByEmail(userEmail);
-                if (!user) {
-                    console.error('User not found after successful authentication:', userEmail);
-                    res.status(500).json({ verified: false, error: 'User not found' });
-                    return;
-                }
-                const tokenPayload = {
-                    userId: user.user_email,
-                    scopes: ['read', 'write'],
-                };
-                const accessToken = jwt_helper_1.JwtHelper.signAccessToken(tokenPayload);
-                const refreshToken = jwt_helper_1.JwtHelper.signRefreshToken(tokenPayload);
-                res.json({
-                    verified: true,
-                    success: true,
-                    accessToken,
-                    refreshToken,
-                    user: {
-                        id: user.id,
-                        email: user.user_email,
-                        name: user.user_name,
-                        picture: user.user_picture,
-                    },
-                });
-            }
-            else {
-                res.status(400).json({ verified: false });
-            }
-        }))
-            .catch((error) => {
-            console.log('Error verifying authentication for user:', userEmail, error);
-            res.status(500).send(`Error verifying authentication: ${error.message}`);
-        });
-    });
-}));
-// ==============================
 // Spreadsheet Management
 // ==============================
 app.post('/spreadsheet/create', requireAuth_middleware_1.RequireAuthMiddleware.verify, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -671,12 +518,15 @@ app.use('*', (req, res) => {
 // ==============================
 // Server Start
 // ==============================
-app.listen(port, () => {
-    console.log('🚀 =================================');
-    console.log(`🚀 MyBalance API Server is running on port ${port}`);
-    console.log('🚀 =================================');
-    console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || 'development'}`);
-    console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
-    console.log('🚀 =================================');
-});
+if (!process_1.default.env.VERCEL) {
+    app.listen(port, () => {
+        console.log('🚀 =================================');
+        console.log(`🚀 MyBalance API Server is running on port ${port}`);
+        console.log('🚀 =================================');
+        console.log(`🚀 Environment: ${process_1.default.env.NODE_ENV || 'development'}`);
+        console.log(`🚀 CORS Allowed Origins: ${allowedOrigins.join(', ')}`);
+        console.log('🚀 =================================');
+    });
+}
+exports.default = app;
 //# sourceMappingURL=index.js.map
