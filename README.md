@@ -104,16 +104,8 @@ AUTH_SERVICE_URL=http://localhost:8082
 ALLOWED_ORIGINS=http://localhost:8100,http://localhost:5173
 ORIGIN_URL=http://localhost:8100
 
-# WebAuthn
-RPID=localhost
-RP_ORIGIN=http://localhost:8100
-
 # Database
 DATABASE_URL=postgresql://...
-
-# JWT (RSA PEM format, newlines as \n)
-JWT_PRIVATE_KEY=
-JWT_PUBLIC_KEY=
 
 # Encryption (AES-256-GCM, 64 hex chars)
 ENCRYPTION_KEY=

@@ -21,7 +21,6 @@
     "@google-cloud/local-auth": "^2.1.0",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
-    "@simplewebauthn/server": "^13.2.2",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.3",
