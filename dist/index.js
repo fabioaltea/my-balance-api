@@ -60,6 +60,7 @@ const accounts_routes_1 = require("./routes/accounts.routes");
 const categories_routes_1 = require("./routes/categories.routes");
 const transactions_routes_1 = require("./routes/transactions.routes");
 const movements_routes_1 = require("./routes/movements.routes");
+const push_jobs_routes_1 = require("./routes/push-jobs.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
@@ -142,6 +143,7 @@ app.use('/categories', categories_routes_1.categoriesRoutes);
 app.use('/transactions', transactions_routes_1.transactionsRoutes);
 app.use('/movements', movements_routes_1.movementsRoutes);
 app.use('/shortcut', shortcut_routes_1.shortcutRoutes);
+app.use('/internal/push-jobs', push_jobs_routes_1.pushJobsRoutes);
 app.use('/aggregations', aggregations_routes_1.aggregationsRoutes);
 app.use('/mcp', router_1.mcpRoutes);
 // ==============================

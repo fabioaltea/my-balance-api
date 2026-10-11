@@ -22,6 +22,9 @@ const useSSL = ((_a = process.env.DATABASE_URL) === null || _a === void 0 ? void
     ((_b = process.env.DATABASE_URL) === null || _b === void 0 ? void 0 : _b.includes('sslmode=require')) ||
     process.env.NODE_ENV === 'production';
 class DbHelper {
+    static connect() {
+        return this._pool.connect();
+    }
     static getData() {
         return __awaiter(this, void 0, void 0, function* () {
             const client = yield DbHelper._pool.connect();
