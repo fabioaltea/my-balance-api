@@ -18,6 +18,7 @@ import { movementsRoutes } from './routes/movements.routes';
 import { pushJobsRoutes } from './routes/push-jobs.routes';
 import { shortcutRoutes } from './routes/shortcut.routes';
 import { aggregationsRoutes } from './routes/aggregations.routes';
+import { chatgptIntegrationRoutes } from './routes/chatgpt-integration.routes';
 import { RequireAuthMiddleware } from './middleware/requireAuth.middleware';
 import { mcpRoutes } from './mcp/router';
 
@@ -110,6 +111,7 @@ app.use('/movements', movementsRoutes);
 app.use('/shortcut', shortcutRoutes);
 app.use('/internal/push-jobs', pushJobsRoutes);
 app.use('/aggregations', aggregationsRoutes);
+app.use('/integrations/chatgpt', chatgptIntegrationRoutes);
 app.use('/mcp', mcpRoutes);
 
 // ==============================

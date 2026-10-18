@@ -63,6 +63,7 @@ const movements_routes_1 = require("./routes/movements.routes");
 const push_jobs_routes_1 = require("./routes/push-jobs.routes");
 const shortcut_routes_1 = require("./routes/shortcut.routes");
 const aggregations_routes_1 = require("./routes/aggregations.routes");
+const chatgpt_integration_routes_1 = require("./routes/chatgpt-integration.routes");
 const requireAuth_middleware_1 = require("./middleware/requireAuth.middleware");
 const router_1 = require("./mcp/router");
 function handleGoogleTokenError(error, res, context) {
@@ -145,6 +146,7 @@ app.use('/movements', movements_routes_1.movementsRoutes);
 app.use('/shortcut', shortcut_routes_1.shortcutRoutes);
 app.use('/internal/push-jobs', push_jobs_routes_1.pushJobsRoutes);
 app.use('/aggregations', aggregations_routes_1.aggregationsRoutes);
+app.use('/integrations/chatgpt', chatgpt_integration_routes_1.chatgptIntegrationRoutes);
 app.use('/mcp', router_1.mcpRoutes);
 // ==============================
 // User Data Endpoints
