@@ -17,6 +17,8 @@ const db_helper_1 = require("../helpers/db.helper");
 const mybalance_1 = require("../helpers/mybalance");
 const google_1 = require("../helpers/google");
 const crypto_1 = __importDefault(require("crypto"));
+const push_payload_helper_1 = require("../helpers/push-payload.helper");
+const push_notifications_helper_1 = require("../helpers/push-notifications.helper");
 // Helper to handle Google token errors and return appropriate HTTP status
 function handleGoogleTokenError(error, res, context) {
     if (error instanceof google_1.GoogleTokenError) {
@@ -128,12 +130,16 @@ class ShortcutController {
                     return;
                 }
                 // Extract movement data from request
-                const { amount, description = '', category = '', account = '', location = '', date = new Date().toLocaleDateString('it-IT'), // dd-MM-yyyy format
+                const { amount: inputAmount, description = '', category = '', account = '', location = '', date = new Date().toLocaleDateString('it-IT'), // dd-MM-yyyy format
                  } = req.body;
-                if (!amount) {
+                let amount;
+                try {
+                    amount = (0, push_payload_helper_1.parseShortcutAmount)(inputAmount);
+                }
+                catch (error) {
                     res.status(400).json({
                         success: false,
-                        error: 'Amount is required',
+                        error: error instanceof Error ? error.message : 'Invalid amount',
                     });
                     return;
                 }
@@ -164,31 +170,12 @@ class ShortcutController {
                 };
                 // Save movement to Google Sheets using TransactionsHelper
                 const result = yield google_1.GoogleAuthHelper.executeWithRetry(user.email, deviceType, (client) => __awaiter(this, void 0, void 0, function* () { return mybalance_1.TransactionsHelper.appendMovement(client, spreadsheetId, movement); }));
-                // Send push notification if user has a push token
-                if (user.push_token) {
-                    try {
-                        yield fetch('https://exp.host/--/api/v2/push/send', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                to: user.push_token,
-                                title: 'MyBalance',
-                                body: 'There is a new unconfirmed movement to be reviewed',
-                                sound: 'default',
-                            }),
-                        });
-                    }
-                    catch (pushError) {
-                        console.error('Error sending push notification:', pushError);
-                        // Don't fail the request if push notification fails
-                    }
-                }
+                const notification = yield push_notifications_helper_1.PushNotificationsHelper.enqueueMovement(user.email, spreadsheetId, result);
                 res.json({
                     success: true,
                     data: result,
                     message: 'Movement created successfully via shortcut',
+                    notification,
                 });
             }
             catch (error) {

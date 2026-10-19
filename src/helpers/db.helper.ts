@@ -20,6 +20,10 @@ export class DbHelper {
     ssl: useSSL ? { rejectUnauthorized: false } : false,
   });
 
+  public static connect() {
+    return this._pool.connect();
+  }
+
   public static async getData() {
     const client = await DbHelper._pool.connect();
     try {

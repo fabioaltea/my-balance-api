@@ -4,6 +4,8 @@ import { TransactionsHelper, AccountsHelper } from '../helpers/mybalance';
 import { GoogleAuthHelper, GoogleTokenError } from '../helpers/google';
 import { IAccount } from '../models';
 import crypto from 'crypto';
+import { parseShortcutAmount } from '../helpers/push-payload.helper';
+import { PushNotificationsHelper } from '../helpers/push-notifications.helper';
 
 // Helper to handle Google token errors and return appropriate HTTP status
 function handleGoogleTokenError(error: any, res: Response, context: string): boolean {
@@ -122,7 +124,7 @@ export class ShortcutController {
 
       // Extract movement data from request
       const {
-        amount,
+        amount: inputAmount,
         description = '',
         category = '',
         account = '',
@@ -130,10 +132,13 @@ export class ShortcutController {
         date = new Date().toLocaleDateString('it-IT'), // dd-MM-yyyy format
       } = req.body;
 
-      if (!amount) {
+      let amount: string;
+      try {
+        amount = parseShortcutAmount(inputAmount);
+      } catch (error) {
         res.status(400).json({
           success: false,
-          error: 'Amount is required',
+          error: error instanceof Error ? error.message : 'Invalid amount',
         });
         return;
       }
@@ -178,31 +183,17 @@ export class ShortcutController {
         async (client) => TransactionsHelper.appendMovement(client, spreadsheetId, movement),
       );
 
-      // Send push notification if user has a push token
-      if (user.push_token) {
-        try {
-          await fetch('https://exp.host/--/api/v2/push/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              to: user.push_token,
-              title: 'MyBalance',
-              body: 'There is a new unconfirmed movement to be reviewed',
-              sound: 'default',
-            }),
-          });
-        } catch (pushError) {
-          console.error('Error sending push notification:', pushError);
-          // Don't fail the request if push notification fails
-        }
-      }
+      const notification = await PushNotificationsHelper.enqueueMovement(
+        user.email,
+        spreadsheetId,
+        result,
+      );
 
       res.json({
         success: true,
         data: result,
         message: 'Movement created successfully via shortcut',
+        notification,
       });
     } catch (error: any) {
       if (handleGoogleTokenError(error, res, 'createMovementViaShortcut')) return;

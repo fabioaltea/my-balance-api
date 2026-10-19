@@ -15,6 +15,7 @@ import { accountsRoutes } from './routes/accounts.routes';
 import { categoriesRoutes } from './routes/categories.routes';
 import { transactionsRoutes } from './routes/transactions.routes';
 import { movementsRoutes } from './routes/movements.routes';
+import { pushJobsRoutes } from './routes/push-jobs.routes';
 import { shortcutRoutes } from './routes/shortcut.routes';
 import { aggregationsRoutes } from './routes/aggregations.routes';
 import { RequireAuthMiddleware } from './middleware/requireAuth.middleware';
@@ -107,6 +108,7 @@ app.use('/categories', categoriesRoutes);
 app.use('/transactions', transactionsRoutes);
 app.use('/movements', movementsRoutes);
 app.use('/shortcut', shortcutRoutes);
+app.use('/internal/push-jobs', pushJobsRoutes);
 app.use('/aggregations', aggregationsRoutes);
 app.use('/mcp', mcpRoutes);
 

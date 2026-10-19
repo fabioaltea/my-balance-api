@@ -11,7 +11,9 @@
     "build": "rimraf dist && tsc",
     "ts.check": "tsc --project tsconfig.json",
     "add-build": "git add dist src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:notifications": "node --test tests/*.test.cjs",
+    "test:notifications:integration": "node --test tests/push-postgres.integration.cjs"
   },
   "keywords": [],
   "author": "",
